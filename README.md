@@ -18,7 +18,7 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 ### Image Support
 - **DICOM** (.dcm, .dicom) with automatic windowing and contrast enhancement
 - **Standard formats** (PNG, JPEG)
-- Automatic grayscale inversion for optimal viewing
+- Automatic grayscale inversion for radiographic modalities (CR, DX, DR, XA)
 
 ### User Interface
 - Real-time zoom and pan with mouse wheel
@@ -28,7 +28,7 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 - Cross-platform support (Windows, macOS, Linux)
 
 ### Data Management
-- JSON-based annotation storage
+- JSON-based annotation storage with auto-discovery of labels
 - Export to JSON, CSV, or XML formats
 - Annotation propagation between images
 - Binary mask generation for segmentations
@@ -78,12 +78,12 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 
 5. **Run the application**
    ```bash
-   python start.py --port 5001
+   python start.py --port 8000
    ```
 
 6. **Open in browser**
    
-   Navigate to `http://localhost:5001`
+   Navigate to `http://localhost:8000`
 
 ## Usage
 
@@ -139,18 +139,17 @@ image-annotator/
 │   ├── __init__.py
 │   ├── app.py              # Flask application and routes
 │   ├── annotations.py      # Annotation storage management
-│   ├── coordinates.py      # Coordinate transformations
 │   ├── images.py           # Image indexing and navigation
 │   ├── static/
 │   │   ├── css/            # Stylesheets
-│   │   └── js/             # JavaScript modules
-│   └── templates/          # HTML templates
+│   │   └── js/             # JavaScript modules (15 modules)
+│   └── templates/          # HTML templates (7 pages)
 ├── images/                 # Input images (organized by patient)
 ├── annotations/            # Output annotations (JSON files)
 ├── logs/                   # Application logs
-├── config.py               # Configuration settings
-├── utils.py                # Image processing utilities
-├── polygon_utils.py        # Polygon/mask utilities
+├── config.py               # Configuration and annotation type management
+├── utils.py                # Image loading with DICOM support
+├── polygon_utils.py        # Polygon/mask generation utilities
 ├── postprocessing_draw_landmarks.py  # Visualization generator
 ├── start.py                # Application entry point
 ├── requirements.txt        # Python dependencies
@@ -221,18 +220,24 @@ ANNOTATION_DIR = "annotations"  # Output annotation directory
 |--------|----------|-------------|
 | GET | `/api/landmarks/<patient>/<image>` | Get all annotations for an image |
 | POST | `/api/landmarks/<patient>/<image>/<name>` | Save/update annotation |
+| POST | `/api/landmarks` | Register new landmark label |
 | GET | `/api/segments/<patient>/<image>` | Get polygon segments |
 | POST | `/api/segments/<patient>/<image>/<name>` | Save polygon |
+| POST | `/api/segments` | Register new segment label |
 | GET | `/api/figures/<patient>/<image>` | Get figure annotations |
 | POST | `/api/figures/<patient>/<image>/<name>` | Save figure |
+| POST | `/api/figures` | Register new figure label |
 | GET | `/api/mask/<patient>/<image>/<segment>` | Get binary mask PNG |
 | POST | `/api/export` | Export annotations |
+| POST | `/api/propagate-annotations` | Copy annotations to next unannotated image |
+| GET | `/api/next-unannotated` | Find next image without annotations |
+| GET | `/api/image-directory` | Get image directory structure |
 
 ## Development
 
 ### Running in Debug Mode
 ```bash
-python start.py --debug --port 5001
+python start.py --debug --port 8000
 ```
 
 ### Code Style

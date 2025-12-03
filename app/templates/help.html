@@ -1,0 +1,753 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <title>Help - Image Annotation Tool</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/base.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/help.css') }}">
+</head>
+<body>
+    <!-- Page Header -->
+    <header class="page-header page-header-amber">
+        <div class="page-header-content">
+            <div class="page-header-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <circle cx="12" cy="17" r="0.5" fill="currentColor"></circle>
+                </svg>
+            </div>
+            <div>
+                <h1 class="page-header-title">Help & Documentation</h1>
+                <p class="page-header-subtitle">Learn how to use the annotation tool</p>
+            </div>
+        </div>
+        <a href="{{ url_for('main_menu') }}" class="btn btn-back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Menu
+        </a>
+    </header>
+
+    <div class="container">
+        
+        <div class="content-wrapper">
+            <!-- Side Navigation -->
+            <div class="sidebar">
+                <div class="nav-card">
+                    <div class="nav-header">Guide Contents</div>
+                    <ul class="nav-links">
+                        <li><a href="#introduction" class="nav-link active">Introduction</a></li>
+                        <li><a href="#getting-started" class="nav-link">Getting Started</a></li>
+                        <li><a href="#interface" class="nav-link">Interface Overview</a></li>
+                        <li><a href="#annotation" class="nav-link">Annotation Features</a></li>
+                        <li><a href="#segmentation" class="nav-link">Polygon Segmentation</a></li>
+                        <li><a href="#zoom" class="nav-link">Zoom & Pan Controls</a></li>
+                        <li><a href="#landmarks" class="nav-link">Managing Labels</a></li>
+                        <li><a href="#navigation" class="nav-link">Navigation & Shortcuts</a></li>
+                        <li><a href="#viewing" class="nav-link">Viewing Annotations</a></li>
+                        <li><a href="#browsing" class="nav-link">Browsing Images</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="main-content">
+                <div class="help-card">
+                    <!-- Introduction Section -->
+                    <div id="introduction" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">📋</span>
+                            Introduction
+                        </h2>
+                        <p>
+                            Welcome to the Image Annotation Tool, a powerful application designed for precise annotation of images. This tool allows you to mark specific points of interest, draw polygons, create shapes, manage multiple labels, navigate through image collections, and visualize your annotations.
+                        </p>
+                        <p>
+                            Whether you're conducting research, building datasets for machine learning, or performing clinical measurements, this tool provides the features you need for accurate and efficient landmark annotation.
+                        </p>
+                        
+                        <div class="callout callout-info">
+                            <div class="callout-title">
+                                <span>ℹ️</span> Key Features
+                            </div>
+                            <ul class="feature-list">
+                                <li>High-precision annotations with zoom capabilities up to 1000x</li>
+                                <li>Support for multiple landmark types across image collections</li>
+                                <li>Ability to mark landmarks as occluded when not visible</li>
+                                <li>Efficient keyboard shortcuts for rapid annotation</li>
+                                <li>Comprehensive visualization of annotated images</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Getting Started Section -->
+                    <div id="getting-started" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">🚀</span>
+                            Getting Started
+                        </h2>
+                        <p>
+                            Before you begin annotating images, it's helpful to understand the basic workflow of the application. Follow these steps to get started:
+                        </p>
+                        
+                        <ol class="step-list">
+                            <li>
+                                <strong>Define landmarks:</strong> Start from the main menu and define the anatomical landmarks you want to annotate. Examples include joint centers, anatomical reference points, or tissue boundaries.
+                            </li>
+                            <li>
+                                <strong>Begin annotation:</strong> Use "Start Annotation" to begin with the first image, or "Browse Images" to select a specific image.
+                            </li>
+                            <li>
+                                <strong>Select and mark landmarks:</strong> For each image, select a landmark from the list, then click on the image to mark its position. Use the zoom controls for precise placement.
+                            </li>
+                            <li>
+                                <strong>Handle occluded landmarks:</strong> If a landmark isn't visible in an image, mark it as "Occluded" rather than skipping it.
+                            </li>
+                            <li>
+                                <strong>Navigate through images:</strong> Use the navigation buttons or keyboard shortcuts to move to the next image and repeat the process.
+                            </li>
+                            <li>
+                                <strong>Review annotations:</strong> Use "View Annotated Images" to review your work with visual confirmation of all landmarks.
+                            </li>
+                        </ol>
+                        
+                        <div class="callout callout-tip">
+                            <div class="callout-title">
+                                <span>💡</span> Pro Tip
+                            </div>
+                            <p>
+                                For efficient annotation, learn the keyboard shortcuts early. The space bar toggles between annotation and panning modes, while arrow keys navigate between images.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Interface Overview Section -->
+                    <div id="interface" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">🖥️</span>
+                            Interface Overview
+                        </h2>
+                        <p>
+                            The annotation interface is designed for efficiency and precision. Here's an overview of the main components:
+                        </p>
+                        
+                        <div class="feature-grid">
+                            <div class="feature-card">
+                                <h3 class="feature-title">
+                                    <span class="feature-icon">🔄</span>
+                                    Controls Bar
+                                </h3>
+                                <p>
+                                    Located at the top of the screen, this bar shows the current patient/image information and provides navigation buttons to move between images or return to the menu.
+                                </p>
+                            </div>
+                            
+                            <div class="feature-card">
+                                <h3 class="feature-title">
+                                    <span class="feature-icon">🖼️</span>
+                                    Image Panel
+                                </h3>
+                                <p>
+                                    The main area displaying the current image. This is where you'll click to place landmark annotations, zoom in/out, and pan when needed.
+                                </p>
+                            </div>
+                            
+                            <div class="feature-card">
+                                <h3 class="feature-title">
+                                    <span class="feature-icon">📍</span>
+                                    Landmark Panel
+                                </h3>
+                                <p>
+                                    The right sidebar listing all available landmarks. Here you can select landmarks, view their current status, and manage their annotations.
+                                </p>
+                            </div>
+                            
+                            <div class="feature-card">
+                                <h3 class="feature-title">
+                                    <span class="feature-icon">🔍</span>
+                                    Zoom Controls
+                                </h3>
+                                <p>
+                                    Located in the bottom-left, these controls allow you to zoom in/out up to 1000x magnification and reset the view when needed.
+                                </p>
+                            </div>
+                            
+                            <div class="feature-card">
+                                <h3 class="feature-title">
+                                    <span class="feature-icon">🔄</span>
+                                    Mode Switch
+                                </h3>
+                                <p>
+                                    Toggle between annotation mode (for placing landmarks) and panning mode (for navigating when zoomed in) in the bottom-right corner.
+                                </p>
+                            </div>
+                            
+                            <div class="feature-card">
+                                <h3 class="feature-title">
+                                    <span class="feature-icon">📊</span>
+                                    Coordinate Display
+                                </h3>
+                                <p>
+                                    Shows the current mouse position in image coordinates, helping with precise placement of landmarks.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Annotation Features Section -->
+                    <div id="annotation" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">📌</span>
+                            Annotation Features
+                        </h2>
+                        <p>
+                            The primary purpose of this tool is to precisely annotate landmarks on images. Here's how to use the annotation features effectively:
+                        </p>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Placing Landmarks</h3>
+                        <ol class="step-list">
+                            <li>
+                                <strong>Select a landmark:</strong> Click on a landmark name in the right panel to select it for annotation.
+                            </li>
+                            <li>
+                                <strong>Ensure annotation mode:</strong> Make sure you're in annotation mode (cursor appears as a crosshair).
+                            </li>
+                            <li>
+                                <strong>Place the landmark:</strong> Click on the exact position in the image where the landmark should be placed.
+                            </li>
+                            <li>
+                                <strong>Verify placement:</strong> The landmark will appear as a colored dot, and its coordinates will be displayed in the landmark panel.
+                            </li>
+                        </ol>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Marking Occluded Landmarks</h3>
+                        <p>
+                            When a landmark isn't visible in an image (due to occlusion, image angle, etc.), you should mark it as occluded rather than skipping it:
+                        </p>
+                        <ul class="feature-list">
+                            <li>Select the landmark and click the "Occluded" button in the landmark panel</li>
+                            <li>Alternatively, press the <span class="shortcut-key">O</span> key after selecting the landmark</li>
+                        </ul>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Annotation Modes</h3>
+                        <p>
+                            The tool offers two main operational modes:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Annotation Mode:</strong> The default mode for placing landmarks. The cursor appears as a crosshair.
+                            </li>
+                            <li>
+                                <strong>Panning Mode:</strong> Used for navigating around the image when zoomed in. The cursor appears as a grab hand.
+                            </li>
+                        </ul>
+                        <p>
+                            Toggle between these modes by pressing the <span class="shortcut-key">Space</span> key or by clicking the mode toggle button in the bottom right corner of the image panel.
+                        </p>
+                        
+                        <div class="callout callout-warning">
+                            <div class="callout-title">
+                                <span>⚠️</span> Important Note
+                            </div>
+                            <p>
+                                Always select a landmark before attempting to place it. If no landmark is selected, you'll see a warning message when clicking on the image.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Polygon Segmentation Section -->
+                    <div id="segmentation" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">⬡</span>
+                            Polygon Segmentation
+                        </h2>
+                        <p>
+                            In addition to landmark annotation, the tool provides polygon-based segmentation capabilities. 
+                            This allows you to define regions of interest by drawing closed polygons around specific areas in your images.
+                        </p>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Switching to Segmentation Mode</h3>
+                        <p>
+                            To access the polygon segmentation tools, use the mode toggle in the top controls bar:
+                        </p>
+                        <ol class="step-list">
+                            <li>
+                                <strong>Switch to Polygon Mode:</strong> Click the "Polygons" button in the annotation type selector at the top of the screen.
+                            </li>
+                            <li>
+                                <strong>Access Segmentation Panel:</strong> The right sidebar will now show available segments instead of landmarks.
+                            </li>
+                        </ol>
+                        
+                        <div class="callout callout-info">
+                            <div class="callout-title">
+                                <span>ℹ️</span> Polygon vs. Landmark Annotation
+                            </div>
+                            <p>
+                                Landmarks are used for precise point annotations (e.g., anatomical landmarks), while polygons 
+                                define regions (e.g., organs, lesions, or pathological regions).
+                            </p>
+                        </div>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Creating Polygon Segmentations</h3>
+                        <p>
+                            Follow these steps to create a new polygon segmentation:
+                        </p>
+                        <ol class="step-list">
+                            <li>
+                                <strong>Select or Create a Segment:</strong> Click on an existing segment in the right panel, or create a new one using the "Add New Segment" form.
+                            </li>
+                            <li>
+                                <strong>Draw Mode:</strong> Ensure the "Draw Polygon" tool is active (it should be selected by default).
+                            </li>
+                            <li>
+                                <strong>Place Points:</strong> Click on the image to place points that define the polygon boundary. Each click adds a vertex to the polygon.
+                            </li>
+                            <li>
+                                <strong>Complete Polygon:</strong> After placing at least 3 points, click the "Complete Polygon" button or press the <span class="shortcut-key">Enter</span> key to finish the polygon. The area will be filled with a semi-transparent color.
+                            </li>
+                        </ol>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Editing Polygon Segmentations</h3>
+                        <p>
+                            Once a polygon is created, you can modify it using these tools:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Edit Points Tool:</strong> Click the "Edit Points" button to modify individual points in the polygon.
+                                <ul>
+                                    <li>Click and drag existing points to move them</li>
+                                    <li>Click on a line segment to add a new point</li>
+                                </ul>
+                            </li>
+                            <li>
+                                <strong>Move Polygon Tool:</strong> Click the "Move Polygon" button to drag the entire polygon as a unit.
+                            </li>
+                            <li>
+                                <strong>Cancel Tool:</strong> Click the "Cancel" button or press <span class="shortcut-key">Esc</span> to discard unsaved changes.
+                            </li>
+                        </ul>
+                        
+                        <div class="callout callout-tip">
+                            <div class="callout-title">
+                                <span>💡</span> Precision Tip
+                            </div>
+                            <p>
+                                Use the zoom controls and pan functionality to achieve precise polygon placement, especially for 
+                                small or detailed regions. The zoom works the same way as in landmark annotation mode.
+                            </p>
+                        </div>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Working with Multiple Segments</h3>
+                        <p>
+                            You can define multiple segments in a single image:
+                        </p>
+                        <ul class="feature-list">
+                            <li>Create multiple segment types from the main menu (e.g., "tumor", "kidney", "liver")</li>
+                            <li>In the annotation interface, select each segment type one by one and draw the corresponding polygon</li>
+                            <li>Each segment is saved independently and can be modified or removed separately</li>
+                        </ul>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Visualizing Segmentations</h3>
+                        <p>
+                            Just like with landmarks, you can view your polygon segmentations:
+                        </p>
+                        <ul class="feature-list">
+                            <li>Use the "View Annotations" button from the main menu</li>
+                            <li>Polygons will be displayed as semi-transparent colored regions with their names in the legend</li>
+                            <li>The visualization allows you to verify the accuracy and completeness of your segmentations</li>
+                        </ul>
+                        
+                        <div class="callout callout-warning">
+                            <div class="callout-title">
+                                <span>⚠️</span> Important Note
+                            </div>
+                            <p>
+                                Always click "Complete Polygon" after drawing or editing a polygon to save your changes. 
+                                Unsaved polygons will be lost if you navigate away from the image.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Zoom & Pan Controls Section -->
+                    <div id="zoom" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">🔍</span>
+                            Zoom & Pan Controls
+                        </h2>
+                        <p>
+                            The tool features advanced zoom capabilities up to 1000x magnification, allowing for extremely precise landmark placement. Here's how to use the zoom and pan controls:
+                        </p>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Zooming Methods</h3>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Mouse Wheel:</strong> Scroll up to zoom in and down to zoom out. Zooming centers on the mouse cursor position.
+                            </li>
+                            <li>
+                                <strong>Zoom Buttons:</strong> Click the <strong>+</strong> and <strong>-</strong> buttons in the bottom left corner to zoom in and out incrementally.
+                            </li>
+                            <li>
+                                <strong>Keyboard Shortcuts:</strong> Press <span class="shortcut-key">+</span> to zoom in and <span class="shortcut-key">-</span> to zoom out.
+                            </li>
+                            <li>
+                                <strong>Reset View:</strong> Click the "Reset View" button or press <span class="shortcut-key">R</span> to return to the default view (100% zoom, centered).
+                            </li>
+                        </ul>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Panning When Zoomed</h3>
+                        <p>
+                            When zoomed in, you'll need to pan around to see different parts of the image:
+                        </p>
+                        <ol class="step-list">
+                            <li>
+                                <strong>Switch to panning mode:</strong> Press <span class="shortcut-key">Space</span> or click the mode toggle button in the bottom right.
+                            </li>
+                            <li>
+                                <strong>Pan the image:</strong> Click and drag to move the image within the viewport.
+                            </li>
+                            <li>
+                                <strong>Return to annotation:</strong> Press <span class="shortcut-key">Space</span> again to switch back to annotation mode when you're ready to place landmarks.
+                            </li>
+                        </ol>
+                        
+                        <div class="callout callout-tip">
+                            <div class="callout-title">
+                                <span>💡</span> Zoom Tip
+                            </div>
+                            <p>
+                                For the most precise annotations, zoom in as much as needed before placing landmarks. The zoom level is displayed as a percentage in the zoom controls (e.g., "500%" means 5x magnification).
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Managing Landmarks Section -->
+                    <div id="landmarks" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">📝</span>
+                            Managing Landmarks
+                        </h2>
+                        <p>
+                            The tool allows you to define, add, and remove landmarks as needed for your specific annotation tasks.
+                        </p>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Adding New Landmarks</h3>
+                        <p>
+                            You can add new landmarks in two ways:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>From the Main Menu:</strong> Use the "Add New Landmark" form in the Manage Landmarks section.
+                            </li>
+                            <li>
+                                <strong>During Annotation:</strong> Use the "Add New Landmark" form at the top of the landmark panel.
+                            </li>
+                        </ul>
+                        <p>
+                            When adding landmarks, use descriptive names that clearly identify the anatomical point (e.g., "right_femoral_head" rather than just "point1").
+                        </p>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Removing Landmarks</h3>
+                        <p>
+                            There are two levels of removal:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Remove from Current Image:</strong> In the annotation interface, select a landmark and click the "Remove" button to delete its annotation from the current image only.
+                            </li>
+                            <li>
+                                <strong>Remove from All Images:</strong> In the main menu, use the "Remove" button next to a landmark in the list to delete the landmark definition and all its annotations across all images.
+                            </li>
+                        </ul>
+                        
+                        <div class="callout callout-warning">
+                            <div class="callout-title">
+                                <span>⚠️</span> Warning
+                            </div>
+                            <p>
+                                Removing a landmark from the main menu is permanent and will delete all annotations for that landmark across all images. Use this option with caution.
+                            </p>
+                        </div>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Landmark States</h3>
+                        <p>
+                            Each landmark can be in one of three states for each image:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Unmarked:</strong> The landmark has not yet been annotated on this image.
+                            </li>
+                            <li>
+                                <strong>Marked:</strong> The landmark has been placed on the image with specific coordinates.
+                            </li>
+                            <li>
+                                <strong>Occluded/Missing:</strong> The landmark has been explicitly marked as not visible or not applicable to this image.
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Navigation & Shortcuts Section -->
+                    <div id="navigation" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">⌨️</span>
+                            Navigation & Keyboard Shortcuts
+                        </h2>
+                        <p>
+                            The tool supports various keyboard shortcuts to speed up the annotation process. Mastering these shortcuts can significantly improve your workflow efficiency.
+                        </p>
+                        
+                        <div class="callout callout-info">
+                            <div class="callout-title">
+                                <span>💻</span> Cross-Platform Note
+                            </div>
+                            <p>
+                                These shortcuts work on <strong>Windows</strong>, <strong>macOS</strong>, and <strong>Linux</strong>. 
+                                Where <span class="shortcut-key">Ctrl</span> is shown, macOS users can use <span class="shortcut-key">⌘ Cmd</span> instead.
+                            </p>
+                        </div>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.1rem; color: var(--dark);">Navigation</h3>
+                        <table class="shortcut-table">
+                            <thead>
+                                <tr>
+                                    <th width="35%">Key</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="shortcut-key">→</span> or <span class="shortcut-key">D</span></td>
+                                    <td>Navigate to the next image</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">←</span> or <span class="shortcut-key">A</span></td>
+                                    <td>Navigate to the previous image</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">Space</span></td>
+                                    <td>Toggle between annotation and panning modes</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">Esc</span></td>
+                                    <td>Deselect the current label / Cancel operation</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.1rem; color: var(--dark);">Annotation Actions</h3>
+                        <table class="shortcut-table">
+                            <thead>
+                                <tr>
+                                    <th width="35%">Key</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="shortcut-key">O</span></td>
+                                    <td>Mark the selected label as occluded/missing</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">Delete</span> or <span class="shortcut-key">Backspace</span></td>
+                                    <td>Delete the selected annotation</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">Enter</span></td>
+                                    <td>Complete polygon (in polygon mode)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.1rem; color: var(--dark);">Undo/Redo</h3>
+                        <table class="shortcut-table">
+                            <thead>
+                                <tr>
+                                    <th width="35%">Key</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <span class="shortcut-key">Ctrl</span> + <span class="shortcut-key">Z</span>
+                                        <span class="shortcut-hint">(⌘Z on Mac)</span>
+                                    </td>
+                                    <td>Undo last action</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span class="shortcut-key">Ctrl</span> + <span class="shortcut-key">Y</span>
+                                        <span class="shortcut-hint">(⌘⇧Z on Mac)</span>
+                                    </td>
+                                    <td>Redo last undone action</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.1rem; color: var(--dark);">Zoom & View</h3>
+                        <table class="shortcut-table">
+                            <thead>
+                                <tr>
+                                    <th width="35%">Key</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="shortcut-key">+</span> or <span class="shortcut-key">=</span></td>
+                                    <td>Zoom in</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">-</span></td>
+                                    <td>Zoom out</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">R</span></td>
+                                    <td>Reset image view (zoom and position)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">C</span></td>
+                                    <td>Toggle center indicators for figures</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="shortcut-key">Mouse Wheel</span></td>
+                                    <td>Zoom in/out at cursor position</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <div class="callout callout-tip">
+                            <div class="callout-title">
+                                <span>💡</span> Workflow Optimization
+                            </div>
+                            <p>
+                                For maximum efficiency, develop a habit of using these keyboard shortcuts instead of clicking buttons. A typical efficient workflow might be: select a label (mouse click), place it (mouse click), press <span class="shortcut-key">→</span> to move to the next image, and repeat.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Viewing Annotations Section -->
+                    <div id="viewing" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">👁️</span>
+                            Viewing Annotations
+                        </h2>
+                        <p>
+                            After annotating images, you can review your work using the "View Annotations" feature from the main menu.
+                        </p>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Annotation Visualization</h3>
+                        <p>
+                            The visualization shows all your annotations with the following elements:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Colored Points:</strong> Each landmark is represented by a colored dot placed at its annotated position.
+                            </li>
+                            <li>
+                                <strong>Labels:</strong> Text labels next to each point identify the landmark by name.
+                            </li>
+                            <li>
+                                <strong>Legend:</strong> A color-coded legend helps identify which color corresponds to which landmark.
+                            </li>
+                        </ul>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Filtering and Navigation</h3>
+                        <p>
+                            The view annotations page includes several helpful features:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Patient Filter:</strong> Filter the displayed images by patient ID.
+                            </li>
+                            <li>
+                                <strong>Image Filter:</strong> Filter by image name to find specific images.
+                            </li>
+                            <li>
+                                <strong>Lightbox View:</strong> Click on any image to open a larger view with navigation options.
+                            </li>
+                            <li>
+                                <strong>Refresh Annotations:</strong> Update the visualization to reflect recent annotation changes.
+                            </li>
+                        </ul>
+                        
+                        <div class="callout callout-info">
+                            <div class="callout-title">
+                                <span>ℹ️</span> Note
+                            </div>
+                            <p>
+                                The "Refresh Annotations" button must be clicked after making changes to your annotations to see those changes reflected in the visualization view.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Browsing Images Section -->
+                    <div id="browsing" class="help-section">
+                        <h2 class="help-title">
+                            <span class="help-icon">🔍</span>
+                            Browsing Images
+                        </h2>
+                        <p>
+                            The "Browse Images" feature allows you to navigate through your image directory structure and select specific images to annotate.
+                        </p>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Directory Navigation</h3>
+                        <p>
+                            The browser interface is divided into two main panels:
+                        </p>
+                        <ul class="feature-list">
+                            <li>
+                                <strong>Directory Tree:</strong> On the left, showing the folder structure organized by patient/study.
+                            </li>
+                            <li>
+                                <strong>Content Panel:</strong> On the right, displaying thumbnails of available images in the selected directory.
+                            </li>
+                        </ul>
+                        
+                        <h3 style="margin: 1.5rem 0 1rem; font-size: 1.2rem; color: var(--dark);">Working with Images</h3>
+                        <p>
+                            To work with images in the browser:
+                        </p>
+                        <ol class="step-list">
+                            <li>
+                                <strong>Navigate directories:</strong> Click on folders in the directory tree to explore the structure.
+                            </li>
+                            <li>
+                                <strong>View thumbnails:</strong> See thumbnails of all images in the selected directory.
+                            </li>
+                            <li>
+                                <strong>Start annotating:</strong> Click on any image thumbnail to begin annotating that specific image.
+                            </li>
+                            <li>
+                                <strong>Track progress:</strong> Thumbnails may include visual indicators of annotation status (if implemented in your version).
+                            </li>
+                        </ol>
+                        
+                        <p>
+                            The breadcrumb navigation at the top of the browser helps you understand your current location in the directory structure and quickly navigate back to parent directories.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Bottom Navigation -->
+                <div class="help-navigation">
+                    <a href="{{ url_for('main_menu') }}" class="btn btn-nav">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Return to Menu
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/help.js') }}"></script>
+</body>
+</html>

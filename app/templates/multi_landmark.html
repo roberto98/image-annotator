@@ -1,0 +1,250 @@
+<!doctype html>
+<html>
+<head>
+    <title>Enhanced Annotation Tool</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+   <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/base.css') }}">
+   <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/multi_landmark.css') }}">
+</head>
+<body>
+    <!-- Top Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div>
+                <div class="toolbar-title">Patient: {{ patient_id }} | Image: {{ image_name }}</div>
+                <div class="toolbar-info">Image {{ current_index }} of {{ total_images }}</div>
+        </div>
+            
+            <!-- Tool Selection -->
+            <div class="tool-selector">
+                <button class="tool-btn active" id="landmarkToolBtn" data-tool="landmark">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>
+                    Points
+                </button>
+                <button class="tool-btn" id="polygonToolBtn" data-tool="polygon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                    Polygons
+                </button>
+                <button class="tool-btn" id="figureToolBtn" data-tool="figure">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    Figures
+                </button>
+            </div>
+        </div>
+        
+        <div class="toolbar-right">
+            <!-- Undo/Redo Buttons -->
+            <button class="nav-btn" id="undoBtn" title="Undo (Ctrl+Z / ⌘Z)" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.36 2.64L3 13"/></svg>
+                Undo
+            </button>
+            <button class="nav-btn" id="redoBtn" title="Redo (Ctrl+Y / ⌘⇧Z)" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.36 2.64L21 13"/></svg>
+                Redo
+            </button>
+            
+            <!-- Next Unannotated Button -->
+            <button class="nav-btn" id="nextUnannotatedBtn" title="Jump to next unannotated image">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+                Next Empty
+            </button>
+            
+            <!-- Propagate Annotations Button -->
+            <button class="nav-btn" id="propagateBtn" onclick="propagateAnnotations()" title="Copy current annotations to next unannotated image">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Propagate
+            </button>
+            
+            {% if prev_img %}
+            <a href="{{ url_for('annotate_image', patient=prev_img.patient, image=prev_img.filename) }}" class="nav-btn-link">
+                <button class="nav-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+                    Previous
+                </button>
+            </a>
+            {% endif %}
+            {% if next_img %}
+            <a href="{{ url_for('annotate_image', patient=next_img.patient, image=next_img.filename) }}" class="nav-btn-link">
+                <button class="nav-btn">
+                    Next
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </a>
+            {% endif %}
+            <a href="{{ url_for('main_menu') }}" class="nav-btn-link">
+                <button class="nav-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Menu
+                </button>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Image Panel -->
+        <div class="image-panel">
+            <div class="image-container" id="imageContainer">
+                <div class="image-wrapper" id="imageWrapper">
+                    <img src="{{ url_for('serve_image', patient=patient_id, image=image_name) }}" 
+                         id="annotationImage" alt="{{ image_name }}">
+                </div>
+            </div>
+            
+            <!-- Zoom Controls -->
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoomOut" title="Zoom Out">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M8 11h6"/></svg>
+                </button>
+                <span class="zoom-level" id="zoomLevel">100%</span>
+                <button class="zoom-btn" id="zoomIn" title="Zoom In">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+                </button>
+                <button class="reset-btn" id="resetView">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                    Reset
+                </button>
+                <button class="zoom-btn" id="toggleCenters" title="Toggle Center Indicators (C)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+                </button>
+            </div>
+            
+            <!-- Image Adjustment Controls -->
+            <div class="image-adjustment-controls">
+                <div class="adjustment-group">
+                    <label class="adjustment-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>
+                        Brightness
+                    </label>
+                    <input type="range" id="brightnessSlider" min="0" max="200" value="100" class="adjustment-slider">
+                    <span id="brightnessValue">100%</span>
+                </div>
+                <div class="adjustment-group">
+                    <label class="adjustment-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z"/></svg>
+                        Contrast
+                    </label>
+                    <input type="range" id="contrastSlider" min="0" max="200" value="100" class="adjustment-slider">
+                    <span id="contrastValue">100%</span>
+                </div>
+                <button class="reset-btn" id="resetAdjustments">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                    Reset
+                </button>
+            </div>
+
+            <!-- Mode Indicator -->
+            <div class="mode-indicator" id="modeIndicator">
+                <div class="mode-dot"></div>
+                <span>Annotation Mode</span>
+            </div>
+            
+            <!-- Mouse Position -->
+            <div class="mouse-position" id="mousePosition"></div>
+            
+            <!-- Figure Configuration -->
+            <div class="figure-config" id="figureConfig">
+                <div class="figure-config-title">Figure Shape</div>
+                <div class="shape-selector">
+                    <button class="shape-btn active" id="circleBtn" data-shape="circle">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                        Circle
+                    </button>
+                    <button class="shape-btn" id="rectangleBtn" data-shape="rectangle">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                        Rectangle
+                    </button>
+                    <button class="shape-btn" id="lineBtn" data-shape="line">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="4" r="2"/></svg>
+                        Line
+                    </button>
+                </div>
+                <div class="size-input-group">
+                    <label class="size-label">Size (px)</label>
+                    <input type="number" class="size-input" id="figureSize" value="50" min="10" max="500">
+            </div>
+            </div>
+            
+            <!-- Polygon Tools -->
+            <div class="polygon-tools" id="polygonTools">
+                <button class="poly-tool-btn active" id="drawPolyBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                    Draw
+                </button>
+                <button class="poly-tool-btn" id="editPolyBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+                <button class="poly-tool-btn" id="movePolyBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+                    Move
+                </button>
+                <button class="poly-tool-btn" id="completePolyBtn" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    Complete
+                </button>
+                <button class="poly-tool-btn" id="cancelPolyBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3 class="sidebar-title" id="sidebarTitle">Labels (Point Mode)</h3>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Label Creation -->
+                <div class="label-create-section">
+                    <div class="label-create-title">Create New Label</div>
+                    <div class="label-input-group">
+                        <input type="text" class="label-input" id="labelInput" placeholder="Enter label name...">
+                        <button class="create-btn" id="createLabelBtn">Add</button>
+                </div>
+            </div>
+            
+                <!-- Label List -->
+                <div class="label-list" id="labelList">
+                    <!-- Labels will be dynamically inserted here -->
+            </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Message Toast -->
+    <div class="message-toast" id="messageToast"></div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Template data passed to JavaScript via JSON -->
+    <script id="template-data" type="application/json">
+    {
+        "currentAnnotations": {{ current_annotations|tojson|safe }},
+        "landmarksData": {{ landmarks|tojson|safe }},
+        "segmentsData": {{ segments|tojson|safe }},
+        "figuresData": {{ figures|tojson|safe }},
+        "patientId": "{{ patient_id }}",
+        "imageName": "{{ image_name }}"
+    }
+    </script>
+    
+    <!-- External JavaScript files -->
+    <script src="{{ url_for('static', filename='js/state.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utilities.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/rendering.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/zoom.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/figures.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/annotations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/interactions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/initialization.js') }}"></script>
+</body>
+</html>

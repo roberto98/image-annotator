@@ -1,0 +1,179 @@
+/* browse_images.css - Styles specific to the browse images page */
+
+/* Breadcrumb Navigation */
+.breadcrumb {
+    background-color: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.breadcrumb a {
+    color: var(--primary);
+    text-decoration: none;
+    margin: 0 0.3rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.breadcrumb a:hover {
+    background-color: rgba(67, 97, 238, 0.1);
+    text-decoration: none;
+}
+
+.breadcrumb strong {
+    color: var(--dark);
+    margin: 0 0.3rem;
+    padding: 0.3rem 0.5rem;
+}
+
+/* Directory Container */
+.directory-container {
+    display: flex;
+    gap: 1.5rem;
+    height: calc(100vh - 300px);
+    min-height: 500px;
+    margin-bottom: 1.5rem;
+}
+
+/* Directory Tree */
+.directory-tree {
+    flex: 1;
+    background-color: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    overflow: auto;
+    padding: 1.5rem;
+    min-width: 250px;
+    max-width: 350px;
+}
+
+.directory-item {
+    padding: 0.8rem 0.5rem;
+    margin: 0.3rem 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.directory-item:hover {
+    background-color: rgba(67, 97, 238, 0.1);
+}
+
+.directory-item.active {
+    background-color: rgba(67, 97, 238, 0.15);
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.directory-icon {
+    color: var(--primary);
+    margin-right: 0.5rem;
+}
+
+/* Directory Content */
+.directory-content {
+    flex: 3;
+    background-color: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    overflow: auto;
+    padding: 1.5rem;
+}
+
+/* Image Grid */
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+}
+
+.image-item {
+    background-color: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.image-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.image-thumbnail {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    display: block;
+}
+
+.image-info {
+    padding: 1rem;
+}
+
+.image-name {
+    font-size: 0.9rem;
+    color: var(--text);
+    text-align: center;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Empty and Loading States */
+.empty, .loading {
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-light);
+}
+
+.empty-icon, .loading-icon {
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-light);
+}
+
+.empty-message, .loading-message {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+/* Navigation */
+.navigation {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+    .directory-container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .directory-tree {
+        max-width: none;
+        height: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .image-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1rem;
+    }
+}

@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <title>Export Annotations - Image Annotation Tool</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/base.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/export.css') }}">
+</head>
+<body>
+    <!-- Page Header -->
+    <header class="page-header page-header-pink">
+        <div class="page-header-content">
+            <div class="page-header-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+            </div>
+            <div>
+                <h1 class="page-header-title">Export Annotations</h1>
+                <p class="page-header-subtitle">Export your data in multiple formats</p>
+            </div>
+        </div>
+        <a href="{{ url_for('main_menu') }}" class="btn btn-back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Menu
+        </a>
+    </header>
+
+    <div class="container">
+        
+        <!-- Message -->
+        <div class="message" id="message"></div>
+        
+        <!-- Format Selection -->
+        <div class="card">
+            <div class="card-header">
+                Step 1: Select Export Format
+            </div>
+            <div class="card-body">
+                <div class="format-selector">
+                    <div class="format-option selected" data-format="json" onclick="selectFormat('json')">
+                        <div class="format-icon">📄</div>
+                        <div class="format-name">JSON</div>
+                        <div class="format-desc">Structured format, best for programmatic access</div>
+                    </div>
+                    <div class="format-option" data-format="csv" onclick="selectFormat('csv')">
+                        <div class="format-icon">📊</div>
+                        <div class="format-name">CSV</div>
+                        <div class="format-desc">Spreadsheet format, easy to analyze</div>
+                    </div>
+                    <div class="format-option" data-format="xml" onclick="selectFormat('xml')">
+                        <div class="format-icon">🗂️</div>
+                        <div class="format-name">XML</div>
+                        <div class="format-desc">Markup format, compatible with many tools</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Image Selection -->
+        <div class="card">
+            <div class="card-header">
+                Step 2: Select Images to Export
+            </div>
+            <div class="card-body">
+                <div class="selection-controls">
+                    <div class="select-actions">
+                        <button class="select-btn" onclick="selectAll()">Select All</button>
+                        <button class="select-btn" onclick="deselectAll()">Deselect All</button>
+                        <button class="select-btn" onclick="selectAnnotated()">Only Annotated</button>
+                    </div>
+                    <div class="selected-count">
+                        <span id="selectedCount">0</span> / {{ images|length }} selected
+                    </div>
+                </div>
+                
+                <div class="images-grid" id="imagesGrid">
+                    {% for img in images %}
+                    <div class="image-item" data-patient="{{ img.patient }}" data-image="{{ img.filename }}" onclick="toggleImage(this)">
+                        <input type="checkbox" class="image-checkbox" onclick="event.stopPropagation(); toggleImage(this.parentElement)">
+                        <div class="image-info">
+                            <div class="image-name">{{ img.filename }}</div>
+                            <div class="image-patient">Patient: {{ img.patient }}</div>
+                            <div class="image-annotations">{{ img.annotation_count }} annotations</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Export Actions -->
+        <div class="export-actions">
+            <button class="export-btn" id="exportBtn" onclick="exportAnnotations()" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Export Selected
+            </button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/export.js') }}"></script>
+</body>
+</html>
+

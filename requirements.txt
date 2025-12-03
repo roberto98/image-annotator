@@ -1,0 +1,15 @@
+# Image Annotation Tool - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Web Framework
+Flask>=2.3.0
+
+# Image Processing
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# DICOM Support
+pydicom>=2.4.0
+
+# Development (optional)
+# pytest>=7.0.0

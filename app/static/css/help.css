@@ -1,0 +1,295 @@
+/* help.css - Styles specific to the help page */
+
+/* Side Navigation */
+.content-wrapper {
+    display: flex;
+    gap: 2rem;
+}
+
+.sidebar {
+    position: sticky;
+    top: 2rem;
+    width: 280px;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.main-content {
+    flex: 1;
+}
+
+.nav-card {
+    background-color: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.nav-header {
+    padding: 1.2rem 1.5rem;
+    background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+    color: white;
+    font-weight: 600;
+}
+
+.nav-links {
+    list-style: none;
+    padding: 0.5rem 0;
+}
+
+.nav-link {
+    padding: 0.8rem 1.5rem;
+    display: block;
+    color: var(--text);
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+}
+
+.nav-link:hover {
+    background-color: var(--light);
+    border-left-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.nav-link.active {
+    background-color: rgba(67, 97, 238, 0.05);
+    border-left-color: var(--primary);
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* Help Content */
+.help-card {
+    background-color: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.help-section {
+    padding: 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.help-section:last-child {
+    border-bottom: none;
+}
+
+.help-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.help-icon {
+    color: var(--primary);
+    font-size: 1.6rem;
+}
+
+.help-section p {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.help-section p:last-child {
+    margin-bottom: 0;
+}
+
+/* Feature Cards */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.feature-card {
+    background-color: var(--light);
+    border-radius: 10px;
+    padding: 1.5rem;
+    border-left: 4px solid var(--primary);
+}
+
+.feature-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.feature-icon {
+    color: var(--primary);
+}
+
+/* Lists */
+.step-list {
+    counter-reset: step-counter;
+    list-style-type: none;
+    padding-left: 0;
+    margin: 1.5rem 0;
+}
+
+.step-list li {
+    margin-bottom: 1rem;
+    counter-increment: step-counter;
+    position: relative;
+    padding-left: 2.5rem;
+}
+
+.step-list li::before {
+    content: counter(step-counter);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1.8rem;
+    height: 1.8rem;
+    background-color: var(--primary);
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 1.8rem;
+    font-weight: bold;
+}
+
+.feature-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 1rem 0;
+}
+
+.feature-list li {
+    margin-bottom: 0.8rem;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.feature-list li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+/* Tables */
+.shortcut-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+}
+
+.shortcut-table th,
+.shortcut-table td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.shortcut-table th {
+    background-color: var(--light);
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.shortcut-table tr:hover {
+    background-color: rgba(67, 97, 238, 0.05);
+}
+
+.shortcut-key {
+    display: inline-block;
+    padding: 0.3rem 0.6rem;
+    background-color: var(--light);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    margin-right: 0.3rem;
+}
+
+.shortcut-hint {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-left: 0.5rem;
+}
+
+/* Callout boxes */
+.callout {
+    margin: 1.5rem 0;
+    padding: 1.2rem 1.5rem;
+    border-radius: 8px;
+    border-left: 4px solid;
+    background-color: var(--light);
+}
+
+.callout-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.callout-info {
+    border-left-color: var(--primary);
+}
+
+.callout-info .callout-title {
+    color: var(--primary);
+}
+
+.callout-warning {
+    border-left-color: var(--warning);
+}
+
+.callout-warning .callout-title {
+    color: var(--warning);
+}
+
+.callout-tip {
+    border-left-color: var(--success);
+}
+
+.callout-tip .callout-title {
+    color: var(--success);
+}
+
+/* Footer navigation */
+.help-navigation {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 2rem;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .content-wrapper {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        position: static;
+        margin-bottom: 2rem;
+    }
+    
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .help-section {
+        padding: 1.5rem;
+    }
+}

@@ -1,0 +1,496 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <title>Image Annotation Tool</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/base.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/menu.css') }}">
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <div class="hero-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
+                    Ready to annotate
+                </div>
+                <h1 class="hero-title">Image Annotation Tool</h1>
+                <p class="hero-subtitle">Efficiently annotate images with points, polygons, and figures. Track your progress and export data seamlessly.</p>
+                <div class="hero-actions">
+                    <a href="{{ url_for('start_annotation') }}" class="btn btn-primary btn-lg">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Start Annotation
+                    </a>
+                    <a href="{{ url_for('browse_images') }}" class="btn btn-secondary btn-lg">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        Browse Images
+                    </a>
+                </div>
+            </div>
+            <div class="hero-stats">
+                <div class="progress-ring-container">
+                    <svg class="progress-ring" viewBox="0 0 120 120">
+                        <circle class="progress-ring-bg" cx="60" cy="60" r="52"></circle>
+                        <circle class="progress-ring-fill" cx="60" cy="60" r="52" 
+                                stroke-dasharray="326.73" 
+                                stroke-dashoffset="{{ 326.73 - (326.73 * stats.annotation_percentage / 100) }}"></circle>
+                    </svg>
+                    <div class="progress-ring-text">
+                        <span class="progress-value">{{ stats.annotation_percentage }}%</span>
+                        <span class="progress-label">Complete</span>
+                    </div>
+                </div>
+                <div class="hero-stat-row">
+                    <div class="hero-stat">
+                        <span class="hero-stat-value">{{ stats.annotated_images }}</span>
+                        <span class="hero-stat-label">Annotated</span>
+                    </div>
+                    <div class="hero-stat-divider"></div>
+                    <div class="hero-stat">
+                        <span class="hero-stat-value">{{ stats.total_images - stats.annotated_images }}</span>
+                        <span class="hero-stat-label">Remaining</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="container">
+        <!-- Stats Overview -->
+        <section class="section stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-icon-blue">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-card-content">
+                        <span class="stat-card-value">{{ stats.total_images }}</span>
+                        <span class="stat-card-label">Total Images</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-icon-purple">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-card-content">
+                        <span class="stat-card-value">{{ stats.total_patients }}</span>
+                        <span class="stat-card-label">Patients</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-icon-green">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-card-content">
+                        <span class="stat-card-value">{{ stats.total_annotations }}</span>
+                        <span class="stat-card-label">Annotations</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-icon stat-icon-orange">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                            <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                        </svg>
+                    </div>
+                    <div class="stat-card-content">
+                        <span class="stat-card-value">{{ landmarks|length + segments|length + figures|length }}</span>
+                        <span class="stat-card-label">Label Types</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Actions Grid -->
+        <section class="section">
+            <div class="section-header">
+                <h2 class="section-title">Quick Actions</h2>
+                <p class="section-subtitle">Common tasks to manage your annotations</p>
+            </div>
+            <div class="actions-grid">
+                <a href="{{ url_for('view_annotations') }}" class="action-card">
+                    <div class="action-card-icon action-icon-teal">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </div>
+                    <div class="action-card-content">
+                        <h3 class="action-card-title">View Annotations</h3>
+                        <p class="action-card-desc">Review annotated images with visualizations</p>
+                    </div>
+                    <svg class="action-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </a>
+                <a href="{{ url_for('export_page') }}" class="action-card">
+                    <div class="action-card-icon action-icon-pink">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <div class="action-card-content">
+                        <h3 class="action-card-title">Export Data</h3>
+                        <p class="action-card-desc">Export in JSON, CSV, or XML format</p>
+                    </div>
+                    <svg class="action-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </a>
+                <a href="{{ url_for('help_page') }}" class="action-card">
+                    <div class="action-card-icon action-icon-amber">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                            <circle cx="12" cy="17" r="0.5" fill="currentColor"></circle>
+                        </svg>
+                    </div>
+                    <div class="action-card-content">
+                        <h3 class="action-card-title">Help & Docs</h3>
+                        <p class="action-card-desc">Learn how to use the tool effectively</p>
+                    </div>
+                    <svg class="action-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </a>
+            </div>
+        </section>
+
+        <!-- Annotations Management -->
+        <section class="section">
+            <div class="section-header">
+                <h2 class="section-title">Manage Annotations</h2>
+                <p class="section-subtitle">View and manage all your annotation labels</p>
+            </div>
+            
+            <!-- Label Type Summary -->
+            <div class="label-types-grid">
+                <div class="label-type-card label-type-point">
+                    <div class="label-type-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <circle cx="12" cy="12" r="8" stroke-dasharray="4 2"></circle>
+                        </svg>
+                    </div>
+                    <span class="label-type-count">{{ landmarks|length }}</span>
+                    <span class="label-type-name">Points</span>
+                </div>
+                <div class="label-type-card label-type-polygon">
+                    <div class="label-type-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+                        </svg>
+                    </div>
+                    <span class="label-type-count">{{ segments|length }}</span>
+                    <span class="label-type-name">Polygons</span>
+                </div>
+                <div class="label-type-card label-type-figure">
+                    <div class="label-type-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        </svg>
+                    </div>
+                    <span class="label-type-count">{{ figures|length }}</span>
+                    <span class="label-type-name">Figures</span>
+                </div>
+            </div>
+
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <div class="filter-search">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="filterAnnotationName" class="filter-input" placeholder="Search annotations...">
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn filter-btn-active" data-filter="">All</button>
+                    <button class="filter-btn" data-filter="landmark">Points</button>
+                    <button class="filter-btn" data-filter="segment">Polygons</button>
+                    <button class="filter-btn" data-filter="figure">Figures</button>
+                </div>
+            </div>
+
+            <!-- Annotations Table -->
+            <div class="table-card">
+                {% if landmarks|length + segments|length + figures|length == 0 %}
+                <div class="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                    </svg>
+                    <h3>No annotations yet</h3>
+                    <p>Start by adding labels in the annotation interface</p>
+                    <a href="{{ url_for('start_annotation') }}" class="btn btn-primary">Get Started</a>
+                </div>
+                {% else %}
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Progress</th>
+                                <th class="th-action">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="annotationsTableBody">
+                            {% for landmark in landmarks %}
+                            <tr data-type="landmark">
+                                <td class="td-name">{{ landmark.name }}</td>
+                                <td><span class="badge badge-point">Point</span></td>
+                                <td class="td-progress">
+                                    {% if landmark.total_count > 0 %}
+                                        {% set completion_rate = (landmark.annotated_count/landmark.total_count*100)|round(1) %}
+                                    {% else %}
+                                        {% set completion_rate = 0 %}
+                                    {% endif %}
+                                    <div class="progress-wrapper">
+                                        <div class="progress-bar-container">
+                                            <div class="progress-bar-fill {% if completion_rate >= 75 %}progress-success{% elif completion_rate >= 25 %}progress-warning{% else %}progress-danger{% endif %}" 
+                                                 style="width: {{ completion_rate }}%"></div>
+                                        </div>
+                                        <span class="progress-text">{{ "%.0f"|format(completion_rate) }}%</span>
+                                    </div>
+                                    <span class="progress-detail">{{ landmark.annotated_count }}/{{ landmark.total_count }} images</span>
+                                </td>
+                                <td class="td-action">
+                                    <form action="{{ url_for('remove_landmark') }}" method="POST" class="remove-form"
+                                          onsubmit="return confirm('Remove this annotation? All related data will be deleted.');">
+                                        <input type="hidden" name="landmark_name" value="{{ landmark.name }}">
+                                        <button type="submit" class="btn-remove" title="Remove annotation">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% for segment in segments %}
+                            <tr data-type="segment">
+                                <td class="td-name">{{ segment.name }}</td>
+                                <td><span class="badge badge-polygon">Polygon</span></td>
+                                <td class="td-progress">
+                                    {% if segment.total_count > 0 %}
+                                        {% set completion_rate = (segment.annotated_count/segment.total_count*100)|round(1) %}
+                                    {% else %}
+                                        {% set completion_rate = 0 %}
+                                    {% endif %}
+                                    <div class="progress-wrapper">
+                                        <div class="progress-bar-container">
+                                            <div class="progress-bar-fill {% if completion_rate >= 75 %}progress-success{% elif completion_rate >= 25 %}progress-warning{% else %}progress-danger{% endif %}" 
+                                                 style="width: {{ completion_rate }}%"></div>
+                                        </div>
+                                        <span class="progress-text">{{ "%.0f"|format(completion_rate) }}%</span>
+                                    </div>
+                                    <span class="progress-detail">{{ segment.annotated_count }}/{{ segment.total_count }} images</span>
+                                </td>
+                                <td class="td-action">
+                                    <form action="{{ url_for('remove_segment') }}" method="POST" class="remove-form"
+                                          onsubmit="return confirm('Remove this annotation? All related data will be deleted.');">
+                                        <input type="hidden" name="segment_name" value="{{ segment.name }}">
+                                        <button type="submit" class="btn-remove" title="Remove annotation">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% for figure in figures %}
+                            <tr data-type="figure">
+                                <td class="td-name">{{ figure.name }}</td>
+                                <td><span class="badge badge-figure">Figure</span></td>
+                                <td class="td-progress">
+                                    {% if figure.total_count > 0 %}
+                                        {% set completion_rate = (figure.annotated_count/figure.total_count*100)|round(1) %}
+                                    {% else %}
+                                        {% set completion_rate = 0 %}
+                                    {% endif %}
+                                    <div class="progress-wrapper">
+                                        <div class="progress-bar-container">
+                                            <div class="progress-bar-fill {% if completion_rate >= 75 %}progress-success{% elif completion_rate >= 25 %}progress-warning{% else %}progress-danger{% endif %}" 
+                                                 style="width: {{ completion_rate }}%"></div>
+                                        </div>
+                                        <span class="progress-text">{{ "%.0f"|format(completion_rate) }}%</span>
+                                    </div>
+                                    <span class="progress-detail">{{ figure.annotated_count }}/{{ figure.total_count }} images</span>
+                                </td>
+                                <td class="td-action">
+                                    <form action="{{ url_for('remove_figure') }}" method="POST" class="remove-form"
+                                          onsubmit="return confirm('Remove this annotation? All related data will be deleted.');">
+                                        <input type="hidden" name="figure_name" value="{{ figure.name }}">
+                                        <button type="submit" class="btn-remove" title="Remove annotation">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Keyboard Shortcuts (Collapsible) -->
+        <section class="section">
+            <details class="shortcuts-panel">
+                <summary class="shortcuts-header">
+                    <div class="shortcuts-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+                            <path d="M6 8h.001"></path>
+                            <path d="M10 8h.001"></path>
+                            <path d="M14 8h.001"></path>
+                            <path d="M18 8h.001"></path>
+                            <path d="M8 12h.001"></path>
+                            <path d="M12 12h.001"></path>
+                            <path d="M16 12h.001"></path>
+                            <path d="M7 16h10"></path>
+                        </svg>
+                        Keyboard Shortcuts
+                        <span class="shortcuts-platform-note">Works on Windows, macOS & Linux</span>
+                    </div>
+                    <svg class="shortcuts-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </summary>
+                <div class="shortcuts-content">
+                    <div class="shortcuts-grid">
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>→</kbd><span>or</span><kbd>D</kbd>
+                            </div>
+                            <span class="shortcut-desc">Next image</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>←</kbd><span>or</span><kbd>A</kbd>
+                            </div>
+                            <span class="shortcut-desc">Previous image</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>Space</kbd>
+                            </div>
+                            <span class="shortcut-desc">Toggle pan/annotate</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>O</kbd>
+                            </div>
+                            <span class="shortcut-desc">Mark occluded</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>R</kbd>
+                            </div>
+                            <span class="shortcut-desc">Reset view</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>Esc</kbd>
+                            </div>
+                            <span class="shortcut-desc">Deselect / Cancel</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd class="shortcut-mod">Ctrl</kbd><span>+</span><kbd>Z</kbd>
+                            </div>
+                            <span class="shortcut-desc">Undo</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd class="shortcut-mod">Ctrl</kbd><span>+</span><kbd>Y</kbd>
+                            </div>
+                            <span class="shortcut-desc">Redo</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>+</kbd><span>/</span><kbd>-</kbd>
+                            </div>
+                            <span class="shortcut-desc">Zoom in/out</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>C</kbd>
+                            </div>
+                            <span class="shortcut-desc">Toggle centers</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>Enter</kbd>
+                            </div>
+                            <span class="shortcut-desc">Complete polygon</span>
+                        </div>
+                        <div class="shortcut">
+                            <div class="shortcut-keys">
+                                <kbd>Del</kbd>
+                            </div>
+                            <span class="shortcut-desc">Delete annotation</span>
+                        </div>
+                    </div>
+                    <p class="shortcuts-footnote">
+                        <strong>Note:</strong> On macOS, use <kbd>⌘ Cmd</kbd> instead of <kbd>Ctrl</kbd>
+                    </p>
+                </div>
+            </details>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Image Annotation Tool • Built for efficient data labeling</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/menu.js') }}"></script>
+</body>
+</html>

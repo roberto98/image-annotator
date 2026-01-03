@@ -9,12 +9,15 @@ const RENDER_STATE = {
 
 /**
  * Generate a hash of current annotation state to detect changes
+ * Includes zoom, translation, and full annotation data so updates are detected
  */
 function getAnnotationsHash() {
     return JSON.stringify({
-        annotations: Object.keys(STATE.annotations).sort(),
+        annotations: STATE.annotations, // Include full annotation data, not just keys
         visibility: STATE.visibilityToggles,
         zoom: STATE.currentZoom,
+        translateX: STATE.translateX,
+        translateY: STATE.translateY,
         selectedLabel: STATE.selectedLabel
     });
 }

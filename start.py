@@ -98,7 +98,8 @@ def clean_project_structure(base_dir="."):
                             obj[key] = clean_filename
                             updated = True
                 elif isinstance(value, (dict, list)):
-                    if update_references(value, file_map):
+                    result = update_references(value, file_map)
+                    if result:
                         updated = True
         elif isinstance(obj, list):
             for i, item in enumerate(obj):
@@ -116,7 +117,8 @@ def clean_project_structure(base_dir="."):
                             obj[i] = clean_filename
                             updated = True
                 elif isinstance(item, (dict, list)):
-                    if update_references(item, file_map):
+                    result = update_references(item, file_map)
+                    if result:
                         updated = True
         return updated
     

@@ -47,95 +47,82 @@ def create_legend_panel(
     draw.text((legend_x, current_y), "LEGEND", fill=(0, 0, 0), font=font)
     current_y += int(font_size * 1.5)
 
-    # Draw segments section
-    if visible_segments:
-        current_y = _draw_segment_legend(draw, visible_segments, legend_x, current_y, font, font_size)
-        current_y += int(font_size * 0.5)
-
-    # Draw figures section
-    if visible_figures:
-        current_y = _draw_figure_legend(draw, visible_figures, legend_x, current_y, font, font_size)
-        current_y += int(font_size * 0.5)
-
-    # Draw landmarks section
-    if visible_landmarks:
-        current_y = _draw_landmark_legend(draw, visible_landmarks, legend_x, current_y, font, font_size)
+    # Draw sections: segments, figures, landmarks
+    sections = [
+        ("SEGMENTS", visible_segments),
+        ("FIGURES", visible_figures),
+        ("POINTS", visible_landmarks),
+    ]
+    for title, items in sections:
+        if items:
+            current_y = _draw_legend_section(draw, title, items, legend_x, current_y, font, font_size)
+            current_y += int(font_size * 0.5)
 
     # Empty state message
-    if not visible_landmarks and not visible_segments and not visible_figures:
+    if not any(items for _, items in sections):
         draw.text((legend_x, current_y), "No annotations visible", fill=(100, 100, 100), font=font)
 
     return new_img
 
 
-def _draw_segment_legend(
+def _draw_legend_section(
     draw: ImageDraw.ImageDraw,
-    visible_segments: Dict[str, RGBColor],
+    title: str,
+    items: Dict[str, any],
     legend_x: int,
     current_y: int,
     font: ImageFont.FreeTypeFont,
     font_size: int
 ) -> int:
-    """Draw segment items in legend."""
-    draw.text((legend_x, current_y), "SEGMENTS", fill=(80, 80, 80), font=font)
+    """Draw a legend section with title and items.
+
+    Args:
+        draw: ImageDraw context
+        title: Section title (e.g., "SEGMENTS", "FIGURES", "POINTS")
+        items: Dict of items where values are either colors or (color, shape) tuples
+        legend_x: X position for legend
+        current_y: Current Y position
+        font: Font to use
+        font_size: Font size
+
+    Returns:
+        Updated Y position after drawing section
+    """
+    draw.text((legend_x, current_y), title, fill=(80, 80, 80), font=font)
     current_y += int(font_size * 1.2)
 
     square_size = font_size
-    for name, color in visible_segments.items():
-        draw.rectangle(
-            (legend_x, current_y, legend_x + square_size, current_y + square_size),
-            fill=color,
-            outline=(0, 0, 0),
-            width=1
-        )
-        draw.text(
-            (legend_x + square_size + 10, current_y + square_size // 4),
-            name,
-            fill=(0, 0, 0),
-            font=font
-        )
-        current_y += int(square_size * 1.5)
+    for name, value in items.items():
+        # Handle both color tuples and (color, shape) tuples
+        if isinstance(value, tuple) and len(value) == 2 and isinstance(value[1], str):
+            color, shape = value
+        else:
+            color, shape = value, "rectangle"
 
-    return current_y
-
-
-def _draw_figure_legend(
-    draw: ImageDraw.ImageDraw,
-    visible_figures: Dict[str, Tuple[RGBColor, str]],
-    legend_x: int,
-    current_y: int,
-    font: ImageFont.FreeTypeFont,
-    font_size: int
-) -> int:
-    """Draw figure items in legend."""
-    draw.text((legend_x, current_y), "FIGURES", fill=(80, 80, 80), font=font)
-    current_y += int(font_size * 1.2)
-
-    square_size = font_size
-    for name, (color, shape) in visible_figures.items():
+        # Draw shape icon
         if shape == "circle":
             draw.ellipse(
                 (legend_x, current_y, legend_x + square_size, current_y + square_size),
                 fill=color, outline=(0, 0, 0), width=1
             )
         elif shape == "line":
+            mid_y = current_y + square_size // 2
             draw.line(
-                [(legend_x, current_y + square_size // 2),
-                 (legend_x + square_size, current_y + square_size // 2)],
+                [(legend_x, mid_y), (legend_x + square_size, mid_y)],
                 fill=color, width=3
             )
             point_radius = 2
             draw.ellipse(
-                (legend_x - point_radius, current_y + square_size // 2 - point_radius,
-                 legend_x + point_radius, current_y + square_size // 2 + point_radius),
+                (legend_x - point_radius, mid_y - point_radius,
+                 legend_x + point_radius, mid_y + point_radius),
                 fill=color, outline=(0, 0, 0), width=1
             )
             draw.ellipse(
-                (legend_x + square_size - point_radius, current_y + square_size // 2 - point_radius,
-                 legend_x + square_size + point_radius, current_y + square_size // 2 + point_radius),
+                (legend_x + square_size - point_radius, mid_y - point_radius,
+                 legend_x + square_size + point_radius, mid_y + point_radius),
                 fill=color, outline=(0, 0, 0), width=1
             )
-        else:
+        else:  # rectangle or default
             draw.rectangle(
                 (legend_x, current_y, legend_x + square_size, current_y + square_size),
                 fill=color, outline=(0, 0, 0), width=1
@@ -144,37 +131,6 @@ def _draw_figure_legend(
         draw.text(
             (legend_x + square_size + 10, current_y + square_size // 4),
             name, fill=(0, 0, 0), font=font
-        )
-        current_y += int(square_size * 1.5)
-
-    return current_y
-
-
-def _draw_landmark_legend(
-    draw: ImageDraw.ImageDraw,
-    visible_landmarks: Dict[str, RGBColor],
-    legend_x: int,
-    current_y: int,
-    font: ImageFont.FreeTypeFont,
-    font_size: int
-) -> int:
-    """Draw landmark items in legend."""
-    draw.text((legend_x, current_y), "POINTS", fill=(80, 80, 80), font=font)
-    current_y += int(font_size * 1.2)
-
-    square_size = font_size
-    for name, color in visible_landmarks.items():
-        draw.rectangle(
-            (legend_x, current_y, legend_x + square_size, current_y + square_size),
-            fill=color,
-            outline=(0, 0, 0),
-            width=1
-        )
-        draw.text(
-            (legend_x + square_size + 10, current_y + square_size // 4),
-            name,
-            fill=(0, 0, 0),
-            font=font
         )
         current_y += int(square_size * 1.5)
 

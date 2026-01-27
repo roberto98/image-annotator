@@ -349,10 +349,8 @@ class AnnotationAPI {
     }
 }
 
-// Create a singleton instance
 const api = new AnnotationAPI();
 
-// Make available globally for backward compatibility
 if (typeof window !== 'undefined') {
     window.AnnotationAPI = AnnotationAPI;
     window.api = api;

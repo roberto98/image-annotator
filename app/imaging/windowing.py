@@ -25,20 +25,19 @@ def apply_windowing(
     Returns:
         8-bit normalized pixel array
     """
-    if window_center is None:
-        window_center = float((np.percentile(pixel_array, 5) + np.percentile(pixel_array, 95)) / 2)
-    if window_width is None:
-        window_width = float(np.percentile(pixel_array, 95) - np.percentile(pixel_array, 5))
+    if window_center is None or window_width is None:
+        p5, p95 = np.percentile(pixel_array, (5, 95))
+        window_center = (p5 + p95) / 2
+        window_width = p95 - p5
 
-    window_min: float = window_center - window_width / 2
-    window_max: float = window_center + window_width / 2
+    window_min = window_center - window_width / 2
+    window_max = window_center + window_width / 2
+
+    if window_max <= window_min:
+        return np.zeros_like(pixel_array, dtype=np.uint8)
 
     windowed = np.clip(pixel_array, window_min, window_max)
-
-    if window_max > window_min:
-        windowed = ((windowed - window_min) / (window_max - window_min) * 255.0)
-    else:
-        windowed = np.zeros_like(windowed)
+    windowed = (windowed - window_min) / (window_max - window_min) * 255.0
 
     return windowed.astype(np.uint8)
 
@@ -55,9 +54,11 @@ def normalize_to_8bit(pixel_array: np.ndarray) -> np.ndarray:
     if pixel_array.dtype == np.uint8:
         return pixel_array
 
-    if pixel_array.max() > pixel_array.min():
-        normalized = ((pixel_array - pixel_array.min()) /
-                      (pixel_array.max() - pixel_array.min()) * 255)
-        return normalized.astype(np.uint8)
-    else:
+    min_val = pixel_array.min()
+    max_val = pixel_array.max()
+
+    if max_val <= min_val:
         return np.zeros_like(pixel_array, dtype=np.uint8)
+
+    normalized = (pixel_array - min_val) / (max_val - min_val) * 255
+    return normalized.astype(np.uint8)

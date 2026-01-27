@@ -3,64 +3,37 @@
 
 from flask import render_template, redirect, url_for, flash, request, current_app, abort, send_from_directory, send_file, jsonify
 from pathlib import Path
+from typing import Dict, Any, Tuple
 import json
 import io
 import config
 import utils
 from app.blueprints.views import views_bp
+from app.annotations import AnnotationManager
+from app.images import ImageManager
+
+# Supported image file extensions
+IMAGE_EXTENSIONS = ('*.png', '*.jpg', '*.jpeg')
+ALL_IMAGE_EXTENSIONS = IMAGE_EXTENSIONS + ('*.dcm', '*.dicom')
+
+# DICOM-to-JPEG conversion quality
+DICOM_JPEG_QUALITY = 95
 
 
-def get_annotations_manager():
+def _get_annotations_manager() -> AnnotationManager:
     """Get the annotations manager from the app context."""
     return current_app.config['annotations']
 
 
-def get_images_manager():
+def _get_images_manager() -> ImageManager:
     """Get the images manager from the app context."""
     return current_app.config['images']
 
 
 @views_bp.route('/')
-def main_menu():
+def main_menu() -> str:
     """Main dashboard with statistics and annotation management."""
-    stats = {
-        'total_images': 0,
-        'total_patients': 0,
-        'annotated_images': 0,
-        'total_annotations': 0,
-        'annotation_percentage': 0
-    }
-
-    image_dir = Path(config.IMAGE_DIR)
-    annotation_dir = Path(config.ANNOTATION_DIR)
-
-    if image_dir.exists():
-        patients = [p for p in image_dir.iterdir() if p.is_dir()]
-        stats['total_patients'] = len(patients)
-
-        for patient in patients:
-            for ext in ('*.png', '*.jpg', '*.jpeg', '*.dcm', '*.dicom'):
-                stats['total_images'] += len(list(patient.glob(ext)))
-
-    # Count annotated images
-    if annotation_dir.exists():
-        annotated_files = set()
-        for patient_dir in annotation_dir.iterdir():
-            if patient_dir.is_dir() and not patient_dir.name.startswith("__"):
-                for json_file in patient_dir.glob("*.json"):
-                    try:
-                        data = json.loads(json_file.read_text())
-                        if any(ann.get('status') == 'ok' for ann in data.values() if isinstance(ann, dict)):
-                            annotated_files.add(f"{patient_dir.name}/{json_file.stem}")
-                            stats['total_annotations'] += sum(1 for ann in data.values()
-                                                               if isinstance(ann, dict) and ann.get('status') == 'ok')
-                    except Exception:
-                        continue
-
-        stats['annotated_images'] = len(annotated_files)
-
-    if stats['total_images'] > 0:
-        stats['annotation_percentage'] = round((stats['annotated_images'] / stats['total_images']) * 100, 1)
+    stats = _calculate_stats()
 
     try:
         landmarks = config.get_landmarks()
@@ -76,10 +49,75 @@ def main_menu():
                            segments=segments, figures=figures)
 
 
+def _calculate_stats() -> Dict[str, Any]:
+    """Calculate dashboard statistics."""
+    stats = {
+        'total_images': 0,
+        'total_patients': 0,
+        'annotated_images': 0,
+        'total_annotations': 0,
+        'annotation_percentage': 0
+    }
+
+    image_dir = Path(config.IMAGE_DIR)
+    if image_dir.exists():
+        patients = [p for p in image_dir.iterdir() if p.is_dir()]
+        stats['total_patients'] = len(patients)
+        stats['total_images'] = _count_total_images(patients)
+
+    annotation_dir = Path(config.ANNOTATION_DIR)
+    if annotation_dir.exists():
+        annotated_count, total_count = _count_annotations(annotation_dir)
+        stats['annotated_images'] = annotated_count
+        stats['total_annotations'] = total_count
+
+    if stats['total_images'] > 0:
+        stats['annotation_percentage'] = round((stats['annotated_images'] / stats['total_images']) * 100, 1)
+
+    return stats
+
+
+def _count_total_images(patients: list) -> int:
+    """Count total images across all patients."""
+    total = 0
+    for patient in patients:
+        for ext in ALL_IMAGE_EXTENSIONS:
+            total += len(list(patient.glob(ext)))
+    return total
+
+
+def _count_annotations(annotation_dir: Path) -> Tuple[int, int]:
+    """Count annotated images and total annotations.
+
+    Returns:
+        Tuple of (annotated_images_count, total_annotations_count)
+    """
+    annotated_files = set()
+    total_annotations = 0
+
+    for patient_dir in annotation_dir.iterdir():
+        if not patient_dir.is_dir() or patient_dir.name.startswith("__"):
+            continue
+
+        for json_file in patient_dir.glob("*.json"):
+            try:
+                data = json.loads(json_file.read_text())
+                valid_annotations = [ann for ann in data.values()
+                                   if isinstance(ann, dict) and ann.get('status') == 'ok']
+
+                if valid_annotations:
+                    annotated_files.add(f"{patient_dir.name}/{json_file.stem}")
+                    total_annotations += len(valid_annotations)
+            except Exception:
+                continue
+
+    return len(annotated_files), total_annotations
+
+
 @views_bp.route('/start-annotation')
-def start_annotation():
+def start_annotation() -> str:
     """Begin annotation process with the first image."""
-    images = get_images_manager()
+    images = _get_images_manager()
     first_img = images.get_first_image()
     if not first_img:
         flash("No images found to annotate")
@@ -88,10 +126,10 @@ def start_annotation():
 
 
 @views_bp.route('/annotate/<patient>/<image>')
-def annotate_image(patient, image):
+def annotate_image(patient: str, image: str) -> str:
     """Image annotation interface."""
-    annotations = get_annotations_manager()
-    images = get_images_manager()
+    annotations = _get_annotations_manager()
+    images = _get_images_manager()
 
     image_path = Path(config.IMAGE_DIR) / patient / image
     if not image_path.exists():
@@ -122,65 +160,39 @@ def annotate_image(patient, image):
                            total_images=total_images)
 
 
-@views_bp.route('/set-landmark', methods=['POST'])
-def set_landmark():
-    """Legacy form endpoint for landmark management."""
-    action = request.form.get('action', 'add')
-    landmark_name = request.form.get('landmark_name')
+def _remove_annotation_type(form_field: str, type_label: str, remove_fn) -> str:
+    """Remove an annotation type and redirect to main menu."""
+    name = request.form.get(form_field)
+    if not name:
+        flash(f'Invalid {type_label} name.')
+        return redirect(url_for('views.main_menu'))
 
-    if action == 'add' and landmark_name:
-        config.add_new_landmark(landmark_name)
-        flash(f'Landmark "{landmark_name}" added successfully.')
-    elif action == 'remove' and landmark_name:
-        if config.remove_landmark(landmark_name):
-            flash(f'Landmark "{landmark_name}" removed successfully.')
-        else:
-            flash(f'Cannot remove landmark "{landmark_name}" as it is being used in annotations.')
-
+    files_modified, files_deleted = remove_fn(name)
+    flash(f'Successfully removed {type_label} "{name}" and its annotations. '
+          f'Modified: {files_modified}, Deleted: {files_deleted}')
     return redirect(url_for('views.main_menu'))
 
 
 @views_bp.route('/remove-landmark', methods=['POST'])
-def remove_landmark():
+def remove_landmark() -> str:
     """Remove a landmark and all its annotations."""
-    landmark_name = request.form.get('landmark_name')
-    if landmark_name:
-        files_modified, files_deleted = config.remove_landmark_files(landmark_name)
-        flash(f'Successfully removed landmark "{landmark_name}" and its annotations. '
-              f'Modified: {files_modified}, Deleted: {files_deleted}')
-    else:
-        flash('Invalid landmark name.')
-    return redirect(url_for('views.main_menu'))
+    return _remove_annotation_type('landmark_name', 'landmark', config.remove_landmark_files)
 
 
 @views_bp.route('/remove-segment', methods=['POST'])
-def remove_segment():
-    """Remove a segment label and all its annotations from files."""
-    segment_name = request.form.get('segment_name')
-    if segment_name:
-        files_modified, files_deleted = config.remove_segment_files(segment_name)
-        flash(f'Successfully removed segment "{segment_name}" and its annotations. '
-              f'Modified: {files_modified}, Deleted: {files_deleted}')
-    else:
-        flash('Invalid segment name.')
-    return redirect(url_for('views.main_menu'))
+def remove_segment() -> str:
+    """Remove a segment label and all its annotations."""
+    return _remove_annotation_type('segment_name', 'segment', config.remove_segment_files)
 
 
 @views_bp.route('/remove-figure', methods=['POST'])
-def remove_figure():
-    """Remove a figure label and all its annotations from files."""
-    figure_name = request.form.get('figure_name')
-    if figure_name:
-        files_modified, files_deleted = config.remove_figure_files(figure_name)
-        flash(f'Successfully removed figure "{figure_name}" and its annotations. '
-              f'Modified: {files_modified}, Deleted: {files_deleted}')
-    else:
-        flash('Invalid figure name.')
-    return redirect(url_for('views.main_menu'))
+def remove_figure() -> str:
+    """Remove a figure label and all its annotations."""
+    return _remove_annotation_type('figure_name', 'figure', config.remove_figure_files)
 
 
 @views_bp.route("/images/<patient>/<image>")
-def serve_image(patient, image):
+def serve_image(patient: str, image: str) -> str:
     """Serve image file, converting DICOM to JPEG on-the-fly."""
     directory = Path(config.IMAGE_DIR) / patient
     if not directory.exists():
@@ -192,34 +204,33 @@ def serve_image(patient, image):
         try:
             img = utils.load_image(image_path, force_invert_dicom=True)
             img_io = io.BytesIO()
-            img.save(img_io, 'JPEG', quality=95)
+            img.save(img_io, 'JPEG', quality=DICOM_JPEG_QUALITY)
             img_io.seek(0)
             return send_file(img_io, mimetype='image/jpeg')
         except Exception as e:
             current_app.logger.error(f"Error serving DICOM file {image_path}: {e}")
             abort(500)
-    else:
-        return send_from_directory(str(directory), image)
+
+    return send_from_directory(directory, image)
 
 
 @views_bp.route('/serve_file/<path:filename>')
-def serve_file(filename):
+def serve_file(filename: str) -> str:
     """Serve arbitrary file by path."""
-    directory = Path(filename).parent
-    file_name = Path(filename).name
-    if not directory.exists():
+    file_path = Path(filename)
+    if not file_path.parent.exists():
         abort(404)
-    return send_from_directory(str(directory), file_name)
+    return send_from_directory(file_path.parent, file_path.name)
 
 
 @views_bp.route('/help')
-def help_page():
+def help_page() -> str:
     """Help and documentation page."""
     return render_template("help.html")
 
 
 @views_bp.route('/regenerate-annotations')
-def regenerate_annotations():
+def regenerate_annotations() -> tuple:
     """Regenerate all annotated image visualizations."""
     try:
         from postprocessing_draw_landmarks import LandmarkVisualizer

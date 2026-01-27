@@ -1,16 +1,10 @@
 // Rendering functions for annotations and UI elements
 
-// Render state cache for dirty tracking
 const RENDER_STATE = {
-    annotationsHash: '',
-    zoomLevel: 1,
-    visibilityHash: ''
+    annotationsHash: ''
 };
 
-/**
- * Generate a hash of current annotation state to detect changes
- * Includes zoom, translation, and full annotation data so updates are detected
- */
+/** Generate a hash of current render-relevant state for dirty tracking */
 function getAnnotationsHash() {
     return JSON.stringify({
         annotations: STATE.annotations, // Include full annotation data, not just keys
@@ -29,26 +23,17 @@ function getAnnotationsHash() {
  */
 function renderAnnotations(force = false) {
     const currentHash = getAnnotationsHash();
-    
-    // Skip re-render if nothing changed (unless forced)
-    if (!force && currentHash === RENDER_STATE.annotationsHash) {
-        return;
-    }
+
+    if (!force && currentHash === RENDER_STATE.annotationsHash) return;
     RENDER_STATE.annotationsHash = currentHash;
-    
-    // Use DocumentFragment for batched DOM operations
-    const fragment = document.createDocumentFragment();
-    
-    // Clear existing annotations
+
     document.querySelectorAll('.annotation-point, .annotation-label, .polygon-shape, .figure-shape').forEach(el => el.remove());
-    
-    // Render all annotations simultaneously
+
     Object.entries(STATE.annotations).forEach(([name, data], index) => {
-        // Check visibility
         if (STATE.visibilityToggles[name] === false) return;
-        
+
         const color = COLORS[index % COLORS.length];
-        
+
         if (data.type === 'polygon' && data.points) {
             renderPolygonShape(data.points, color, name);
         } else if (data.type === 'figure') {
@@ -57,13 +42,11 @@ function renderAnnotations(force = false) {
             renderLandmarkPoint(name, data.coordinates, color);
         }
     });
-    
-    // Render active polygon if in polygon mode
+
     if (STATE.currentTool === 'polygon' && STATE.activePolygonPoints.length > 0) {
         renderActivePolygon();
     }
-    
-    // Render figure preview if drawing
+
     if (STATE.figurePreview) {
         DOM.imageContainer.appendChild(STATE.figurePreview);
     }
@@ -71,24 +54,22 @@ function renderAnnotations(force = false) {
 
 function renderLandmarkPoint(name, coords, color) {
     if (!isWithinImageBounds(coords.x, coords.y)) return;
-    
-    const displayCoords = imageToDisplayCoords(coords.x, coords.y);
-    
-    // Create point
+
+    const { x, y } = imageToDisplayCoords(coords.x, coords.y);
+
     const point = document.createElement('div');
     point.className = 'annotation-point';
-    point.style.left = `${displayCoords.x}px`;
-    point.style.top = `${displayCoords.y}px`;
+    point.style.left = `${x}px`;
+    point.style.top = `${y}px`;
     point.style.backgroundColor = color;
-    
-    // Create label
+
     const label = document.createElement('div');
     label.className = 'annotation-label';
-    label.style.left = `${displayCoords.x}px`;
-    label.style.top = `${displayCoords.y}px`;
+    label.style.left = `${x}px`;
+    label.style.top = `${y}px`;
     label.style.borderLeft = `3px solid ${color}`;
     label.textContent = name;
-    
+
     DOM.imageContainer.appendChild(point);
     DOM.imageContainer.appendChild(label);
 }
@@ -124,19 +105,16 @@ function renderPolygonShape(points, color, name) {
     polygon.setAttribute('stroke-width', '2');
     
     svg.appendChild(polygon);
-    
-    // Add label
-    if (points.length > 0) {
-        const firstPoint = imageToDisplayCoords(points[0].x, points[0].y);
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', firstPoint.x + 10);
-        text.setAttribute('y', firstPoint.y - 10);
-        text.setAttribute('fill', color);
-        text.setAttribute('font-size', '12');
-        text.setAttribute('font-weight', 'bold');
-        text.textContent = name;
-        svg.appendChild(text);
-    }
+
+    const firstPoint = imageToDisplayCoords(points[0].x, points[0].y);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', firstPoint.x + 10);
+    text.setAttribute('y', firstPoint.y - 10);
+    text.setAttribute('fill', color);
+    text.setAttribute('font-size', '12');
+    text.setAttribute('font-weight', 'bold');
+    text.textContent = name;
+    svg.appendChild(text);
     
     DOM.imageContainer.appendChild(svg);
 }
@@ -144,129 +122,39 @@ function renderPolygonShape(points, color, name) {
 function renderFigure(data, color, name) {
     const displayCoords = imageToDisplayCoords(data.x, data.y);
     const displaySize = data.size * STATE.currentZoom;
-    
+
     const figure = document.createElement('div');
     figure.className = `figure-shape figure-${data.shape}`;
     figure.dataset.figureName = name;
-    
+
+    const isFigureTool = STATE.currentTool === 'figure';
+    const isLabelSelected = STATE.selectedLabel === name;
+    const isInteractive = isFigureTool && isLabelSelected;
+
     if (data.shape === 'line') {
-        // For lines, render with start and end points
-        const startX = data.startX;
-        const startY = data.startY;
-        const endX = data.endX;
-        const endY = data.endY;
-        
-        // Convert to display coordinates
-        const displayStart = imageToDisplayCoords(startX, startY);
-        const displayEnd = imageToDisplayCoords(endX, endY);
-        
-        // Calculate line properties
-        const dx = displayEnd.x - displayStart.x;
-        const dy = displayEnd.y - displayStart.y;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-        
-        // Calculate center point
-        const centerX = (displayStart.x + displayEnd.x) / 2;
-        const centerY = (displayStart.y + displayEnd.y) / 2;
-        
-        // Create line element
-        figure.style.left = `${centerX - length / 2}px`;
-        figure.style.top = `${centerY - 1.5}px`;
-        figure.style.width = `${length}px`;
-        figure.style.height = '3px';
-        figure.style.transform = `rotate(${angle}deg)`;
-        figure.style.transformOrigin = '50% 50%';
-        
-        // Add start and end point markers when interactive
-        const isPanningMode = !STATE.isAnnotationMode;
-        const isLabelSelected = STATE.selectedLabel === name;
-        const isInteractive = isPanningMode && isLabelSelected;
-        
-        if (isInteractive) {
-            // Add start point
-            const startPoint = document.createElement('div');
-            startPoint.className = 'line-point line-start';
-            startPoint.dataset.pointType = 'start';
-            startPoint.dataset.figureName = name;
-            startPoint.addEventListener('mousedown', handleLinePointMouseDown);
-            
-            // Position at start of line
-            startPoint.style.left = '0px';
-            startPoint.style.top = '50%';
-            figure.appendChild(startPoint);
-            
-            // Add end point
-            const endPoint = document.createElement('div');
-            endPoint.className = 'line-point line-end';
-            endPoint.dataset.pointType = 'end';
-            endPoint.dataset.figureName = name;
-            endPoint.addEventListener('mousedown', handleLinePointMouseDown);
-            
-            // Position at end of line
-            endPoint.style.left = '100%';
-            endPoint.style.top = '50%';
-            figure.appendChild(endPoint);
-        }
+        renderLineShape(figure, data, name, isInteractive);
     } else {
-        // For circles and rectangles
         figure.style.left = `${displayCoords.x - displaySize / 2}px`;
         figure.style.top = `${displayCoords.y - displaySize / 2}px`;
         figure.style.width = `${displaySize}px`;
         figure.style.height = `${displaySize}px`;
         figure.style.borderColor = color;
         figure.style.background = `${color}33`;
+
+        addResizeHandles(figure, isInteractive);
     }
-    
-    // Determine if this figure is interactive based on tool and label selection
-    const isFigureTool = STATE.currentTool === 'figure';
-    const isLabelSelected = STATE.selectedLabel === name;
-    const isInteractive = isFigureTool && isLabelSelected;
+
     figure.classList.add(isInteractive ? 'interactive' : 'non-interactive');
-    
-    // Add resize handles (only for circles and rectangles)
-    if (data.shape !== 'line') {
-        const handles = ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'];
-        handles.forEach(handle => {
-            const resizeHandle = document.createElement('div');
-            resizeHandle.className = `resize-handle ${handle}`;
-            resizeHandle.dataset.handle = handle;
-            
-            // Only show resize handles for interactive figures
-            if (!isInteractive) {
-                resizeHandle.style.display = 'none';
-            }
-            
-            figure.appendChild(resizeHandle);
-        });
-    }
-    
-    // Add center indicator
-    const centerIndicator = document.createElement('div');
-    centerIndicator.className = 'center-indicator';
-    centerIndicator.style.left = '50%';
-    centerIndicator.style.top = '50%';
-    centerIndicator.style.transform = 'translate(-50%, -50%)';
-    
-    // Show center indicator based on toggle state
-    if (STATE.showCenterIndicators) {
-        centerIndicator.classList.add('always-visible');
-    }
-    
-    figure.appendChild(centerIndicator);
-    
-    // Add event listeners for figure interaction
+    addCenterIndicator(figure);
+
     figure.addEventListener('mousedown', handleFigureMouseDown);
     figure.addEventListener('click', handleFigureClick);
-    
-    // Add specific handler for line elements
     if (data.shape === 'line') {
         figure.addEventListener('mousedown', handleLineMouseDown);
     }
-    
+
     DOM.imageContainer.appendChild(figure);
-    
-    // Add label
+
     const label = document.createElement('div');
     label.className = 'annotation-label';
     label.style.left = `${displayCoords.x + displaySize / 2}px`;
@@ -276,52 +164,105 @@ function renderFigure(data, color, name) {
     DOM.imageContainer.appendChild(label);
 }
 
+function renderLineShape(figure, data, name, isInteractive) {
+    const displayStart = imageToDisplayCoords(data.startX, data.startY);
+    const displayEnd = imageToDisplayCoords(data.endX, data.endY);
+
+    const dx = displayEnd.x - displayStart.x;
+    const dy = displayEnd.y - displayStart.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    const centerX = (displayStart.x + displayEnd.x) / 2;
+    const centerY = (displayStart.y + displayEnd.y) / 2;
+
+    figure.style.left = `${centerX - length / 2}px`;
+    figure.style.top = `${centerY - 1.5}px`;
+    figure.style.width = `${length}px`;
+    figure.style.height = '3px';
+    figure.style.transform = `rotate(${angle}deg)`;
+    figure.style.transformOrigin = '50% 50%';
+
+    if (isInteractive) {
+        ['start', 'end'].forEach(pointType => {
+            const point = document.createElement('div');
+            point.className = `line-point line-${pointType}`;
+            point.dataset.pointType = pointType;
+            point.dataset.figureName = name;
+            point.addEventListener('mousedown', handleLinePointMouseDown);
+            point.style.left = pointType === 'start' ? '0px' : '100%';
+            point.style.top = '50%';
+            figure.appendChild(point);
+        });
+    }
+}
+
+function addResizeHandles(figure, isInteractive) {
+    ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'].forEach(handle => {
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = `resize-handle ${handle}`;
+        resizeHandle.dataset.handle = handle;
+        if (!isInteractive) resizeHandle.style.display = 'none';
+        figure.appendChild(resizeHandle);
+    });
+}
+
+function addCenterIndicator(figure) {
+    const centerIndicator = document.createElement('div');
+    centerIndicator.className = 'center-indicator';
+    centerIndicator.style.cssText = 'left: 50%; top: 50%; transform: translate(-50%, -50%)';
+    if (STATE.showCenterIndicators) {
+        centerIndicator.classList.add('always-visible');
+    }
+    figure.appendChild(centerIndicator);
+}
+
 function renderLabelList() {
-    // Use DocumentFragment for better performance (batch DOM updates)
     const fragment = document.createDocumentFragment();
-    
-    STATE.allLabels.forEach((label, index) => {
+
+    STATE.allLabels.forEach((label) => {
         const annotation = STATE.annotations[label.name];
         const isAnnotated = !!annotation;
         const isVisible = STATE.visibilityToggles[label.name] !== false;
         const isSelected = STATE.selectedLabel === label.name;
-        
+
         const labelDiv = document.createElement('div');
         labelDiv.className = 'label-item';
         if (isSelected) labelDiv.classList.add('selected');
         if (isAnnotated) labelDiv.classList.add('annotated');
-        
+
         let statusBadge = '';
         let infoText = '';
         let typeBadge = '';
-        
+
         if (isAnnotated) {
-            const data = annotation;
-            
-            // Show type badge
-            if (data.type === 'polygon') {
-                typeBadge = '<span class="type-badge badge-polygon">Polygon</span>';
-            } else if (data.type === 'figure') {
-                typeBadge = '<span class="type-badge badge-figure">Figure</span>';
-            } else {
-                typeBadge = '<span class="type-badge badge-landmark">Point</span>';
-            }
-            
-            if (data.status === 'ok') {
+            const typeMap = {
+                polygon: '<span class="type-badge badge-polygon">Polygon</span>',
+                figure: '<span class="type-badge badge-figure">Figure</span>'
+            };
+            typeBadge = typeMap[annotation.type] || '<span class="type-badge badge-landmark">Point</span>';
+
+            if (annotation.status === 'ok') {
                 statusBadge = '<span class="status-badge status-ok">Marked</span>';
-                
-                if (data.coordinates) {
-                    infoText = `x: ${Math.round(data.coordinates.x)}, y: ${Math.round(data.coordinates.y)}`;
-                } else if (data.points) {
-                    infoText = `${data.points.length} points`;
-                } else if (data.shape) {
-                    infoText = `${data.shape} (${data.size}px)`;
+
+                if (annotation.coordinates) {
+                    infoText = `x: ${Math.round(annotation.coordinates.x)}, y: ${Math.round(annotation.coordinates.y)}`;
+                } else if (annotation.points) {
+                    infoText = `${annotation.points.length} points`;
+                } else if (annotation.shape) {
+                    infoText = `${annotation.shape} (${annotation.size}px)`;
                 }
-            } else if (data.status === 'occluded/missing') {
+            } else if (annotation.status === 'occluded/missing') {
                 statusBadge = '<span class="status-badge status-occluded">Occluded</span>';
             }
         }
-        
+
+        const visibilityIcon = isVisible
+            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+        const showOccludedBtn = !annotation || !annotation.type || (annotation.type !== 'polygon' && annotation.type !== 'figure');
+
         labelDiv.innerHTML = `
             <div class="label-header">
                 <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
@@ -329,61 +270,47 @@ function renderLabelList() {
                     ${typeBadge}
                 </div>
                 <div class="label-controls">
-                    <button class="toggle-btn ${isVisible ? 'active' : ''}" 
-                            onclick="toggleVisibility('${label.name}')" 
+                    <button class="toggle-btn ${isVisible ? 'active' : ''}"
+                            onclick="toggleVisibility('${label.name}')"
                             title="${isVisible ? 'Hide annotation' : 'Show annotation'}">
-                        ${isVisible ? 
-                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' : 
-                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
-                        }
+                        ${visibilityIcon}
                     </button>
                     ${statusBadge}
                 </div>
             </div>
             ${infoText ? `<div class="label-info">${infoText}</div>` : ''}
             <div class="label-actions">
-                <button class="action-btn btn-annotate" onclick="selectLabel('${label.name}')">
-                    Select
-                </button>
-                ${(!annotation || !annotation.type || annotation.type !== 'polygon' && annotation.type !== 'figure') ? `
-                <button class="action-btn btn-occluded" onclick="markOccluded('${label.name}')">
-                    Occluded
-                </button>
-                ` : ''}
-                <button class="action-btn btn-delete" onclick="deleteAnnotation('${label.name}')">
-                    Delete
-                </button>
+                <button class="action-btn btn-annotate" onclick="selectLabel('${label.name}')">Select</button>
+                ${showOccludedBtn ? '<button class="action-btn btn-occluded" onclick="markOccluded(\'' + label.name + '\')">Occluded</button>' : ''}
+                <button class="action-btn btn-delete" onclick="deleteAnnotation('${label.name}')">Delete</button>
             </div>
         `;
-        
+
         fragment.appendChild(labelDiv);
     });
-    
-    // Clear and append all at once (single reflow)
+
     DOM.labelList.innerHTML = '';
     DOM.labelList.appendChild(fragment);
 }
 
 function renderActivePolygon() {
     clearPolygonElements();
-    
+
     if (STATE.activePolygonPoints.length === 0) return;
-    
-    // Draw points and lines
+
     STATE.activePolygonPoints.forEach((point, index) => {
-        const display = imageToDisplayCoords(point.x, point.y);
-        
+        const { x, y } = imageToDisplayCoords(point.x, point.y);
+
         const pointEl = document.createElement('div');
         pointEl.className = 'polygon-point';
         if (index === 0) pointEl.classList.add('start-point');
-        pointEl.style.left = `${display.x}px`;
-        pointEl.style.top = `${display.y}px`;
-        
+        pointEl.style.left = `${x}px`;
+        pointEl.style.top = `${y}px`;
+
         DOM.imageContainer.appendChild(pointEl);
         STATE.activePolygonElements.points.push(pointEl);
     });
-    
-    // Draw lines
+
     for (let i = 0; i < STATE.activePolygonPoints.length; i++) {
         const p1 = STATE.activePolygonPoints[i];
         const p2 = STATE.activePolygonPoints[(i + 1) % STATE.activePolygonPoints.length];

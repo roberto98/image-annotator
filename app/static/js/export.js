@@ -18,65 +18,80 @@ function selectFormat(format) {
     document.querySelector(`[data-format="${format}"]`).classList.add('selected');
 }
 
+/**
+ * Update image selection state
+ * @param {HTMLElement} item - Image item element
+ * @param {boolean} selected - Whether to select or deselect
+ */
+function setImageSelection(item, selected) {
+    item.classList.toggle('selected', selected);
+    item.querySelector('.image-checkbox').checked = selected;
+}
+
+/**
+ * Toggle image selection
+ * @param {HTMLElement} element - Clicked image element
+ */
 function toggleImage(element) {
-    const patient = element.dataset.patient;
-    const image = element.dataset.image;
-    const key = `${patient}/${image}`;
-    const checkbox = element.querySelector('.image-checkbox');
-    
+    const key = `${element.dataset.patient}/${element.dataset.image}`;
+
     if (selectedImages.has(key)) {
         selectedImages.delete(key);
-        element.classList.remove('selected');
-        checkbox.checked = false;
+        setImageSelection(element, false);
     } else {
         selectedImages.add(key);
-        element.classList.add('selected');
-        checkbox.checked = true;
+        setImageSelection(element, true);
     }
-    
+
     updateSelectedCount();
 }
 
+/**
+ * Select all images
+ */
 function selectAll() {
     document.querySelectorAll('.image-item').forEach(item => {
-        const patient = item.dataset.patient;
-        const image = item.dataset.image;
-        const key = `${patient}/${image}`;
+        const key = `${item.dataset.patient}/${item.dataset.image}`;
         selectedImages.add(key);
-        item.classList.add('selected');
-        item.querySelector('.image-checkbox').checked = true;
+        setImageSelection(item, true);
     });
     updateSelectedCount();
 }
 
+/**
+ * Deselect all images
+ */
 function deselectAll() {
     selectedImages.clear();
     document.querySelectorAll('.image-item').forEach(item => {
-        item.classList.remove('selected');
-        item.querySelector('.image-checkbox').checked = false;
+        setImageSelection(item, false);
     });
     updateSelectedCount();
 }
 
+/**
+ * Select only annotated images
+ */
 function selectAnnotated() {
     deselectAll();
     document.querySelectorAll('.image-item').forEach(item => {
         const annotCount = item.querySelector('.image-annotations').textContent;
         if (parseInt(annotCount) > 0) {
-            const patient = item.dataset.patient;
-            const image = item.dataset.image;
-            const key = `${patient}/${image}`;
+            const key = `${item.dataset.patient}/${item.dataset.image}`;
             selectedImages.add(key);
-            item.classList.add('selected');
-            item.querySelector('.image-checkbox').checked = true;
+            setImageSelection(item, true);
         }
     });
     updateSelectedCount();
 }
 
+/**
+ * Update selected count display and export button state
+ */
 function updateSelectedCount() {
-    document.getElementById('selectedCount').textContent = selectedImages.size;
-    document.getElementById('exportBtn').disabled = selectedImages.size === 0;
+    const count = selectedImages.size;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('exportBtn').disabled = count === 0;
 }
 
 /**
@@ -111,13 +126,11 @@ async function exportAnnotations() {
             throw new Error('Export failed');
         }
         
-        // Get the filename from the header
         const contentDisposition = response.headers.get('Content-Disposition');
-        const filename = contentDisposition 
+        const filename = contentDisposition
             ? contentDisposition.split('filename=')[1].replace(/"/g, '')
             : `annotations.${selectedFormat}`;
-        
-        // Download the file
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -138,15 +151,19 @@ async function exportAnnotations() {
     }
 }
 
-// showMessage is imported from utilities.js
-// For export page, we use a local message element
+/**
+ * Display export message
+ * @param {string} text - Message text
+ * @param {string} type - Message type ('success' or 'error')
+ */
 function showExportMessage(text, type) {
     const message = document.getElementById('message');
     if (!message) return;
+
     message.textContent = text;
     message.className = `message ${type}`;
     message.style.display = 'block';
-    
+
     setTimeout(() => {
         message.style.display = 'none';
     }, 5000);

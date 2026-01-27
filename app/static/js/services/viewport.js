@@ -102,11 +102,8 @@ class Viewport {
             return { x: 0, y: 0 };
         }
 
-        // Get event position
         const clientX = event.touches ? event.touches[0].clientX : event.clientX;
         const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-
-        // Position relative to container
         const containerX = clientX - containerRect.left;
         const containerY = clientY - containerRect.top;
 
@@ -120,15 +117,10 @@ class Viewport {
      * @returns {{x: number, y: number}} Image coordinates
      */
     displayToImage(displayX, displayY) {
-        const zoom = this.zoom;
-        const translateX = this.translateX;
-        const translateY = this.translateY;
-
-        // Reverse the zoom and pan transformations
-        const imageX = (displayX - translateX) / zoom;
-        const imageY = (displayY - translateY) / zoom;
-
-        return { x: imageX, y: imageY };
+        return {
+            x: (displayX - this.translateX) / this.zoom,
+            y: (displayY - this.translateY) / this.zoom
+        };
     }
 
     /**
@@ -138,14 +130,10 @@ class Viewport {
      * @returns {{x: number, y: number}} Display coordinates
      */
     imageToDisplay(imageX, imageY) {
-        const zoom = this.zoom;
-        const translateX = this.translateX;
-        const translateY = this.translateY;
-
-        const displayX = imageX * zoom + translateX;
-        const displayY = imageY * zoom + translateY;
-
-        return { x: displayX, y: displayY };
+        return {
+            x: imageX * this.zoom + this.translateX,
+            y: imageY * this.zoom + this.translateY
+        };
     }
 
     /**
@@ -251,10 +239,8 @@ class Viewport {
     }
 }
 
-// Create a singleton instance
 const viewport = new Viewport();
 
-// Make available globally
 if (typeof window !== 'undefined') {
     window.Viewport = Viewport;
     window.viewport = viewport;

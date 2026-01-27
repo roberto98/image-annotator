@@ -19,8 +19,7 @@ from app.imaging.enhancement import enhance_contrast_adaptive
 
 logger = logging.getLogger(__name__)
 
-# Re-export for convenience
-__all__ = ['load_image', 'is_dicom_file']
+__all__ = ['load_image']
 
 
 def load_image(
@@ -58,36 +57,30 @@ def _load_dicom_image(
     force_invert_dicom: bool,
     high_quality: bool
 ) -> Image.Image:
-    """Internal: Load and process DICOM image."""
-    try:
-        dcm = read_dicom(image_path)
-        pixel_array = extract_pixel_array(dcm, image_path)
+    """Internal: Load and process DICOM image.
 
-        # Handle case where extraction failed and returned zeros
-        if pixel_array.size == 0:
-            return Image.new('RGB', (512, 512), 0)
+    Raises:
+        ValueError: If DICOM file cannot be loaded or processed
+    """
+    dcm = read_dicom(image_path)
+    pixel_array = extract_pixel_array(dcm, image_path)
 
-        invert_image = should_invert(dcm, force_invert_dicom)
+    invert_image = should_invert(dcm, force_invert_dicom)
 
-        if high_quality:
-            window_center, window_width = get_window_parameters(dcm)
-            pixel_array = apply_windowing(pixel_array, window_center, window_width)
-        else:
-            pixel_array = normalize_to_8bit(pixel_array)
+    if high_quality:
+        window_center, window_width = get_window_parameters(dcm)
+        pixel_array = apply_windowing(pixel_array, window_center, window_width)
+    else:
+        pixel_array = normalize_to_8bit(pixel_array)
 
-        # Create PIL Image
-        if is_rgb_photometric(dcm):
-            img = Image.fromarray(pixel_array, 'RGB')
-        else:
-            img = Image.fromarray(pixel_array, 'L')
-            if invert_image:
-                img = ImageOps.invert(img)
-            if high_quality:
-                img = enhance_contrast_adaptive(img)
-            img = img.convert('RGB')
+    # Create PIL Image
+    if is_rgb_photometric(dcm):
+        return Image.fromarray(pixel_array, 'RGB')
 
-        return img
+    img = Image.fromarray(pixel_array, 'L')
+    if invert_image:
+        img = ImageOps.invert(img)
+    if high_quality:
+        img = enhance_contrast_adaptive(img)
 
-    except Exception as e:
-        logger.error(f"Error loading DICOM file {image_path}: {e}")
-        raise ValueError(f"Error loading DICOM file: {e}")
+    return img.convert('RGB')

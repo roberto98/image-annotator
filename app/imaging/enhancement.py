@@ -37,31 +37,3 @@ def enhance_contrast_adaptive(
     enhanced = ImageEnhance.Sharpness(enhanced).enhance(sharpness_factor)
 
     return enhanced
-
-
-def adjust_brightness(img: Image.Image, factor: float) -> Image.Image:
-    """Adjust image brightness.
-
-    Args:
-        img: Input PIL Image
-        factor: Brightness factor (1.0 = no change, <1 darker, >1 brighter)
-
-    Returns:
-        Brightness-adjusted PIL Image
-    """
-    enhancer = ImageEnhance.Brightness(img)
-    return enhancer.enhance(factor)
-
-
-def adjust_contrast(img: Image.Image, factor: float) -> Image.Image:
-    """Adjust image contrast.
-
-    Args:
-        img: Input PIL Image
-        factor: Contrast factor (1.0 = no change)
-
-    Returns:
-        Contrast-adjusted PIL Image
-    """
-    enhancer = ImageEnhance.Contrast(img)
-    return enhancer.enhance(factor)

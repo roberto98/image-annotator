@@ -220,6 +220,19 @@
     gap: 1.25rem;
 }
 
+.stat-card,
+.action-card {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease, box-shadow 0.2s ease;
+}
+
+.stat-card.visible,
+.action-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .stat-card {
     background: white;
     border-radius: 16px;
@@ -228,7 +241,6 @@
     align-items: center;
     gap: 1rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    transition: all 0.2s ease;
 }
 
 .stat-card:hover {

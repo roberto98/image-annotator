@@ -1,10 +1,4 @@
-// DOM element references
-// Centralized DOM element cache for better performance and maintainability
-
-/**
- * DOM element references used throughout the annotation tool
- * Elements are cached on page load to avoid repeated DOM queries
- */
+/** Cached DOM element references used throughout the annotation tool */
 const DOM = {
     // Main image elements
     img: document.getElementById('annotationImage'),

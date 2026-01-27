@@ -29,19 +29,15 @@ function handlePolygonDrag(coords) {
         STATE.activePolygonPoints[STATE.selectedPointIndex] = { x: coords.x, y: coords.y };
         renderActivePolygon();
     } else if (STATE.polygonTool === 'move' && STATE.polygonDragging && STATE.polygonMoveStart) {
-        // Calculate delta from last position
         const deltaX = coords.x - STATE.polygonMoveStart.x;
         const deltaY = coords.y - STATE.polygonMoveStart.y;
-        
-        // Move all points by delta
+
         STATE.activePolygonPoints = STATE.activePolygonPoints.map(point => ({
             x: point.x + deltaX,
             y: point.y + deltaY
         }));
-        
-        // Update start position for next drag event
+
         STATE.polygonMoveStart = { x: coords.x, y: coords.y };
-        
         renderActivePolygon();
     }
 }
@@ -61,7 +57,7 @@ async function completePolygon() {
         showMessage('Need at least 3 points', 'warning');
         return;
     }
-    
+
     try {
         const response = await fetch(`/api/segments/${window.patientId}/${window.imageName}/${STATE.selectedLabel}`, {
             method: 'POST',
@@ -71,14 +67,14 @@ async function completePolygon() {
                 points: STATE.activePolygonPoints
             })
         });
-        
+
         const data = await response.json();
         if (data.status === 'success') {
             STATE.annotations[STATE.selectedLabel] = {
                 type: 'polygon',
                 status: 'ok',
                 points: STATE.activePolygonPoints,
-                timestamp: new Date().toISOString()
+                timestamp: createTimestamp()
             };
             saveToHistory();
             renderLabelList();

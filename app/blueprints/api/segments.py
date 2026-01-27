@@ -2,33 +2,26 @@
 """Segment (polygon) annotation API endpoints."""
 
 from flask import jsonify, request
-import config
 from app.blueprints.api import api_bp
-
-
-def get_annotations_manager():
-    """Get the annotations manager from the app context."""
-    from flask import current_app
-    return current_app.config['annotations']
+from app.blueprints.api.common import (
+    get_annotations_manager,
+    success_response,
+    error_response,
+    filter_annotations_by_type
+)
 
 
 @api_bp.route('/segments/<patient>/<image>')
-def get_image_segments(patient, image):
+def get_image_segments(patient: str, image: str) -> tuple:
     """Return polygon segments for an image as JSON."""
     annotations = get_annotations_manager()
     all_annotations = annotations.get_all_landmarks(patient, image)
-
-    # Filter to only include polygon segments
-    segments = {}
-    for name, data in all_annotations.items():
-        if data.get("type") == "polygon":
-            segments[name] = data
-
+    segments = filter_annotations_by_type(all_annotations, 'polygon')
     return jsonify(segments)
 
 
 @api_bp.route('/segments/<patient>/<image>/<segment_name>', methods=['POST'])
-def save_segment_annotation(patient, image, segment_name):
+def save_segment_annotation(patient: str, image: str, segment_name: str) -> tuple:
     """Save or remove a polygon segment annotation."""
     annotations = get_annotations_manager()
     action = request.json.get('action')
@@ -36,20 +29,10 @@ def save_segment_annotation(patient, image, segment_name):
     if action == 'polygon':
         points = request.json.get('points', [])
         annotations.write_polygon(patient, image, segment_name, points)
-        return jsonify({'status': 'success'})
+        return success_response()
 
     elif action == 'remove':
         annotations.remove_segment(patient, image, segment_name)
-        return jsonify({'status': 'success'})
+        return success_response()
 
-    return jsonify({'status': 'error', 'message': 'Invalid action'}), 400
-
-
-@api_bp.route('/segments', methods=['POST'])
-def add_new_segment():
-    """Register a new segment label (no-op since labels are auto-discovered)."""
-    segment_name = request.json.get('segment_name')
-    if segment_name:
-        config.add_new_segment(segment_name)
-        return jsonify({'status': 'success'})
-    return jsonify({'status': 'error', 'message': 'Invalid segment name'}), 400
+    return error_response('Invalid action')

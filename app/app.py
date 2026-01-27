@@ -33,8 +33,6 @@ def setup_logging(app: Flask) -> None:
     root_logger.addHandler(handler)
     root_logger.setLevel(logging.ERROR)
 
-    app.logger.handlers = [h for h in app.logger.handlers if isinstance(h, RotatingFileHandler)]
-
 
 def create_app() -> Flask:
     """Application factory for creating Flask app instances."""
@@ -42,6 +40,10 @@ def create_app() -> Flask:
     app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 
     setup_logging(app)
+
+    # Ensure required directories exist
+    Path(config.IMAGE_DIR).mkdir(exist_ok=True, parents=True)
+    Path(config.ANNOTATION_DIR).mkdir(exist_ok=True, parents=True)
 
     # Initialize global managers and store in app config
     annotations = AnnotationManager(config.ANNOTATION_DIR)
@@ -53,12 +55,6 @@ def create_app() -> Flask:
     from app.blueprints import api_bp, views_bp
     app.register_blueprint(api_bp)
     app.register_blueprint(views_bp)
-
-    # Setup before_request handler
-    @app.before_request
-    def ensure_directories():
-        Path(config.IMAGE_DIR).mkdir(exist_ok=True, parents=True)
-        Path(config.ANNOTATION_DIR).mkdir(exist_ok=True, parents=True)
 
     # Setup error handlers
     @app.errorhandler(404)
@@ -72,10 +68,3 @@ def create_app() -> Flask:
         return render_template('error.html', error_message="An unexpected error occurred", details=str(e)), 500
 
     return app
-
-
-# Create the default app instance for backward compatibility
-app = create_app()
-
-if __name__ == '__main__':
-    app.run()

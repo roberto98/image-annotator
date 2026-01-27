@@ -13,33 +13,22 @@ logger = logging.getLogger(__name__)
 
 def validate_coordinates(x: float, y: float, width: int, height: int) -> Tuple[float, float]:
     """Clamp coordinates to image bounds."""
-    x_valid = max(0, min(float(x), width - 1))
-    y_valid = max(0, min(float(y), height - 1))
-    return x_valid, y_valid
+    return max(0, min(float(x), width - 1)), max(0, min(float(y), height - 1))
 
 
 def get_font(base_size: int) -> ImageFont.FreeTypeFont:
-    """Get appropriate font for annotation labels."""
+    """Get font scaled to image dimensions, falling back to default if unavailable."""
     font_size = max(12, int(base_size * 0.015))
     try:
         return ImageFont.truetype("arial.ttf", font_size)
-    except Exception:
-        try:
-            return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-        except Exception:
-            return ImageFont.load_default()
+    except OSError:
+        return ImageFont.load_default()
 
 
 def get_text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> Tuple[int, int]:
-    """Get text dimensions, with fallback for older PIL versions."""
-    try:
-        if hasattr(draw, 'textsize'):
-            return draw.textsize(text, font=font)
-        bbox = draw.textbbox((0, 0), text, font=font)
-        return bbox[2] - bbox[0], bbox[3] - bbox[1]
-    except Exception:
-        font_size = getattr(font, 'size', 12)
-        return len(text) * font_size // 2, font_size
+    """Get text dimensions (width, height) using Pillow 10+ textbbox API."""
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
 def draw_text_with_background(
@@ -49,7 +38,18 @@ def draw_text_with_background(
     position: Tuple[float, float],
     font: ImageFont.FreeTypeFont
 ) -> Tuple[PILImage, ImageDraw.ImageDraw]:
-    """Draw text with semi-transparent background for readability."""
+    """Draw text with semi-transparent background for readability.
+
+    Args:
+        image: Source image
+        draw: ImageDraw context
+        text: Text to draw
+        position: (x, y) position for text
+        font: Font to use
+
+    Returns:
+        Tuple of (updated image, updated draw context)
+    """
     text_x, text_y = position
     text_width, text_height = get_text_size(draw, text, font)
 
@@ -81,26 +81,30 @@ def draw_landmarks(
 ) -> Tuple[PILImage, ImageDraw.ImageDraw, Dict[str, RGBColor]]:
     """Draw landmark points on image.
 
+    Args:
+        image: Source image
+        draw: ImageDraw context
+        landmarks: Dict of landmark data by name
+        colors: Dict mapping landmark names to RGB colors
+        font: Font for labels
+        marker_radius: Radius of landmark circles
+
     Returns:
         Tuple of (updated image, draw context, visible landmarks dict)
     """
     width, height = image.size
     visible_landmarks = {}
-    outline_width = 1
 
     for name, data in landmarks.items():
         try:
             if data.get("status") == "occluded/missing":
                 continue
 
-            if "coordinates" not in data:
-                continue
-
             coords = data.get("coordinates", {})
             if not coords or "x" not in coords or "y" not in coords:
                 continue
 
-            x_orig, y_orig = float(coords.get("x", 0)), float(coords.get("y", 0))
+            x_orig, y_orig = float(coords["x"]), float(coords["y"])
             x, y = validate_coordinates(x_orig, y_orig, width, height)
             color = colors.get(name, (255, 0, 0))
 
@@ -108,7 +112,7 @@ def draw_landmarks(
                 (x - marker_radius, y - marker_radius, x + marker_radius, y + marker_radius),
                 fill=color,
                 outline=(0, 0, 0),
-                width=outline_width
+                width=1
             )
 
             # Position text label
@@ -138,6 +142,12 @@ def draw_segments(
 ) -> Tuple[PILImage, ImageDraw.ImageDraw, Dict[str, RGBColor]]:
     """Draw polygon segments on image.
 
+    Args:
+        image: Source image
+        draw: ImageDraw context
+        segments: Dict of segment data by name
+        colors: Dict mapping segment names to RGB colors
+
     Returns:
         Tuple of (updated image, draw context, visible segments dict)
     """
@@ -156,11 +166,17 @@ def draw_segments(
             color = colors.get(name, (255, 0, 0))
 
             # Draw polygon outline
-            for i in range(len(points_list)):
-                x1, y1 = float(points_list[i].get("x", 0)), float(points_list[i].get("y", 0))
-                x2, y2 = float(points_list[(i + 1) % len(points_list)].get("x", 0)), float(points_list[(i + 1) % len(points_list)].get("y", 0))
+            num_points = len(points_list)
+            for i in range(num_points):
+                p1 = points_list[i]
+                p2 = points_list[(i + 1) % num_points]
+
+                x1, y1 = float(p1.get("x", 0)), float(p1.get("y", 0))
+                x2, y2 = float(p2.get("x", 0)), float(p2.get("y", 0))
+
                 x1_valid, y1_valid = validate_coordinates(x1, y1, width, height)
                 x2_valid, y2_valid = validate_coordinates(x2, y2, width, height)
+
                 draw.line([(x1_valid, y1_valid), (x2_valid, y2_valid)], fill=color, width=3)
 
             visible_segments[name] = color
@@ -181,6 +197,14 @@ def draw_figures(
 ) -> Tuple[PILImage, ImageDraw.ImageDraw, Dict[str, Tuple[RGBColor, str]]]:
     """Draw geometric figures on image.
 
+    Args:
+        image: Source image
+        draw: ImageDraw context
+        figures: Dict of figure data by name
+        colors: Dict mapping figure names to RGB colors
+        font: Font for labels
+        base_size: Base size for scaling calculations
+
     Returns:
         Tuple of (updated image, draw context, visible figures dict with color and shape)
     """
@@ -193,7 +217,7 @@ def draw_figures(
             if data.get("status") != "ok" or "x" not in data or "y" not in data:
                 continue
 
-            x, y = float(data.get("x", 0)), float(data.get("y", 0))
+            x, y = float(data["x"]), float(data["y"])
             size = int(data.get("size", 50))
             shape = data.get("shape", "circle")
             x_valid, y_valid = validate_coordinates(x, y, width, height)
@@ -204,22 +228,19 @@ def draw_figures(
                 draw = ImageDraw.Draw(image)
 
             half_size = size / 2
-            bbox = [x_valid - half_size, y_valid - half_size, x_valid + half_size, y_valid + half_size]
 
-            if shape == "circle":
-                draw.ellipse(bbox, fill=None, outline=color, width=3)
-                text_x = x_valid + half_size + 5
-                text_y = y_valid - font_size // 2
-            elif shape == "rectangle":
-                draw.rectangle(bbox, fill=None, outline=color, width=3)
-                text_x = x_valid + half_size + 5
-                text_y = y_valid - font_size // 2
-            elif shape == "line":
+            if shape == "line":
                 text_x, text_y = _draw_line_figure(
                     draw, data, x_valid, y_valid, size, color, base_size, font_size, width, height
                 )
             else:
-                draw.rectangle(bbox, fill=None, outline=color, width=3)
+                bbox = [x_valid - half_size, y_valid - half_size, x_valid + half_size, y_valid + half_size]
+
+                if shape == "circle":
+                    draw.ellipse(bbox, fill=None, outline=color, width=3)
+                else:  # rectangle or default
+                    draw.rectangle(bbox, fill=None, outline=color, width=3)
+
                 text_x = x_valid + half_size + 5
                 text_y = y_valid - font_size // 2
 
@@ -250,12 +271,28 @@ def _draw_line_figure(
     width: int,
     height: int
 ) -> Tuple[float, float]:
-    """Draw a line figure and return text position."""
+    """Draw a line figure and return text position.
+
+    Args:
+        draw: ImageDraw context
+        data: Figure data dict
+        x_valid: Valid center x coordinate
+        y_valid: Valid center y coordinate
+        size: Figure size
+        color: RGB color
+        base_size: Base size for scaling
+        font_size: Font size for text positioning
+        width: Image width
+        height: Image height
+
+    Returns:
+        Tuple of (text_x, text_y) for label positioning
+    """
     if "startX" in data and "startY" in data and "endX" in data and "endY" in data:
-        start_x = float(data.get("startX", 0))
-        start_y = float(data.get("startY", 0))
-        end_x = float(data.get("endX", 0))
-        end_y = float(data.get("endY", 0))
+        start_x = float(data["startX"])
+        start_y = float(data["startY"])
+        end_x = float(data["endX"])
+        end_y = float(data["endY"])
 
         start_x_valid, start_y_valid = validate_coordinates(start_x, start_y, width, height)
         end_x_valid, end_y_valid = validate_coordinates(end_x, end_y, width, height)

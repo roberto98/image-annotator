@@ -7,76 +7,79 @@ ensuring consistent naming across images, annotations, and generated files.
 import os
 import re
 import json
-from typing import Tuple, Dict, List, Any
+from typing import Any, Dict, Tuple
 
 
 def clean_name(name: str) -> str:
-    """Remove special characters and spaces from a filename or directory name.
-
-    Args:
-        name: Original filename or directory name
-
-    Returns:
-        Sanitized name with only alphanumeric characters, underscores, hyphens, and dots
-    """
+    """Sanitize a filename to only alphanumeric characters, underscores, hyphens, and dots."""
     clean = re.sub(r'[^a-zA-Z0-9_.-]', '', name)
     if not clean:
         clean = "unnamed"
     return clean
 
 
+def _update_string_reference(value: str, file_map: Dict[str, str], base_dir: str) -> Tuple[str, bool]:
+    """Update a single string reference if it's a file path. Returns (value, changed)."""
+    if '.' not in value:
+        return value, False
+
+    if '/' in value or '\\' in value:
+        abs_path = os.path.abspath(os.path.join(base_dir, value))
+        if abs_path in file_map:
+            new_abs_path = file_map[abs_path]
+            rel_new_path = os.path.relpath(new_abs_path, base_dir)
+            return rel_new_path.replace('\\', '/'), True
+    else:
+        clean_filename = clean_name(value)
+        if value != clean_filename:
+            return clean_filename, True
+
+    return value, False
+
+
 def _update_references(obj: Any, file_map: Dict[str, str], base_dir: str) -> bool:
-    """Recursively update file references in a JSON structure.
-
-    Args:
-        obj: JSON object (dict or list) to update
-        file_map: Mapping from old paths to new paths
-        base_dir: Base directory for relative path resolution
-
-    Returns:
-        True if any references were updated
-    """
+    """Recursively update file references in a JSON structure. Returns True if changed."""
     updated = False
 
     if isinstance(obj, dict):
         for key, value in list(obj.items()):
-            if isinstance(value, str) and ('.' in value):
-                if '/' in value or '\\' in value:
-                    abs_path = os.path.abspath(os.path.join(base_dir, value))
-                    if abs_path in file_map:
-                        new_abs_path = file_map[abs_path]
-                        rel_new_path = os.path.relpath(new_abs_path, base_dir)
-                        obj[key] = rel_new_path.replace('\\', '/')
-                        updated = True
-                else:
-                    clean_filename = clean_name(value)
-                    if value != clean_filename:
-                        obj[key] = clean_filename
-                        updated = True
+            if isinstance(value, str):
+                new_value, changed = _update_string_reference(value, file_map, base_dir)
+                if changed:
+                    obj[key] = new_value
+                    updated = True
             elif isinstance(value, (dict, list)):
                 if _update_references(value, file_map, base_dir):
                     updated = True
 
     elif isinstance(obj, list):
         for i, item in enumerate(obj):
-            if isinstance(item, str) and ('.' in item):
-                if '/' in item or '\\' in item:
-                    abs_path = os.path.abspath(os.path.join(base_dir, item))
-                    if abs_path in file_map:
-                        new_abs_path = file_map[abs_path]
-                        rel_new_path = os.path.relpath(new_abs_path, base_dir)
-                        obj[i] = rel_new_path.replace('\\', '/')
-                        updated = True
-                else:
-                    clean_filename = clean_name(item)
-                    if item != clean_filename:
-                        obj[i] = clean_filename
-                        updated = True
+            if isinstance(item, str):
+                new_value, changed = _update_string_reference(item, file_map, base_dir)
+                if changed:
+                    obj[i] = new_value
+                    updated = True
             elif isinstance(item, (dict, list)):
                 if _update_references(item, file_map, base_dir):
                     updated = True
 
     return updated
+
+
+def _resolve_name_conflict(parent_dir: str, new_name: str, is_file: bool) -> str:
+    """Resolve naming conflicts by appending a counter suffix."""
+    if is_file:
+        base, ext = os.path.splitext(new_name)
+        counter = 1
+        while os.path.exists(os.path.join(parent_dir, f"{base}_{counter}{ext}")):
+            counter += 1
+        return f"{base}_{counter}{ext}"
+    else:
+        new_path = os.path.join(parent_dir, new_name)
+        counter = 1
+        while os.path.exists(f"{new_path}_{counter}"):
+            counter += 1
+        return f"{new_name}_{counter}"
 
 
 def clean_project_structure(base_dir: str = ".", verbose: bool = True) -> Tuple[int, int]:
@@ -118,13 +121,9 @@ def clean_project_structure(base_dir: str = ".", verbose: bool = True) -> Tuple[
                     parent_dir = os.path.dirname(old_path)
                     new_path = os.path.join(parent_dir, new_name)
 
-                    # Handle name conflicts
                     if os.path.exists(new_path) and old_path != new_path:
-                        base, ext = os.path.splitext(new_name)
-                        counter = 1
-                        while os.path.exists(os.path.join(parent_dir, f"{base}_{counter}{ext}")):
-                            counter += 1
-                        new_path = os.path.join(parent_dir, f"{base}_{counter}{ext}")
+                        new_name = _resolve_name_conflict(parent_dir, new_name, is_file=True)
+                        new_path = os.path.join(parent_dir, new_name)
 
                     file_name_map[old_path] = new_path
 
@@ -137,16 +136,12 @@ def clean_project_structure(base_dir: str = ".", verbose: bool = True) -> Tuple[
                     parent_dir = os.path.dirname(old_path)
                     new_path = os.path.join(parent_dir, new_name)
 
-                    # Handle name conflicts
                     if os.path.exists(new_path) and old_path != new_path:
-                        counter = 1
-                        while os.path.exists(f"{new_path}_{counter}"):
-                            counter += 1
-                        new_path = f"{new_path}_{counter}"
+                        new_name = _resolve_name_conflict(parent_dir, new_name, is_file=False)
+                        new_path = os.path.join(parent_dir, new_name)
 
                     dir_name_map[old_path] = new_path
 
-    # If nothing to rename, return early
     if not file_name_map and not dir_name_map:
         return 0, 0
 

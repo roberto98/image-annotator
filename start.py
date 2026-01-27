@@ -1,7 +1,7 @@
 # start.py
 """Application entry point. Run with: python start.py [--host HOST] [--port PORT] [--debug]"""
 import argparse
-from app.app import app
+from app.app import create_app
 from app.file_utils import clean_project_structure
 
 
@@ -45,6 +45,7 @@ def main():
         else:
             print("All file and folder names are OK.\n")
     
+    app = create_app()
     print(f"Starting server at http://{args.host}:{args.port}")
     app.run(host=args.host, port=args.port, debug=args.debug)
 

@@ -4,14 +4,40 @@
  * @module store
  */
 
+let DEBUG_MODE = false;
+
 /**
- * Deep clone an object
- * @param {*} obj - Object to clone
- * @returns {*} Cloned object
+ * Enable or disable debug logging
+ * @param {boolean} enabled
  */
+function setDebugMode(enabled) {
+    DEBUG_MODE = enabled;
+    if (enabled) {
+        console.log('[Store] Debug mode enabled');
+    }
+}
+
+function debugLog(action, data = null) {
+    if (!DEBUG_MODE) return;
+
+    const timestamp = new Date().toISOString().substring(11, 23);
+    const args = data !== null ? [action, data] : [action];
+    console.log(`[Store ${timestamp}]`, ...args);
+}
+
+/** Deep clone using structuredClone with JSON fallback */
 function deepClone(obj) {
+    if (typeof structuredClone === 'function') {
+        try {
+            return structuredClone(obj);
+        } catch {
+            // Fall through to manual clone
+        }
+    }
+
     if (obj === null || typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) return obj.map(deepClone);
+
     return Object.fromEntries(
         Object.entries(obj).map(([key, val]) => [key, deepClone(val)])
     );
@@ -61,17 +87,17 @@ class Store {
 
         if (typeof updater === 'function') {
             const changes = updater(this._state);
+            debugLog('setState (function)', { changes });
             Object.assign(this._state, changes);
         } else {
+            debugLog('setState', { updater });
             Object.assign(this._state, updater);
         }
 
-        // Save to history if requested and not suppressed
         if (saveHistory && !this._suppressHistory) {
             this._pushHistory(prevState);
         }
 
-        // Notify all listeners
         this._notify(prevState);
     }
 
@@ -82,6 +108,7 @@ class Store {
      * @param {boolean} saveHistory - Whether to save to history
      */
     set(path, value, saveHistory = false) {
+        debugLog(`set '${path}'`, value);
         const prevState = deepClone(this._state);
         const keys = path.split('.');
         const lastKey = keys.pop();
@@ -114,10 +141,12 @@ class Store {
      * @returns {boolean} True if undo was performed
      */
     undo() {
-        if (this._historyIndex < 0) return false;
+        if (!this.canUndo()) return false;
+
+        debugLog('undo', { historyIndex: this._historyIndex });
+        const prevState = deepClone(this._state);
 
         this._suppressHistory = true;
-        const prevState = deepClone(this._state);
         this._state = deepClone(this._history[this._historyIndex]);
         this._historyIndex--;
         this._suppressHistory = false;
@@ -131,10 +160,12 @@ class Store {
      * @returns {boolean} True if redo was performed
      */
     redo() {
-        if (this._historyIndex >= this._history.length - 2) return false;
+        if (!this.canRedo()) return false;
+
+        debugLog('redo', { historyIndex: this._historyIndex });
+        const prevState = deepClone(this._state);
 
         this._suppressHistory = true;
-        const prevState = deepClone(this._state);
         this._historyIndex++;
         this._state = deepClone(this._history[this._historyIndex + 1]);
         this._suppressHistory = false;
@@ -188,7 +219,6 @@ class Store {
     // Private methods
 
     _pushHistory(state) {
-        // Remove any future history if we're not at the end
         if (this._historyIndex < this._history.length - 1) {
             this._history = this._history.slice(0, this._historyIndex + 1);
         }
@@ -196,7 +226,6 @@ class Store {
         this._history.push(deepClone(state));
         this._historyIndex = this._history.length - 1;
 
-        // Limit history size
         if (this._history.length > this._maxHistorySize) {
             this._history.shift();
             this._historyIndex--;
@@ -214,39 +243,30 @@ class Store {
     }
 }
 
-// Create the default initial state
 const INITIAL_STATE = {
-    // Current tool mode
-    currentTool: 'landmark', // 'landmark', 'polygon', 'figure'
+    currentTool: 'landmark',
     selectedLabel: null,
 
-    // Annotations data
     annotations: {},
     allLabels: [],
     visibilityToggles: {},
 
-    // Image state
     imageLoaded: false,
     naturalWidth: 0,
     naturalHeight: 0,
-
-    // Patient/Image context
     patientId: null,
     imageName: null,
 
-    // Zoom and pan state
     currentZoom: 1,
     maxZoom: 1000,
     translateX: 0,
     translateY: 0,
 
-    // Interaction modes
     isAnnotationMode: true,
     isDragging: false,
     startDragX: 0,
     startDragY: 0,
 
-    // Polygon drawing state
     activePolygonPoints: [],
     activePolygonElements: { points: [], lines: [] },
     polygonTool: 'draw',
@@ -254,7 +274,6 @@ const INITIAL_STATE = {
     selectedPointIndex: -1,
     polygonMoveStart: null,
 
-    // Figure drawing state
     figureShape: 'circle',
     figureSize: 50,
     figureDrawing: false,
@@ -262,7 +281,6 @@ const INITIAL_STATE = {
     figureStartY: 0,
     figurePreview: null,
 
-    // Figure interaction state
     selectedFigure: null,
     figureDragging: false,
     figureResizing: false,
@@ -276,7 +294,6 @@ const INITIAL_STATE = {
     figureDragOffsetY: 0,
     showCenterIndicators: true,
 
-    // Line drawing state
     linePoints: [],
     lineDrawing: false,
     linePointDragging: false,
@@ -287,20 +304,53 @@ const INITIAL_STATE = {
     figureOriginalEndX: 0,
     figureOriginalEndY: 0,
 
-    // Unsaved changes tracking
     hasUnsavedChanges: false,
-
-    // Image adjustments
     brightness: 100,
     contrast: 100
 };
 
-// Export store class and create a singleton instance
-// The singleton can be used directly, or new instances can be created for testing
+/**
+ * Create a proxy wrapper around the store for backward compatibility.
+ * Allows direct property access (STATE.property) to read/write store state.
+ * @param {Store} storeInstance - The store instance to wrap
+ * @returns {Proxy} Proxy that allows direct property access
+ */
+function createStateProxy(storeInstance) {
+    return new Proxy({}, {
+        get(target, prop) {
+            if (prop === Symbol.toStringTag) return 'STATE';
+            if (prop === '__store__') return storeInstance;
+            return storeInstance._state[prop];
+        },
+
+        set(target, prop, value) {
+            debugLog(`STATE.${prop} =`, value);
+            storeInstance._state[prop] = value;
+            storeInstance._notify(null);
+            return true;
+        },
+
+        has(target, prop) {
+            return prop in storeInstance._state;
+        },
+
+        ownKeys(target) {
+            return Object.keys(storeInstance._state);
+        },
+
+        getOwnPropertyDescriptor(target, prop) {
+            return prop in storeInstance._state
+                ? { enumerable: true, configurable: true, value: storeInstance._state[prop] }
+                : undefined;
+        }
+    });
+}
+
 const store = new Store(INITIAL_STATE);
 
-// Make available globally for backward compatibility with existing code
 if (typeof window !== 'undefined') {
     window.AppStore = store;
     window.Store = Store;
+    window.createStateProxy = createStateProxy;
+    window.setStoreDebugMode = setDebugMode;
 }

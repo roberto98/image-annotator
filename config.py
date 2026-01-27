@@ -8,7 +8,7 @@ invalidated when annotation files change.
 from pathlib import Path
 import json
 import shutil
-from typing import List, Dict, Any, Tuple, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 BASE_DIR = Path.cwd()
 IMAGE_HEIGHT = 600
@@ -16,25 +16,28 @@ IMAGE_DIR = str(BASE_DIR / "images")
 ANNOTATION_DIR = str(BASE_DIR / "annotations")
 
 _annotation_cache: Optional[Dict[str, Any]] = None
-_cache_mtime: float = 0
+_cache_mtime: float = 0.0
+
+
+def _iter_annotation_dirs():
+    """Yield patient directories in the annotation folder."""
+    annotation_dir = Path(ANNOTATION_DIR)
+    if not annotation_dir.exists():
+        return
+    for folder in annotation_dir.iterdir():
+        if folder.is_dir() and not folder.name.startswith("__"):
+            yield folder
 
 
 def _get_annotations_dir_mtime() -> float:
     """Get latest modification time of annotation files for cache invalidation."""
-    annotation_dir = Path(ANNOTATION_DIR)
-    if not annotation_dir.exists():
-        return 0
-
-    latest_mtime = 0
-    for folder in annotation_dir.iterdir():
-        if folder.is_dir() and not folder.name.startswith("__"):
-            for file in folder.glob("*.json"):
-                try:
-                    mtime = file.stat().st_mtime
-                    if mtime > latest_mtime:
-                        latest_mtime = mtime
-                except OSError:
-                    continue
+    latest_mtime = 0.0
+    for folder in _iter_annotation_dirs():
+        for file in folder.glob("*.json"):
+            try:
+                latest_mtime = max(latest_mtime, file.stat().st_mtime)
+            except OSError:
+                continue
     return latest_mtime
 
 
@@ -42,7 +45,7 @@ def _invalidate_cache() -> None:
     """Force cache invalidation after modifications."""
     global _annotation_cache, _cache_mtime
     _annotation_cache = None
-    _cache_mtime = 0
+    _cache_mtime = 0.0
 
 
 def _get_total_images() -> int:
@@ -61,15 +64,10 @@ def _get_total_images() -> int:
 
 def _determine_annotation_type(info: Dict[str, Any]) -> Optional[str]:
     """Infer annotation type from data structure: 'polygon', 'figure', or 'landmark'."""
-    if not isinstance(info, dict):
-        return None
-
     ann_type = info.get("type")
-    if ann_type == "polygon":
-        return "polygon"
-    elif ann_type == "figure":
-        return "figure"
-    elif "coordinates" in info or ann_type is None:
+    if ann_type in ("polygon", "figure"):
+        return ann_type
+    if "coordinates" in info or ann_type is None:
         return "landmark"
     return None
 
@@ -91,42 +89,29 @@ def _scan_all_annotations() -> Dict[str, Any]:
     }
     counts: Dict[Tuple[str, str], int] = {}
 
-    annotation_dir = Path(ANNOTATION_DIR)
-    if annotation_dir.exists():
-        for folder in annotation_dir.iterdir():
-            if folder.is_dir() and not folder.name.startswith("__"):
-                for file in folder.glob("*.json"):
-                    try:
-                        data = json.loads(file.read_text())
-                        for name, info in data.items():
-                            ann_type = _determine_annotation_type(info)
-                            if ann_type:
-                                labels[ann_type].add(name)
-                                key = (name, ann_type)
-                                counts[key] = counts.get(key, 0) + 1
-                    except Exception:
-                        continue
+    for folder in _iter_annotation_dirs():
+        for file in folder.glob("*.json"):
+            try:
+                data = json.loads(file.read_text())
+                for name, info in data.items():
+                    ann_type = _determine_annotation_type(info)
+                    if ann_type:
+                        labels[ann_type].add(name)
+                        key = (name, ann_type)
+                        counts[key] = counts.get(key, 0) + 1
+            except Exception:
+                continue
 
     _annotation_cache = {'labels': labels, 'counts': counts}
-    _cache_mtime = current_mtime if current_mtime > 0 else float('inf')
+    _cache_mtime = current_mtime
 
     return _annotation_cache
 
 
 class AnnotationTypeManager:
-    """Unified manager for annotation types (landmark, polygon, figure).
-
-    Provides a common interface for retrieving, listing, and removing
-    annotations of a specific type.
-    """
+    """Unified manager for annotation types (landmark, polygon, figure)."""
 
     def __init__(self, type_name: str, storage_key: str):
-        """Initialize manager for a specific annotation type.
-
-        Args:
-            type_name: Display name for the annotation type
-            storage_key: Key used in cache storage ('landmark', 'polygon', 'figure')
-        """
         self.type_name = type_name
         self.storage_key = storage_key
 
@@ -155,44 +140,33 @@ class AnnotationTypeManager:
         Returns:
             Tuple of (files_modified, files_deleted) counts
         """
-        annotation_dir = Path(ANNOTATION_DIR)
         files_modified = 0
         files_deleted = 0
 
-        for patient_dir in annotation_dir.iterdir():
-            if patient_dir.is_dir() and not patient_dir.name.startswith("__"):
-                for json_file in patient_dir.glob("*.json"):
-                    try:
-                        data = json.loads(json_file.read_text())
-                        if name in data and _determine_annotation_type(data[name]) == self.storage_key:
-                            del data[name]
-                            files_modified += 1
-                            if not data:
-                                json_file.unlink()
-                                files_deleted += 1
-                            else:
-                                json_file.write_text(json.dumps(data, indent=4))
-                    except Exception:
-                        continue
-                if patient_dir.exists() and not any(patient_dir.iterdir()):
-                    patient_dir.rmdir()
+        for patient_dir in _iter_annotation_dirs():
+            for json_file in patient_dir.glob("*.json"):
+                try:
+                    data = json.loads(json_file.read_text())
+                    if name in data and _determine_annotation_type(data[name]) == self.storage_key:
+                        del data[name]
+                        files_modified += 1
+                        if not data:
+                            json_file.unlink()
+                            files_deleted += 1
+                        else:
+                            json_file.write_text(json.dumps(data, indent=4))
+                except Exception:
+                    continue
+            if patient_dir.exists() and not any(patient_dir.iterdir()):
+                patient_dir.rmdir()
 
         _invalidate_cache()
 
-        # Clear generated visualization images
-        generated_dir = annotation_dir / "__images_with_landmarks"
+        generated_dir = Path(ANNOTATION_DIR) / "__images_with_landmarks"
         if generated_dir.exists():
             shutil.rmtree(generated_dir, ignore_errors=True)
 
         return files_modified, files_deleted
-
-    def add(self, name: str) -> bool:
-        """Add a new annotation label (no-op since labels are auto-discovered)."""
-        return True
-
-    def remove(self, name: str) -> bool:
-        """Remove annotation label (always False since labels are auto-discovered)."""
-        return False
 
 
 # Factory instances for each annotation type
@@ -201,59 +175,14 @@ segments_manager = AnnotationTypeManager('segment', 'polygon')
 figures_manager = AnnotationTypeManager('figure', 'figure')
 
 
-# === Backward-compatible Public API: Landmarks ===
-def get_landmarks() -> List[Dict[str, Any]]:
-    """Get all landmark (point) annotations."""
-    return landmarks_manager.get_all()
+get_landmarks = landmarks_manager.get_all
+get_landmark_names = landmarks_manager.get_names
+remove_landmark_files = landmarks_manager.remove_files
 
-def get_landmark_names() -> List[str]:
-    """Get all landmark names currently in use."""
-    return landmarks_manager.get_names()
+get_segments = segments_manager.get_all
+get_segment_names = segments_manager.get_names
+remove_segment_files = segments_manager.remove_files
 
-def remove_landmark(name: str) -> bool:
-    """Remove landmark - always returns False since labels are auto-discovered."""
-    return landmarks_manager.remove(name)
-
-def remove_landmark_files(name: str) -> Tuple[int, int]:
-    """Remove all landmark occurrences from annotation files."""
-    return landmarks_manager.remove_files(name)
-
-def add_new_landmark(name: str) -> bool:
-    """Landmarks are created when first annotated - no pre-config needed."""
-    return landmarks_manager.add(name)
-
-
-# === Backward-compatible Public API: Segments ===
-def get_segments() -> List[Dict[str, Any]]:
-    """Get all segment (polygon) annotations."""
-    return segments_manager.get_all()
-
-def get_segment_names() -> List[str]:
-    """Get all segment names currently in use."""
-    return segments_manager.get_names()
-
-def remove_segment_files(name: str) -> Tuple[int, int]:
-    """Remove all segment occurrences from annotation files."""
-    return segments_manager.remove_files(name)
-
-def add_new_segment(name: str) -> bool:
-    """Segments are created when first annotated - no pre-config needed."""
-    return segments_manager.add(name)
-
-
-# === Backward-compatible Public API: Figures ===
-def get_figures() -> List[Dict[str, Any]]:
-    """Get all figure annotations."""
-    return figures_manager.get_all()
-
-def get_figure_names() -> List[str]:
-    """Get all figure names currently in use."""
-    return figures_manager.get_names()
-
-def remove_figure_files(name: str) -> Tuple[int, int]:
-    """Remove all figure occurrences from annotation files."""
-    return figures_manager.remove_files(name)
-
-def add_new_figure(name: str) -> bool:
-    """Figures are created when first annotated - no pre-config needed."""
-    return figures_manager.add(name)
+get_figures = figures_manager.get_all
+get_figure_names = figures_manager.get_names
+remove_figure_files = figures_manager.remove_files

@@ -35,7 +35,7 @@ class AnnotationManager:
                 return {}
         return {}
 
-    def _write_annotation_file(self, patient: str, image: str, data: dict, new_annotation: bool = False) -> None:
+    def _write_annotation_file(self, patient: str, image: str, data: dict) -> None:
         """Write annotations to JSON file."""
         path = self._get_annotation_path(patient, image)
         path.parent.mkdir(exist_ok=True, parents=True)
@@ -60,22 +60,27 @@ class AnnotationManager:
         """Mark landmark as occluded/not visible."""
         self._update_annotation(patient, image, landmark_name, {"status": "occluded/missing"})
         
-    def remove_landmark(self, patient: str, image: str, landmark_name: str) -> bool:
-        """Remove annotation from image. Returns True if removed."""
+    def _remove_annotation(self, patient: str, image: str, annotation_name: str) -> bool:
+        """Remove any annotation (landmark, segment, or figure) from image. Returns True if removed."""
         data = self._load_annotation_file(patient, image)
-        if landmark_name in data:
-            del data[landmark_name]
-            # If no landmarks left, delete the file
-            if not data:
-                path = self._get_annotation_path(patient, image)
-                if path.exists():
-                    path.unlink()
-            else:
-                self._write_annotation_file(patient, image, data)
-            return True
-        return False
-    
-    # === Polygon Segmentation Methods ===
+        if annotation_name not in data:
+            return False
+
+        del data[annotation_name]
+
+        if not data:
+            # Delete file if no annotations remain
+            path = self._get_annotation_path(patient, image)
+            if path.exists():
+                path.unlink()
+        else:
+            self._write_annotation_file(patient, image, data)
+
+        return True
+
+    def remove_landmark(self, patient: str, image: str, landmark_name: str) -> bool:
+        """Remove landmark annotation from image. Returns True if removed."""
+        return self._remove_annotation(patient, image, landmark_name)
     
     def write_polygon(self, patient: str, image: str, segment_name: str, points: list) -> None:
         """Save polygon vertices for a segmentation region."""
@@ -87,41 +92,24 @@ class AnnotationManager:
     
     def remove_segment(self, patient: str, image: str, segment_name: str) -> bool:
         """Remove polygon segment. Returns True if removed."""
-        return self.remove_landmark(patient, image, segment_name)
-    
-    # === Figure Annotation Methods ===
+        return self._remove_annotation(patient, image, segment_name)
     
     def write_figure(
-        self, 
-        patient: str, 
-        image: str, 
-        figure_name: str, 
-        x: float, 
-        y: float, 
-        shape: str, 
-        size: int, 
-        start_x: Optional[float] = None, 
-        start_y: Optional[float] = None, 
-        end_x: Optional[float] = None, 
+        self,
+        patient: str,
+        image: str,
+        figure_name: str,
+        x: float,
+        y: float,
+        shape: str,
+        size: int,
+        start_x: Optional[float] = None,
+        start_y: Optional[float] = None,
+        end_x: Optional[float] = None,
         end_y: Optional[float] = None
     ) -> None:
-        """Write figure annotation (circle, rectangle, or line).
-        
-        Args:
-            patient: Patient ID/folder name.
-            image: Image filename.
-            figure_name: Name of the figure/label.
-            x: Center X coordinate.
-            y: Center Y coordinate.
-            shape: Shape type ('circle', 'rectangle', or 'line').
-            size: Size in pixels (diameter for circle/rectangle, length for line).
-            start_x: Start X coordinate for line (optional).
-            start_y: Start Y coordinate for line (optional).
-            end_x: End X coordinate for line (optional).
-            end_y: End Y coordinate for line (optional).
-        """
-        data = self._load_annotation_file(patient, image)
-        data[figure_name] = {
+        """Write figure annotation (circle, rectangle, or line)."""
+        figure_data = {
             "type": "figure",
             "x": x,
             "y": y,
@@ -129,25 +117,12 @@ class AnnotationManager:
             "size": size,
             "status": "ok"
         }
-        
-        # Add line-specific data if provided
+
         if shape == 'line' and all(v is not None for v in [start_x, start_y, end_x, end_y]):
-            data[figure_name]["startX"] = start_x
-            data[figure_name]["startY"] = start_y
-            data[figure_name]["endX"] = end_x
-            data[figure_name]["endY"] = end_y
-        
-        self._write_annotation_file(patient, image, data)
+            figure_data.update(startX=start_x, startY=start_y, endX=end_x, endY=end_y)
+
+        self._update_annotation(patient, image, figure_name, figure_data)
     
     def remove_figure(self, patient: str, image: str, figure_name: str) -> bool:
-        """Remove a figure annotation from an image.
-        
-        Args:
-            patient: Patient ID/folder name.
-            image: Image filename.
-            figure_name: Name of the figure to remove.
-            
-        Returns:
-            True if figure was removed, False otherwise.
-        """
-        return self.remove_landmark(patient, image, figure_name)
+        """Remove figure annotation from image. Returns True if removed."""
+        return self._remove_annotation(patient, image, figure_name)

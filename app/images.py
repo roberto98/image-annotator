@@ -16,8 +16,12 @@ class ImageReference(NamedTuple):
     full_path: Path
 
     def to_dict(self) -> Dict[str, str]:
-        """Convert to dictionary."""
-        return {'patient': self.patient, 'filename': self.filename, 'full_path': str(self.full_path)}
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'patient': self.patient,
+            'filename': self.filename,
+            'full_path': str(self.full_path)
+        }
 
 
 class ImageManager:

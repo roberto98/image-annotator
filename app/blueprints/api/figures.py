@@ -2,33 +2,26 @@
 """Figure annotation API endpoints."""
 
 from flask import jsonify, request
-import config
 from app.blueprints.api import api_bp
-
-
-def get_annotations_manager():
-    """Get the annotations manager from the app context."""
-    from flask import current_app
-    return current_app.config['annotations']
+from app.blueprints.api.common import (
+    get_annotations_manager,
+    success_response,
+    error_response,
+    filter_annotations_by_type
+)
 
 
 @api_bp.route('/figures/<patient>/<image>')
-def get_image_figures(patient, image):
+def get_image_figures(patient: str, image: str) -> tuple:
     """Return figure annotations for an image as JSON."""
     annotations = get_annotations_manager()
     all_annotations = annotations.get_all_landmarks(patient, image)
-
-    # Filter to only include figures
-    figures = {}
-    for name, data in all_annotations.items():
-        if data.get("type") == "figure":
-            figures[name] = data
-
+    figures = filter_annotations_by_type(all_annotations, 'figure')
     return jsonify(figures)
 
 
 @api_bp.route('/figures/<patient>/<image>/<figure_name>', methods=['POST'])
-def save_figure_annotation(patient, image, figure_name):
+def save_figure_annotation(patient: str, image: str, figure_name: str) -> tuple:
     """Save, update, or remove a figure annotation."""
     annotations = get_annotations_manager()
     action = request.json.get('action')
@@ -40,27 +33,19 @@ def save_figure_annotation(patient, image, figure_name):
         size = request.json.get('size', 50)
 
         if shape == 'line':
-            annotations.write_figure(patient, image, figure_name, x, y, shape, size,
-                                     start_x=request.json.get('startX'),
-                                     start_y=request.json.get('startY'),
-                                     end_x=request.json.get('endX'),
-                                     end_y=request.json.get('endY'))
+            annotations.write_figure(
+                patient, image, figure_name, x, y, shape, size,
+                start_x=request.json.get('startX'),
+                start_y=request.json.get('startY'),
+                end_x=request.json.get('endX'),
+                end_y=request.json.get('endY')
+            )
         else:
             annotations.write_figure(patient, image, figure_name, x, y, shape, size)
-        return jsonify({'status': 'success'})
+        return success_response()
 
     elif action == 'remove':
         annotations.remove_figure(patient, image, figure_name)
-        return jsonify({'status': 'success'})
+        return success_response()
 
-    return jsonify({'status': 'error', 'message': 'Invalid action'}), 400
-
-
-@api_bp.route('/figures', methods=['POST'])
-def add_new_figure():
-    """Register a new figure label (no-op since labels are auto-discovered)."""
-    figure_name = request.json.get('figure_name')
-    if figure_name:
-        config.add_new_figure(figure_name)
-        return jsonify({'status': 'success'})
-    return jsonify({'status': 'error', 'message': 'Invalid figure name'}), 400
+    return error_response('Invalid action')

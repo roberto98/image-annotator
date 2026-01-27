@@ -1,0 +1,242 @@
+/**
+ * Design Tokens - CSS Variables for consistent design system
+ * This file defines all design tokens used throughout the application.
+ * Import this file first in your main stylesheet.
+ */
+
+:root {
+    /* ===== COLOR PALETTE ===== */
+
+    /* Primary Colors - Indigo/Purple */
+    --color-primary-50: #eef2ff;
+    --color-primary-100: #e0e7ff;
+    --color-primary-200: #c7d2fe;
+    --color-primary-300: #a5b4fc;
+    --color-primary-400: #818cf8;
+    --color-primary-500: #6366f1;
+    --color-primary-600: #4f46e5;
+    --color-primary-700: #4338ca;
+    --color-primary-800: #3730a3;
+    --color-primary-900: #312e81;
+
+    /* Secondary Colors - Purple */
+    --color-secondary-50: #faf5ff;
+    --color-secondary-100: #f3e8ff;
+    --color-secondary-200: #e9d5ff;
+    --color-secondary-300: #d8b4fe;
+    --color-secondary-400: #c084fc;
+    --color-secondary-500: #a855f7;
+    --color-secondary-600: #9333ea;
+    --color-secondary-700: #7c3aed;
+    --color-secondary-800: #6b21a8;
+    --color-secondary-900: #581c87;
+
+    /* Neutral Colors - Gray */
+    --color-gray-50: #f8fafc;
+    --color-gray-100: #f1f5f9;
+    --color-gray-200: #e2e8f0;
+    --color-gray-300: #cbd5e1;
+    --color-gray-400: #94a3b8;
+    --color-gray-500: #64748b;
+    --color-gray-600: #475569;
+    --color-gray-700: #334155;
+    --color-gray-800: #1e293b;
+    --color-gray-900: #0f172a;
+
+    /* Semantic Colors */
+    --color-success-50: #f0fdf4;
+    --color-success-100: #dcfce7;
+    --color-success-200: #bbf7d0;
+    --color-success-500: #22c55e;
+    --color-success-600: #16a34a;
+    --color-success-700: #15803d;
+
+    --color-warning-50: #fffbeb;
+    --color-warning-100: #fef3c7;
+    --color-warning-200: #fde68a;
+    --color-warning-500: #f59e0b;
+    --color-warning-600: #d97706;
+    --color-warning-700: #b45309;
+
+    --color-danger-50: #fef2f2;
+    --color-danger-100: #fee2e2;
+    --color-danger-200: #fecaca;
+    --color-danger-500: #ef4444;
+    --color-danger-600: #dc2626;
+    --color-danger-700: #b91c1c;
+
+    --color-info-50: #ecfeff;
+    --color-info-100: #cffafe;
+    --color-info-200: #a5f3fc;
+    --color-info-500: #06b6d4;
+    --color-info-600: #0891b2;
+    --color-info-700: #0e7490;
+
+    /* ===== LEGACY COLOR MAPPINGS ===== */
+    /* For backward compatibility with existing CSS */
+    --primary: var(--color-primary-600);
+    --primary-light: var(--color-primary-400);
+    --primary-dark: var(--color-primary-700);
+    --secondary: #f72585;
+    --success: var(--color-info-500);
+    --warning: var(--color-warning-500);
+    --danger: var(--color-danger-500);
+    --light: var(--color-gray-100);
+    --dark: var(--color-gray-900);
+    --background: var(--color-gray-50);
+    --white: #ffffff;
+    --text: var(--color-gray-600);
+    --text-light: var(--color-gray-500);
+    --border: var(--color-gray-200);
+    --shadow: rgba(0, 0, 0, 0.05);
+    --shadow-darker: rgba(0, 0, 0, 0.12);
+
+    /* ===== SPACING SCALE ===== */
+    /* Based on 4px base unit */
+    --space-0: 0;
+    --space-1: 0.25rem;   /* 4px */
+    --space-2: 0.5rem;    /* 8px */
+    --space-3: 0.75rem;   /* 12px */
+    --space-4: 1rem;      /* 16px */
+    --space-5: 1.25rem;   /* 20px */
+    --space-6: 1.5rem;    /* 24px */
+    --space-8: 2rem;      /* 32px */
+    --space-10: 2.5rem;   /* 40px */
+    --space-12: 3rem;     /* 48px */
+    --space-16: 4rem;     /* 64px */
+    --space-20: 5rem;     /* 80px */
+    --space-24: 6rem;     /* 96px */
+
+    /* ===== TYPOGRAPHY SCALE ===== */
+    --font-family-sans: 'Segoe UI', 'SF Pro Display', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --font-family-mono: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Monaco, Consolas, monospace;
+
+    --font-size-xs: 0.75rem;     /* 12px */
+    --font-size-sm: 0.875rem;    /* 14px */
+    --font-size-base: 1rem;      /* 16px */
+    --font-size-lg: 1.125rem;    /* 18px */
+    --font-size-xl: 1.25rem;     /* 20px */
+    --font-size-2xl: 1.5rem;     /* 24px */
+    --font-size-3xl: 1.875rem;   /* 30px */
+    --font-size-4xl: 2.25rem;    /* 36px */
+    --font-size-5xl: 3rem;       /* 48px */
+
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    --line-height-tight: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+
+    --letter-spacing-tight: -0.025em;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.025em;
+    --letter-spacing-wider: 0.05em;
+
+    /* ===== BORDER RADIUS ===== */
+    --radius-none: 0;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+    --radius-full: 9999px;
+
+    /* ===== SHADOWS ===== */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+    --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+
+    /* ===== Z-INDEX SCALE ===== */
+    --z-base: 0;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-overlay: 300;
+    --z-modal: 400;
+    --z-popover: 500;
+    --z-tooltip: 600;
+    --z-toast: 700;
+    --z-max: 9999;
+
+    /* ===== TRANSITIONS ===== */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.2s ease;
+    --transition-slow: 0.3s ease;
+
+    /* ===== ANNOTATION COLORS ===== */
+    /* Landmark point colors */
+    --annotation-color-1: #ff0000;
+    --annotation-color-2: #00ff00;
+    --annotation-color-3: #0000ff;
+    --annotation-color-4: #ffff00;
+    --annotation-color-5: #ff00ff;
+    --annotation-color-6: #00ffff;
+    --annotation-color-7: #ff8000;
+    --annotation-color-8: #8000ff;
+    --annotation-color-9: #ff0080;
+    --annotation-color-10: #80ff00;
+    --annotation-color-11: #0080ff;
+    --annotation-color-12: #808080;
+
+    /* Segment polygon colors */
+    --segment-color-1: #4682b4; /* Steel Blue */
+    --segment-color-2: #dc143c; /* Crimson */
+    --segment-color-3: #32cd32; /* Lime Green */
+    --segment-color-4: #ff8c00; /* Dark Orange */
+    --segment-color-5: #8a2be2; /* Blue Violet */
+    --segment-color-6: #008b8b; /* Dark Cyan */
+
+    /* Figure colors */
+    --figure-color-1: #7950f2; /* Purple */
+    --figure-color-2: #ff5733; /* Red Orange */
+    --figure-color-3: #4cc9f0; /* Sky Blue */
+    --figure-color-4: #f5a623; /* Amber */
+
+    /* ===== COMPONENT-SPECIFIC ===== */
+    /* Button sizes */
+    --btn-padding-sm: 0.5rem 0.75rem;
+    --btn-padding-md: 0.75rem 1.25rem;
+    --btn-padding-lg: 1rem 2rem;
+
+    --btn-font-size-sm: 0.8rem;
+    --btn-font-size-md: 0.9rem;
+    --btn-font-size-lg: 1rem;
+
+    /* Card */
+    --card-border-radius: var(--radius-xl);
+    --card-padding: var(--space-6);
+    --card-shadow: var(--shadow-sm);
+
+    /* Input */
+    --input-border-radius: var(--radius-lg);
+    --input-padding: var(--space-3) var(--space-4);
+    --input-border-color: var(--color-gray-200);
+    --input-focus-border-color: var(--color-primary-500);
+
+    /* Toolbar */
+    --toolbar-height: 56px;
+    --toolbar-background: var(--white);
+    --toolbar-border: 1px solid var(--border);
+
+    /* Sidebar */
+    --sidebar-width: 300px;
+    --sidebar-background: var(--white);
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+    :root.auto-dark-mode {
+        --background: var(--color-gray-900);
+        --white: var(--color-gray-800);
+        --text: var(--color-gray-300);
+        --text-light: var(--color-gray-400);
+        --border: var(--color-gray-700);
+        --light: var(--color-gray-800);
+        --dark: var(--color-gray-100);
+    }
+}

@@ -1,0 +1,84 @@
+# blueprints/views/browse.py
+"""Image browsing and export views."""
+
+from flask import render_template, abort, send_from_directory, current_app
+from pathlib import Path
+import json
+import config
+from app.blueprints.views import views_bp
+
+
+def get_annotations_manager():
+    """Get the annotations manager from the app context."""
+    return current_app.config['annotations']
+
+
+@views_bp.route('/browse-images')
+def browse_images():
+    """Image browser page."""
+    return render_template("browse_images.html")
+
+
+@views_bp.route('/view-annotations')
+def view_annotations():
+    """View all annotated images with visualizations."""
+    annotated_dir = Path(config.ANNOTATION_DIR) / "__images_with_landmarks"
+    annotated_dir.mkdir(exist_ok=True, parents=True)
+
+    try:
+        from postprocessing_draw_landmarks import LandmarkVisualizer
+        visualizer = LandmarkVisualizer()
+        visualizer.process_all_images()
+    except Exception as e:
+        current_app.logger.error(f"Error generating annotated images: {e}", exc_info=True)
+
+    patients = []
+    for patient_dir in annotated_dir.iterdir():
+        if patient_dir.is_dir():
+            imgs = []
+            for ext in ('*.png', '*.jpg', '*.jpeg'):
+                imgs.extend([p.name for p in patient_dir.glob(ext)])
+            if imgs:
+                patients.append({'patient': patient_dir.name, 'images': sorted(imgs)})
+
+    patients.sort(key=lambda x: x['patient'])
+    return render_template("view_annotations.html", patients=patients, has_images=bool(patients))
+
+
+@views_bp.route('/annotated/<patient>/<image>')
+def serve_annotated_image(patient, image):
+    """Serve annotated image with overlays."""
+    directory = Path(config.ANNOTATION_DIR) / "__images_with_landmarks" / patient
+    if not directory.exists():
+        abort(404)
+    return send_from_directory(str(directory), image)
+
+
+@views_bp.route('/export')
+def export_page():
+    """Export page with image selection and format options."""
+    image_dir = Path(config.IMAGE_DIR)
+    annotation_dir = Path(config.ANNOTATION_DIR)
+
+    images_list = []
+    for patient_dir in sorted(image_dir.iterdir()):
+        if patient_dir.is_dir():
+            for ext in ('*.png', '*.jpg', '*.jpeg', '*.dcm', '*.dicom'):
+                for img_path in sorted(patient_dir.glob(ext)):
+                    annotation_count = 0
+                    json_file = annotation_dir / patient_dir.name / f"{img_path.stem}.json"
+                    if json_file.exists():
+                        try:
+                            data = json.loads(json_file.read_text())
+                            annotation_count = sum(1 for ann in data.values()
+                                                   if isinstance(ann, dict) and ann.get('status') == 'ok')
+                        except Exception:
+                            pass
+
+                    images_list.append({
+                        'patient': patient_dir.name,
+                        'filename': img_path.name,
+                        'annotation_count': annotation_count
+                    })
+
+    return render_template('export.html', images=images_list)

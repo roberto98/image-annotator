@@ -23,13 +23,13 @@
                 <h1 class="hero-title">Image Annotation Tool</h1>
                 <p class="hero-subtitle">Efficiently annotate images with points, polygons, and figures. Track your progress and export data seamlessly.</p>
                 <div class="hero-actions">
-                    <a href="{{ url_for('start_annotation') }}" class="btn btn-primary btn-lg">
+                    <a href="{{ url_for('views.start_annotation') }}" class="btn btn-primary btn-lg">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="5 3 19 12 5 21 5 3"></polygon>
                         </svg>
                         Start Annotation
                     </a>
-                    <a href="{{ url_for('browse_images') }}" class="btn btn-secondary btn-lg">
+                    <a href="{{ url_for('views.browse_images') }}" class="btn btn-secondary btn-lg">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -132,7 +132,7 @@
                 <p class="section-subtitle">Common tasks to manage your annotations</p>
             </div>
             <div class="actions-grid">
-                <a href="{{ url_for('view_annotations') }}" class="action-card">
+                <a href="{{ url_for('views.view_annotations') }}" class="action-card">
                     <div class="action-card-icon action-icon-teal">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -148,7 +148,7 @@
                         <polyline points="12 5 19 12 12 19"></polyline>
                     </svg>
                 </a>
-                <a href="{{ url_for('export_page') }}" class="action-card">
+                <a href="{{ url_for('views.export_page') }}" class="action-card">
                     <div class="action-card-icon action-icon-pink">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -165,7 +165,7 @@
                         <polyline points="12 5 19 12 12 19"></polyline>
                     </svg>
                 </a>
-                <a href="{{ url_for('help_page') }}" class="action-card">
+                <a href="{{ url_for('views.help_page') }}" class="action-card">
                     <div class="action-card-icon action-icon-amber">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
@@ -251,7 +251,7 @@
                     </svg>
                     <h3>No annotations yet</h3>
                     <p>Start by adding labels in the annotation interface</p>
-                    <a href="{{ url_for('start_annotation') }}" class="btn btn-primary">Get Started</a>
+                    <a href="{{ url_for('views.start_annotation') }}" class="btn btn-primary">Get Started</a>
                 </div>
                 {% else %}
                 <div class="table-container">
@@ -285,7 +285,7 @@
                                     <span class="progress-detail">{{ landmark.annotated_count }}/{{ landmark.total_count }} images</span>
                                 </td>
                                 <td class="td-action">
-                                    <form action="{{ url_for('remove_landmark') }}" method="POST" class="remove-form"
+                                    <form action="{{ url_for('views.remove_landmark') }}" method="POST" class="remove-form"
                                           onsubmit="return confirm('Remove this annotation? All related data will be deleted.');">
                                         <input type="hidden" name="landmark_name" value="{{ landmark.name }}">
                                         <button type="submit" class="btn-remove" title="Remove annotation">
@@ -321,7 +321,7 @@
                                     <span class="progress-detail">{{ segment.annotated_count }}/{{ segment.total_count }} images</span>
                                 </td>
                                 <td class="td-action">
-                                    <form action="{{ url_for('remove_segment') }}" method="POST" class="remove-form"
+                                    <form action="{{ url_for('views.remove_segment') }}" method="POST" class="remove-form"
                                           onsubmit="return confirm('Remove this annotation? All related data will be deleted.');">
                                         <input type="hidden" name="segment_name" value="{{ segment.name }}">
                                         <button type="submit" class="btn-remove" title="Remove annotation">
@@ -357,7 +357,7 @@
                                     <span class="progress-detail">{{ figure.annotated_count }}/{{ figure.total_count }} images</span>
                                 </td>
                                 <td class="td-action">
-                                    <form action="{{ url_for('remove_figure') }}" method="POST" class="remove-form"
+                                    <form action="{{ url_for('views.remove_figure') }}" method="POST" class="remove-form"
                                           onsubmit="return confirm('Remove this annotation? All related data will be deleted.');">
                                         <input type="hidden" name="figure_name" value="{{ figure.name }}">
                                         <button type="submit" class="btn-remove" title="Remove annotation">

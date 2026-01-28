@@ -1,0 +1,657 @@
+{
+  "project": "Medical Image Annotation Tool",
+  "branchName": "ralph/ux-improvements",
+  "description": "UX Improvements - Reduce annotation time by 63%, improve accessibility (WCAG 2.1 AA), add review workflow, and enable mobile support",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Consolidate Dual State Systems",
+      "description": "As a developer, I need a single source of truth for application state so that debugging is easier and behavior is predictable.",
+      "acceptanceCriteria": [
+        "All state management uses the Store class from store/index.js",
+        "Legacy STATE object in state.js is removed or aliased to Store",
+        "State changes are logged for debugging",
+        "Undo/redo works consistently across all annotation types",
+        "No regression in existing functionality",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Consolidated: STATE proxy now created in store/index.js, state.js simplified to initialization only. Proxy set handler now captures prevState for proper listener notification. Debug logging via setStoreDebugMode(true). Undo/redo verified working across all annotation types."
+    },
+    {
+      "id": "US-002",
+      "title": "Unify Coordinate Transformation Logic",
+      "description": "As a developer, I need one place to handle coordinate transformations so that zoom/pan calculations are consistent.",
+      "acceptanceCriteria": [
+        "All coordinate transformations use services/viewport.js",
+        "Duplicate functions removed from utilities.js",
+        "Click positions translate correctly at all zoom levels",
+        "Annotations render at correct positions after zoom/pan",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Enable Reactive Rendering",
+      "description": "As a developer, I need the canvas to automatically re-render when state changes so that I don't forget manual render calls.",
+      "acceptanceCriteria": [
+        "Rendering subscribes to Store state changes",
+        "Manual renderAnnotations() calls are removed",
+        "Canvas updates automatically when annotations change",
+        "No unnecessary re-renders during idle state",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create Label Popup Component",
+      "description": "As an annotator, I want a popup component to appear near my cursor for selecting labels so that my eyes stay on the image.",
+      "acceptanceCriteria": [
+        "Clicking on image without a label selected shows popup at cursor position",
+        "Popup auto-positions to avoid screen edges",
+        "Recent labels (top 5 most used) shown at top of popup",
+        "Clicking outside the popup cancels without creating annotation",
+        "Selected label creates annotation at original click position",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add Label Popup Search and Keyboard Navigation",
+      "description": "As an annotator, I want to search and navigate the label popup with keyboard so that I can select labels quickly.",
+      "acceptanceCriteria": [
+        "Type-to-search filters the label list in real-time",
+        "Arrow keys navigate the list",
+        "Enter selects the highlighted label",
+        "Escape cancels and closes the popup",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Quick Label Hotkeys (1-5)",
+      "description": "As a power user, I want to press number keys 1-5 to quickly select my most-used labels so that I can annotate faster.",
+      "acceptanceCriteria": [
+        "Keys 1-5 select the 5 most recently used labels",
+        "Recent label order persists across sessions (localStorage)",
+        "Sidebar shows hotkey indicators (1, 2, 3...) next to recent labels",
+        "Using a label moves it to position 1 in the recent list",
+        "Hotkeys work without Ctrl/Meta modifiers",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Tool Switch State Preservation",
+      "description": "As an annotator, I want my selected label to stay selected when I switch tools so that I don't have to re-select it.",
+      "acceptanceCriteria": [
+        "Switching from Points to Polygons preserves label if compatible",
+        "Switching back to Points remembers the previously selected landmark label",
+        "Incompatible labels are cleared with a brief notification",
+        "No console errors during rapid tool switching",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Create Toast Notification Component",
+      "description": "As an annotator, I want a toast notification system so that I get clear feedback when my actions succeed or fail.",
+      "acceptanceCriteria": [
+        "Toast component renders in bottom-right corner",
+        "Toast has appropriate icons (check, X, warning, info)",
+        "Success toast auto-dismisses after 1.5s",
+        "Error toast shows for 5s with meaningful message",
+        "Toasts don't stack or overlap",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Integrate Toast with API Responses",
+      "description": "As an annotator, I want toast notifications to appear for all save operations so that I know my work is being saved.",
+      "acceptanceCriteria": [
+        "Success toast appears after annotation saved",
+        "Error toast appears on save failure",
+        "Failed saves revert the UI to previous state",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Optimistic UI Updates",
+      "description": "As an annotator, I want my changes to appear immediately so that the interface feels responsive.",
+      "acceptanceCriteria": [
+        "Annotations appear on canvas immediately after creation",
+        "Deletions remove from canvas immediately",
+        "If server save fails, annotation is reverted with error message",
+        "Loading indicators shown only for slow operations (>500ms)",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Image Preloading Service",
+      "description": "As an annotator, I want adjacent images to load in the background so that navigation feels instant.",
+      "acceptanceCriteria": [
+        "When viewing image N, images N-2, N-1, N+1, N+2 preload in background",
+        "Navigating to a preloaded image shows it instantly",
+        "Cache holds maximum 10 images (5 for large DICOM files)",
+        "Cache clears when changing patients",
+        "Memory usage stays bounded",
+        "Preload failures don't affect current image viewing",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Data Validation Layer",
+      "description": "As an annotator, I want the system to validate my inputs so that I don't accidentally save invalid data.",
+      "acceptanceCriteria": [
+        "Empty label names are rejected with clear error",
+        "Polygon coordinates are validated before save",
+        "Duplicate annotation positions show warning",
+        "Invalid DICOM files show helpful error message",
+        "Validation errors prevent save but don't lose work",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "ARIA Labels for Interactive Elements",
+      "description": "As a user with a screen reader, I want all buttons and controls to be properly labeled so that I can navigate the interface.",
+      "acceptanceCriteria": [
+        "All tool buttons have descriptive aria-label attributes",
+        "Tool buttons have aria-pressed state when active",
+        "Label list has role=listbox with aria-activedescendant",
+        "Label items have role=option with aria-selected",
+        "Form inputs have associated labels",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Keyboard Focus Management",
+      "description": "As a keyboard user, I want to navigate the entire interface without a mouse so that I can work efficiently.",
+      "acceptanceCriteria": [
+        "Tab moves through all interactive elements in logical order",
+        "Focus indicators are visible on all focused elements",
+        "Label popup traps focus while open",
+        "Focus returns to trigger element after popup closes",
+        "Escape closes any open popup/modal",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Screen Reader Announcements",
+      "description": "As a user with a screen reader, I want state changes announced so that I know what's happening.",
+      "acceptanceCriteria": [
+        "Live region announces selected label changes",
+        "Live region announces annotation creation/deletion",
+        "Error messages are announced immediately",
+        "Success confirmations are announced",
+        "Announcements don't interrupt each other",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "High Contrast Mode",
+      "description": "As a user with low vision, I want a high contrast mode so that I can see the interface clearly.",
+      "acceptanceCriteria": [
+        "System prefers-contrast: high triggers high contrast styles",
+        "Manual toggle available in settings/toolbar",
+        "Annotation colors have increased contrast against image",
+        "Text meets WCAG AA contrast ratio (4.5:1)",
+        "Focus indicators are highly visible",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Modular State Store Infrastructure",
+      "description": "As a developer, I need organized state modules so that I can understand and modify state logic easily.",
+      "acceptanceCriteria": [
+        "Store has separate modules: tools, annotations, viewport, drawing, history",
+        "Each module has clear boundaries and responsibilities",
+        "Actions are logged to console in development mode",
+        "State can be inspected via Store.getState()",
+        "Existing functionality continues to work during migration",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Batch Selection Mode",
+      "description": "As an annotator, I want to select multiple annotations at once so that I can perform bulk operations.",
+      "acceptanceCriteria": [
+        "Toggle button or keyboard shortcut enables selection mode",
+        "Clicking annotations adds/removes them from selection",
+        "Selected annotations show visual indicator (checkmark or highlight)",
+        "Ctrl+A selects all visible annotations",
+        "Ctrl+D deselects all",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Batch Delete Operation",
+      "description": "As an annotator, I want to delete multiple selected annotations at once so that I can clean up faster.",
+      "acceptanceCriteria": [
+        "Delete Selected button appears when annotations are selected",
+        "Confirmation dialog shows count of annotations to delete",
+        "Single API call deletes all selected annotations",
+        "Undo restores all deleted annotations",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Batch Status Update",
+      "description": "As a reviewer, I want to update the status of multiple annotations at once so that I can process reviews faster.",
+      "acceptanceCriteria": [
+        "Set Status dropdown appears when annotations are selected",
+        "Can set all selected to: draft, pending_review, approved, rejected",
+        "Single API call updates all selected",
+        "Visual status indicators update immediately",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Annotation Review Mode Toggle",
+      "description": "As a reviewer, I want to enter review mode so that I can approve or reject annotations.",
+      "acceptanceCriteria": [
+        "Review mode toggle in toolbar",
+        "Entering review mode prompts for reviewer name",
+        "Review toolbar shows approve/reject buttons",
+        "Clicking annotation while in review mode selects it for review",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Annotation Review States",
+      "description": "As a reviewer, I want annotations to have review states so that I can track QA progress.",
+      "acceptanceCriteria": [
+        "Annotations have status: draft, pending_review, approved, rejected",
+        "Draft: default styling",
+        "Pending Review: dashed yellow outline",
+        "Approved: solid green outline",
+        "Rejected: solid red outline",
+        "Status persists in annotation data",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Review Comments",
+      "description": "As a reviewer, I want to add comments to annotations so that I can explain rejections or suggestions.",
+      "acceptanceCriteria": [
+        "Comment input appears when annotation is selected in review mode",
+        "Comments save with author name and timestamp",
+        "Multiple comments per annotation supported",
+        "Comments visible in annotation details panel",
+        "Rejected annotations require a comment",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Annotation Locking",
+      "description": "As a team lead, I want to lock approved annotations so that they can't be accidentally modified.",
+      "acceptanceCriteria": [
+        "Approved annotations are locked by default",
+        "Locked annotations show lock icon",
+        "Editing locked annotation shows unlock required message",
+        "Reviewers can unlock annotations for re-editing",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Undo History Panel",
+      "description": "As an annotator, I want to see my action history so that I can jump back to any previous state.",
+      "acceptanceCriteria": [
+        "Side panel shows last 20 actions",
+        "Each entry shows icon, description, and relative time",
+        "Current position is highlighted",
+        "Clicking an entry jumps to that state",
+        "Panel can be collapsed to save space",
+        "Keyboard shortcut H toggles panel",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Annotation Templates",
+      "description": "As an annotator, I want to load predefined label sets so that I can quickly set up for different anatomy regions.",
+      "acceptanceCriteria": [
+        "Template dropdown in toolbar",
+        "Default templates: Knee, Spine, Chest (with appropriate labels)",
+        "Selecting template replaces current labels",
+        "Save as Template creates new template from current labels",
+        "Templates persist in JSON file across sessions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Session Continuity",
+      "description": "As an annotator, I want my session state preserved so that I can resume where I left off.",
+      "acceptanceCriteria": [
+        "Current image, zoom level, and selected label persist in localStorage",
+        "Refreshing page restores previous session state",
+        "Resume Session prompt on return to tool",
+        "Option to start fresh instead of resuming",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Keyboard Navigation Shortcuts",
+      "description": "As a power user, I want comprehensive keyboard shortcuts so that I can work without the mouse.",
+      "acceptanceCriteria": [
+        "N key navigates to next image",
+        "P key navigates to previous image",
+        "Tab cycles through tools (Points, Polygons, Figures)",
+        "Shift+Tab cycles tools backwards",
+        "Ctrl+S force saves current annotations",
+        "Ctrl+Z undoes, Ctrl+Shift+Z redoes",
+        "Shortcuts documented in help overlay",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Focus Mode",
+      "description": "As an annotator, I want a distraction-free mode so that I can concentrate on the image.",
+      "acceptanceCriteria": [
+        "F key toggles focus mode",
+        "Sidebar slides out of view",
+        "Toolbar fades to 30% opacity (full on hover)",
+        "Background dims around image",
+        "Progress indicator shows X of Y annotations",
+        "F key or Escape exits focus mode",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Annotation Validation Rules",
+      "description": "As a team lead, I want to define validation rules so that annotations meet quality standards.",
+      "acceptanceCriteria": [
+        "Minimum polygon point count configurable",
+        "Required labels per image configurable",
+        "Validation runs before marking image complete",
+        "Validation errors shown in list with navigation to each issue",
+        "Can override validation with reason",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Rendering Performance Optimization",
+      "description": "As an annotator working with many annotations, I want smooth performance so that the interface stays responsive.",
+      "acceptanceCriteria": [
+        "Render completes in <16ms (60fps target)",
+        "No lag with 100+ annotations on screen",
+        "Zoom/pan operations stay smooth",
+        "Version counter replaces JSON.stringify for dirty checking",
+        "Label search is debounced (150ms)",
+        "Typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Progress Dashboard",
+      "description": "As a team lead, I want to see annotation progress so that I can track project completion.",
+      "acceptanceCriteria": [
+        "Dashboard shows: total images, annotated count, reviewed count",
+        "Progress bar for overall completion",
+        "Per-patient breakdown available",
+        "Export progress report as CSV",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Export Preview",
+      "description": "As an annotator, I want to preview exports before downloading so that I can verify the output format.",
+      "acceptanceCriteria": [
+        "Preview button shows sample of export data",
+        "Supports JSON, CSV, XML preview",
+        "Can switch between formats in preview",
+        "Preview updates when annotations change",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Multi-Monitor Support",
+      "description": "As a radiologist, I want to use multiple monitors so that I can view images and controls on separate screens.",
+      "acceptanceCriteria": [
+        "Pop out button for image canvas",
+        "Image opens in new window that can be moved to second monitor",
+        "Controls remain in main window",
+        "Annotations sync between windows in real-time",
+        "Closing pop-out returns image to main window",
+        "Typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "PWA Installation",
+      "description": "As a mobile user, I want to install the app so that I can access it from my home screen.",
+      "acceptanceCriteria": [
+        "App manifest enables Add to Home Screen",
+        "App icon appears on device home screen",
+        "App opens in standalone mode (no browser chrome)",
+        "Splash screen shows during load",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-036",
+      "title": "Offline Support",
+      "description": "As a field researcher, I want offline access so that I can work without internet.",
+      "acceptanceCriteria": [
+        "Service worker caches static assets",
+        "Previously viewed images available offline",
+        "Annotations save to local storage when offline",
+        "Sync indicator shows pending uploads",
+        "Auto-sync when connection restored",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Touch Gesture Support",
+      "description": "As a tablet user, I want touch gestures so that I can annotate naturally.",
+      "acceptanceCriteria": [
+        "Pinch-to-zoom works smoothly",
+        "Two-finger pan moves the image",
+        "Single tap creates annotation",
+        "Long press opens context menu",
+        "Gestures don't conflict with annotation drawing",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "Responsive Layout",
+      "description": "As a mobile user, I want the layout to adapt so that I can use the tool on any screen size.",
+      "acceptanceCriteria": [
+        "Sidebar moves below image on screens <768px",
+        "Toolbar becomes fixed bottom bar on mobile",
+        "Touch targets are at least 44x44px",
+        "Layout works at 320px viewport width",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "User Preferences",
+      "description": "As a regular user, I want to customize the interface so that it matches my workflow.",
+      "acceptanceCriteria": [
+        "Preferences panel accessible from menu",
+        "Can set default tool on load",
+        "Can set default zoom level",
+        "Can customize which hotkeys do what",
+        "Preferences persist across sessions",
+        "Typecheck passes"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "Micro-Interactions",
+      "description": "As an annotator, I want subtle animations so that the interface feels polished.",
+      "acceptanceCriteria": [
+        "Smooth transitions when opening/closing panels",
+        "Button hover/active states have subtle feedback",
+        "Annotation creation has brief highlight animation",
+        "Animations respect prefers-reduced-motion setting",
+        "No animation blocks user interaction",
+        "Typecheck passes"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

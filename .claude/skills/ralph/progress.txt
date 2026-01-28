@@ -1,0 +1,37 @@
+# Ralph Progress Log - UX Improvements
+
+Branch: ralph/ux-improvements
+Created: 2026-01-26
+
+---
+
+## [2026-01-28] US-001: Consolidate Dual State Systems
+
+### What was done
+- Moved STATE proxy creation from `state.js` into `store/index.js` so the Store module is the single source of truth
+- `state.js` now only handles initialization (loading server data into store) and defines COLORS constant
+- STATE is created via `window.STATE = createStateProxy(store)` in store/index.js
+- Enhanced proxy `set` handler to properly capture `prevState` before mutation (previously passed `null` to `_notify`)
+- All state changes are logged when debug mode is enabled via `window.setStoreDebugMode(true)`
+- Undo/redo verified working across points, polygons, and figures
+
+### Acceptance Criteria Status
+- [x] All state management uses the Store class from store/index.js
+- [x] Legacy STATE object in state.js is removed or aliased to Store
+- [x] State changes are logged for debugging
+- [x] Undo/redo works consistently across all annotation types
+- [x] No regression in existing functionality
+- [x] Typecheck passes (no JS console errors)
+
+### Key decisions
+- Kept explicit `saveToHistory()` pattern rather than auto-saving on every STATE property set. Auto-saving would break drag/zoom operations that set properties many times per frame.
+- STATE is still a Proxy (not removed) for backward compatibility - all 9+ JS files use `STATE.property` syntax. The proxy routes through the Store.
+
+### Files changed
+- `app/static/js/store/index.js` - STATE proxy created here, enhanced set handler with prevState capture
+- `app/static/js/state.js` - Simplified to initialization + COLORS only
+
+### Next steps
+- US-002: Unify Coordinate Transformation Logic
+- US-003: Enable Reactive Rendering
+

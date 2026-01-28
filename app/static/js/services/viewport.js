@@ -241,7 +241,22 @@ class Viewport {
 
 const viewport = new Viewport();
 
+// Auto-link to STATE and DOM if available (loaded after store/index.js and dom.js)
 if (typeof window !== 'undefined') {
     window.Viewport = Viewport;
     window.viewport = viewport;
+
+    if (typeof STATE !== 'undefined') {
+        viewport.linkState({
+            getZoom: () => STATE.currentZoom,
+            getTranslateX: () => STATE.translateX,
+            getTranslateY: () => STATE.translateY,
+            getNaturalWidth: () => STATE.naturalWidth,
+            getNaturalHeight: () => STATE.naturalHeight
+        });
+    }
+
+    if (typeof DOM !== 'undefined' && DOM.imageContainer) {
+        viewport.setContainer(DOM.imageContainer);
+    }
 }

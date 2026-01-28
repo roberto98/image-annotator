@@ -98,7 +98,7 @@ function updateFigurePreview(coords) {
 
     if (STATE.figureShape === 'line' && STATE.linePoints.length === 1) {
         const { length, angle, centerX, centerY } = calculateLineProperties(STATE.linePoints[0], coords);
-        const displayCenter = imageToDisplayCoords(centerX, centerY);
+        const displayCenter = viewport.imageToDisplay(centerX, centerY);
         const displayLength = length * STATE.currentZoom;
 
         Object.assign(STATE.figurePreview.style, {
@@ -116,7 +116,7 @@ function updateFigurePreview(coords) {
         const dy = coords.y - STATE.figureStartY;
         const size = Math.sqrt(dx * dx + dy * dy) * 2;
 
-        const displayCenter = imageToDisplayCoords(STATE.figureStartX, STATE.figureStartY);
+        const displayCenter = viewport.imageToDisplay(STATE.figureStartX, STATE.figureStartY);
         const displaySize = size * STATE.currentZoom;
 
         Object.assign(STATE.figurePreview.style, {
@@ -322,7 +322,7 @@ function updateFigurePosition(figureName, newX, newY) {
     figureData.x = newX;
     figureData.y = newY;
 
-    const displayCoords = imageToDisplayCoords(newX, newY);
+    const displayCoords = viewport.imageToDisplay(newX, newY);
     const displaySize = figureData.size * STATE.currentZoom;
     const figureElement = document.querySelector(`[data-figure-name="${figureName}"]`);
 
@@ -339,7 +339,7 @@ function updateFigureSize(figureName, newSize) {
 
     figureData.size = Math.max(10, newSize);
 
-    const displayCoords = imageToDisplayCoords(figureData.x, figureData.y);
+    const displayCoords = viewport.imageToDisplay(figureData.x, figureData.y);
     const displaySize = figureData.size * STATE.currentZoom;
     const figureElement = document.querySelector(`[data-figure-name="${figureName}"]`);
 
@@ -454,8 +454,8 @@ function updateLineElement(figureName, figureData) {
     const figureElement = document.querySelector(`[data-figure-name="${figureName}"]`);
     if (!figureElement) return;
 
-    const displayStart = imageToDisplayCoords(figureData.startX, figureData.startY);
-    const displayEnd = imageToDisplayCoords(figureData.endX, figureData.endY);
+    const displayStart = viewport.imageToDisplay(figureData.startX, figureData.startY);
+    const displayEnd = viewport.imageToDisplay(figureData.endX, figureData.endY);
     const { length, angle } = calculateLineProperties(displayStart, displayEnd);
 
     const centerX = (displayStart.x + displayEnd.x) / 2;
@@ -471,7 +471,7 @@ function updateLineElement(figureName, figureData) {
 
     const label = figureElement.nextElementSibling;
     if (label && label.classList.contains('annotation-label')) {
-        const displayCoords = imageToDisplayCoords(figureData.x, figureData.y);
+        const displayCoords = viewport.imageToDisplay(figureData.x, figureData.y);
         label.style.left = `${displayCoords.x + length / 2}px`;
         label.style.top = `${displayCoords.y}px`;
     }

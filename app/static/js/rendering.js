@@ -53,9 +53,9 @@ function renderAnnotations(force = false) {
 }
 
 function renderLandmarkPoint(name, coords, color) {
-    if (!isWithinImageBounds(coords.x, coords.y)) return;
+    if (!viewport.isWithinBounds(coords.x, coords.y)) return;
 
-    const { x, y } = imageToDisplayCoords(coords.x, coords.y);
+    const { x, y } = viewport.imageToDisplay(coords.x, coords.y);
 
     const point = document.createElement('div');
     point.className = 'annotation-point';
@@ -95,7 +95,7 @@ function renderPolygonShape(points, color, name) {
     const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     
     const pointsStr = points.map(p => {
-        const display = imageToDisplayCoords(p.x, p.y);
+        const display = viewport.imageToDisplay(p.x, p.y);
         return `${display.x},${display.y}`;
     }).join(' ');
     
@@ -106,7 +106,7 @@ function renderPolygonShape(points, color, name) {
     
     svg.appendChild(polygon);
 
-    const firstPoint = imageToDisplayCoords(points[0].x, points[0].y);
+    const firstPoint = viewport.imageToDisplay(points[0].x, points[0].y);
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', firstPoint.x + 10);
     text.setAttribute('y', firstPoint.y - 10);
@@ -120,7 +120,7 @@ function renderPolygonShape(points, color, name) {
 }
 
 function renderFigure(data, color, name) {
-    const displayCoords = imageToDisplayCoords(data.x, data.y);
+    const displayCoords = viewport.imageToDisplay(data.x, data.y);
     const displaySize = data.size * STATE.currentZoom;
 
     const figure = document.createElement('div');
@@ -165,8 +165,8 @@ function renderFigure(data, color, name) {
 }
 
 function renderLineShape(figure, data, name, isInteractive) {
-    const displayStart = imageToDisplayCoords(data.startX, data.startY);
-    const displayEnd = imageToDisplayCoords(data.endX, data.endY);
+    const displayStart = viewport.imageToDisplay(data.startX, data.startY);
+    const displayEnd = viewport.imageToDisplay(data.endX, data.endY);
 
     const dx = displayEnd.x - displayStart.x;
     const dy = displayEnd.y - displayStart.y;
@@ -299,7 +299,7 @@ function renderActivePolygon() {
     if (STATE.activePolygonPoints.length === 0) return;
 
     STATE.activePolygonPoints.forEach((point, index) => {
-        const { x, y } = imageToDisplayCoords(point.x, point.y);
+        const { x, y } = viewport.imageToDisplay(point.x, point.y);
 
         const pointEl = document.createElement('div');
         pointEl.className = 'polygon-point';
@@ -322,8 +322,8 @@ function renderActivePolygon() {
 }
 
 function drawPolygonLine(p1, p2) {
-    const display1 = imageToDisplayCoords(p1.x, p1.y);
-    const display2 = imageToDisplayCoords(p2.x, p2.y);
+    const display1 = viewport.imageToDisplay(p1.x, p1.y);
+    const display2 = viewport.imageToDisplay(p2.x, p2.y);
     
     const dx = display2.x - display1.x;
     const dy = display2.y - display1.y;

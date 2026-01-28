@@ -32,8 +32,8 @@ function handleMouseDown(e) {
             return;
         }
 
-        const coords = eventToImageCoords(e);
-        if (!isWithinImageBounds(coords.x, coords.y)) {
+        const coords = viewport.eventToImage(e);
+        if (!viewport.isWithinBounds(coords.x, coords.y)) {
             showMessage('Click within image bounds', 'warning');
             return;
         }
@@ -63,12 +63,12 @@ function handleMouseMove(e) {
     const rect = DOM.imageContainer.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    const coords = eventToImageCoords(e);
+    const coords = viewport.eventToImage(e);
 
     const now = performance.now();
     if (now - lastMouseUpdateTime >= MOUSE_UPDATE_INTERVAL) {
         lastMouseUpdateTime = now;
-        const inBounds = isWithinImageBounds(coords.x, coords.y);
+        const inBounds = viewport.isWithinBounds(coords.x, coords.y);
         DOM.mousePosition.textContent = `X: ${Math.round(coords.x)}, Y: ${Math.round(coords.y)}`;
         DOM.mousePosition.style.color = inBounds ? 'white' : '#ff6b6b';
     }
@@ -94,7 +94,7 @@ function handleMouseMove(e) {
     }
 
     if (STATE.figureDragging && STATE.selectedFigure) {
-        const newImageCoords = displayToImageCoords(mouseX + STATE.figureDragOffsetX, mouseY + STATE.figureDragOffsetY);
+        const newImageCoords = viewport.displayToImage(mouseX + STATE.figureDragOffsetX, mouseY + STATE.figureDragOffsetY);
         const figureData = STATE.annotations[STATE.selectedFigure];
 
         if (figureData.shape === 'line') {
@@ -161,7 +161,7 @@ function handleMouseUp(e) {
     STATE.selectedPointIndex = -1;
 
     if (STATE.figureDrawing && STATE.currentTool === 'figure') {
-        completeFigureDrawing(eventToImageCoords(e));
+        completeFigureDrawing(viewport.eventToImage(e));
     }
 
     if (STATE.figureDragging || STATE.figureResizing) {

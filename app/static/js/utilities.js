@@ -1,52 +1,5 @@
-// Coordinate conversion, toast messages, and UI utility functions
-
-/**
- * Convert mouse event coordinates to image coordinates
- * @param {MouseEvent} e
- * @returns {{x: number, y: number}}
- */
-function eventToImageCoords(e) {
-    const rect = DOM.imageContainer.getBoundingClientRect();
-    return {
-        x: (e.clientX - rect.left - STATE.translateX) / STATE.currentZoom,
-        y: (e.clientY - rect.top - STATE.translateY) / STATE.currentZoom
-    };
-}
-
-/**
- * Convert image coordinates to display (screen) coordinates
- * @param {number} imageX
- * @param {number} imageY
- * @returns {{x: number, y: number}}
- */
-function imageToDisplayCoords(imageX, imageY) {
-    return {
-        x: imageX * STATE.currentZoom + STATE.translateX,
-        y: imageY * STATE.currentZoom + STATE.translateY
-    };
-}
-
-/**
- * Convert display (screen) coordinates to image coordinates
- * @param {number} displayX
- * @param {number} displayY
- * @returns {{x: number, y: number}}
- */
-function displayToImageCoords(displayX, displayY) {
-    return {
-        x: (displayX - STATE.translateX) / STATE.currentZoom,
-        y: (displayY - STATE.translateY) / STATE.currentZoom
-    };
-}
-
-/**
- * @param {number} x - X coordinate in image space
- * @param {number} y - Y coordinate in image space
- * @returns {boolean}
- */
-function isWithinImageBounds(x, y) {
-    return x >= 0 && y >= 0 && x < STATE.naturalWidth && y < STATE.naturalHeight;
-}
+// Toast messages, undo/redo, and UI utility functions
+// Coordinate transformations are handled by viewport (services/viewport.js)
 
 /**
  * Display a toast message to the user

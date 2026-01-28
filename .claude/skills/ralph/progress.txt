@@ -35,3 +35,40 @@ Created: 2026-01-26
 - US-002: Unify Coordinate Transformation Logic
 - US-003: Enable Reactive Rendering
 
+---
+
+## [2026-01-29] US-002: Unify Coordinate Transformation Logic
+
+### What was done
+- Connected the existing (but unused) `Viewport` class in `services/viewport.js` to STATE and DOM
+- Added auto-linking at module load: viewport reads zoom/translate/dimensions from STATE proxy
+- Added `services/viewport.js` to the HTML template load order (after `dom.js`, before `utilities.js`)
+- Replaced all coordinate utility function calls across 3 files with viewport methods:
+  - `eventToImageCoords(e)` → `viewport.eventToImage(e)`
+  - `imageToDisplayCoords(x, y)` → `viewport.imageToDisplay(x, y)`
+  - `displayToImageCoords(x, y)` → `viewport.displayToImage(x, y)`
+  - `isWithinImageBounds(x, y)` → `viewport.isWithinBounds(x, y)`
+- Removed 4 duplicate coordinate functions from `utilities.js`
+
+### Acceptance Criteria Status
+- [x] All coordinate transformations use services/viewport.js
+- [x] Duplicate functions removed from utilities.js
+- [x] Click positions translate correctly at all zoom levels (tested at 100%, 150%)
+- [x] Annotations render at correct positions after zoom/pan
+- [x] Typecheck passes (no JS console errors)
+
+### Key decisions
+- Auto-link viewport to STATE/DOM at module load time rather than in `initializeApp()`. Since viewport.js loads after store/index.js and dom.js, both globals are available. This avoids needing to thread initialization order through the app.
+- Kept the Viewport class configurable (dependency injection via linkState) for testability, while also auto-linking for production use.
+
+### Files changed
+- `app/static/js/services/viewport.js` - Added auto-linking to STATE and DOM after singleton creation
+- `app/static/js/utilities.js` - Removed 4 duplicate coordinate functions (eventToImageCoords, imageToDisplayCoords, displayToImageCoords, isWithinImageBounds)
+- `app/static/js/interactions.js` - Updated 5 call sites to use viewport methods
+- `app/static/js/rendering.js` - Updated 10 call sites to use viewport methods
+- `app/static/js/figures.js` - Updated 9 call sites to use viewport methods
+- `app/templates/multi_landmark.html` - Added viewport.js script tag
+
+### Next steps
+- US-003: Enable Reactive Rendering
+

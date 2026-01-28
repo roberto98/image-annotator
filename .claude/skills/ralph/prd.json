@@ -31,8 +31,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Unified: All coordinate transforms now use viewport singleton (services/viewport.js). Viewport auto-links to STATE and DOM on load. Removed duplicate eventToImageCoords, imageToDisplayCoords, displayToImageCoords, isWithinImageBounds from utilities.js. All call sites in interactions.js, rendering.js, figures.js updated to use viewport.eventToImage(), viewport.imageToDisplay(), viewport.displayToImage(), viewport.isWithinBounds(). Verified working at all zoom levels."
     },
     {
       "id": "US-003",

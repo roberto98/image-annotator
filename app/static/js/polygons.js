@@ -70,15 +70,16 @@ async function completePolygon() {
 
         const data = await response.json();
         if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
-                type: 'polygon',
-                status: 'ok',
-                points: STATE.activePolygonPoints,
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [STATE.selectedLabel]: {
+                    type: 'polygon',
+                    status: 'ok',
+                    points: STATE.activePolygonPoints,
+                    timestamp: createTimestamp()
+                }
             };
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             showMessage('Polygon saved', 'success');
             setPolygonTool('edit');
         }

@@ -155,23 +155,24 @@ async function completeLineDrawing() {
         });
 
         if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
-                type: 'figure',
-                status: 'ok',
-                x: centerX,
-                y: centerY,
-                shape: 'line',
-                size: Math.round(length),
-                startX: startPoint.x,
-                startY: startPoint.y,
-                endX: endPoint.x,
-                endY: endPoint.y,
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [STATE.selectedLabel]: {
+                    type: 'figure',
+                    status: 'ok',
+                    x: centerX,
+                    y: centerY,
+                    shape: 'line',
+                    size: Math.round(length),
+                    startX: startPoint.x,
+                    startY: startPoint.y,
+                    endX: endPoint.x,
+                    endY: endPoint.y,
+                    timestamp: createTimestamp()
+                }
             };
 
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             showMessage(`Created line (${Math.round(length)}px)`, 'success');
         }
     } catch (error) {
@@ -206,18 +207,19 @@ async function completeFigureDrawing(coords) {
         });
 
         if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
-                type: 'figure',
-                status: 'ok',
-                x: STATE.figureStartX,
-                y: STATE.figureStartY,
-                shape: STATE.figureShape,
-                size,
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [STATE.selectedLabel]: {
+                    type: 'figure',
+                    status: 'ok',
+                    x: STATE.figureStartX,
+                    y: STATE.figureStartY,
+                    shape: STATE.figureShape,
+                    size,
+                    timestamp: createTimestamp()
+                }
             };
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             showMessage(`Created ${STATE.figureShape} (${size}px)`, 'success');
         }
     } catch (error) {
@@ -397,10 +399,9 @@ async function deleteSelectedFigure() {
         
         const data = await response.json();
         if (data.status === 'success') {
-            delete STATE.annotations[figureName];
+            const { [figureName]: _, ...rest } = STATE.annotations;
+            STATE.annotations = rest;
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             deselectAllFigures();
             showMessage(`Deleted ${figureName}`, 'success');
         }

@@ -1,8 +1,51 @@
 // Rendering functions for annotations and UI elements
+// Reactive rendering: canvas auto-updates when Store state changes (US-003)
 
 const RENDER_STATE = {
-    annotationsHash: ''
+    annotationsHash: '',
+    labelListHash: ''
 };
+
+let _renderPending = false;
+let _forceNextRender = false;
+
+/**
+ * Schedule a batched render via microtask.
+ * Multiple state changes within the same synchronous block produce a single render.
+ * Microtasks fire before the browser repaints, so there is no visual lag.
+ * @param {boolean} force - Force full re-render (bypass dirty checking)
+ */
+function scheduleRender(force = false) {
+    if (force) _forceNextRender = true;
+    if (_renderPending) return;
+    _renderPending = true;
+    queueMicrotask(() => {
+        _renderPending = false;
+        const shouldForce = _forceNextRender;
+        _forceNextRender = false;
+        renderLabelList();
+        renderAnnotations(shouldForce);
+    });
+}
+
+/**
+ * Force a full re-render on the next microtask (bypasses dirty checking).
+ * Used by undo/redo to ensure canvas reflects the restored state.
+ */
+function forceRender() {
+    scheduleRender(true);
+}
+
+/**
+ * Set up reactive rendering by subscribing to Store state changes.
+ * Once active, the canvas and label list update automatically — no manual
+ * renderAnnotations() or renderLabelList() calls are needed.
+ */
+function setupReactiveRendering() {
+    window.AppStore.subscribe(() => {
+        scheduleRender();
+    });
+}
 
 /** Generate a hash of current render-relevant state for dirty tracking */
 function getAnnotationsHash() {
@@ -217,7 +260,24 @@ function addCenterIndicator(figure) {
     figure.appendChild(centerIndicator);
 }
 
+/** Generate a hash of label-list-relevant state for dirty tracking */
+function getLabelListHash() {
+    return JSON.stringify({
+        labels: STATE.allLabels.map(l => l.name),
+        selected: STATE.selectedLabel,
+        visibility: STATE.visibilityToggles,
+        annotationKeys: Object.keys(STATE.annotations),
+        annotationMeta: Object.fromEntries(
+            Object.entries(STATE.annotations).map(([k, v]) => [k, { s: v.status, t: v.type }])
+        )
+    });
+}
+
 function renderLabelList() {
+    const currentHash = getLabelListHash();
+    if (currentHash === RENDER_STATE.labelListHash) return;
+    RENDER_STATE.labelListHash = currentHash;
+
     const fragment = document.createDocumentFragment();
 
     STATE.allLabels.forEach((label) => {

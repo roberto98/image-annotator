@@ -31,8 +31,6 @@ function switchTool(tool) {
 
     STATE.selectedLabel = null;
     updateFigureInteractivity();
-    renderLabelList();
-    renderAnnotations();
 
     showMessage(`Switched to ${tool} mode`);
 }
@@ -64,20 +62,18 @@ async function createNewLabel() {
         const data = await response.json();
 
         if (data.status === 'success') {
-            STATE.allLabels.push({
+            STATE.allLabels = [...STATE.allLabels, {
                 name,
                 in_use: false,
                 annotated_count: 0,
                 total_count: 0,
                 type: 'generic'
-            });
+            }].sort((a, b) => a.name.localeCompare(b.name));
 
-            STATE.allLabels.sort((a, b) => a.name.localeCompare(b.name));
-            STATE.visibilityToggles[name] = true;
+            STATE.visibilityToggles = { ...STATE.visibilityToggles, [name]: true };
 
             DOM.labelInput.value = '';
             selectLabel(name);
-            renderLabelList();
 
             showMessage(`Label "${name}" created`, 'success');
         }
@@ -93,7 +89,6 @@ async function createNewLabel() {
  */
 function selectLabel(name) {
     STATE.selectedLabel = name;
-    renderLabelList();
     updateFigureInteractivity();
 
     const annotation = STATE.annotations[name];
@@ -113,9 +108,10 @@ function selectLabel(name) {
 }
 
 function toggleVisibility(name) {
-    STATE.visibilityToggles[name] = !STATE.visibilityToggles[name];
-    renderLabelList();
-    renderAnnotations();
+    STATE.visibilityToggles = {
+        ...STATE.visibilityToggles,
+        [name]: !STATE.visibilityToggles[name]
+    };
 }
 
 async function markOccluded(name) {
@@ -128,13 +124,14 @@ async function markOccluded(name) {
 
         const data = await response.json();
         if (data.status === 'success') {
-            STATE.annotations[name] = {
-                status: 'occluded/missing',
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [name]: {
+                    status: 'occluded/missing',
+                    timestamp: createTimestamp()
+                }
             };
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             showMessage(`${name} marked as occluded`, 'success');
         }
     } catch (error) {
@@ -177,14 +174,13 @@ async function deleteAnnotation(name) {
 
         const data = await response.json();
         if (data.status === 'success') {
-            delete STATE.annotations[name];
+            const { [name]: _, ...rest } = STATE.annotations;
+            STATE.annotations = rest;
             if (STATE.selectedLabel === name) {
                 STATE.selectedLabel = null;
                 updateFigureInteractivity();
             }
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             showMessage(`Deleted annotation for ${name}`, 'success');
         }
     } catch (error) {
@@ -221,14 +217,15 @@ async function annotateLandmark(coords) {
 
         const data = await response.json();
         if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
-                status: 'ok',
-                coordinates: { x: coords.x, y: coords.y },
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [STATE.selectedLabel]: {
+                    status: 'ok',
+                    coordinates: { x: coords.x, y: coords.y },
+                    timestamp: createTimestamp()
+                }
             };
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             showMessage(`Annotated ${STATE.selectedLabel}`, 'success');
         }
     } catch (error) {

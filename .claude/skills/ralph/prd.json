@@ -46,8 +46,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Reactive: Store.subscribe() wired to microtask-batched scheduleRender() in rendering.js. All manual renderAnnotations()/renderLabelList() calls removed from annotations.js, polygons.js, figures.js, utilities.js, zoom.js, interactions.js, initialization.js. Nested mutations (STATE.annotations[name]=...) converted to top-level proxy-triggering assignments (STATE.annotations={...}). Dirty checking added to renderLabelList() via getLabelListHash(). forceRender() used for undo/redo. Zero console errors verified in browser."
     },
     {
       "id": "US-004",

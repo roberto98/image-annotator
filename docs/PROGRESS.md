@@ -917,6 +917,27 @@ imageGrid.style.display = isCollapsed ? '' : 'none';
 
 ---
 
+## [2026-01-29 14:00:00] - US-003: Enable Reactive Rendering
+
+### Completed
+- Wired `Store.subscribe()` to microtask-batched `scheduleRender()` in rendering.js
+- Rendering now fires automatically when any Store-tracked state changes — no manual calls needed
+- Removed ALL manual `renderAnnotations()` and `renderLabelList()` calls from 7 JS files
+- Converted nested state mutations to top-level proxy-triggering assignments across annotations.js, polygons.js, figures.js
+- Added dirty checking to `renderLabelList()` via hash comparison (matching existing `renderAnnotations()` pattern)
+- Added `forceRender()` for undo/redo to bypass dirty checking
+- Verified in browser: label selection, visibility toggles, tool switching, zoom, undo all work with zero console errors
+
+### Decisions
+- Used `queueMicrotask` (not `requestAnimationFrame`) for batching — renders before browser repaint, avoiding visual lag during zoom/pan
+- Converted nested mutations (`STATE.annotations[name] = ...`) to top-level assignments (`STATE.annotations = {...}`) because the STATE Proxy only intercepts top-level property writes
+- Figure drag operations remain manual (60fps mousemove handlers) — these update DOM directly without going through renderAnnotations
+
+### Next Steps
+- US-004: Create Label Popup Component
+
+---
+
 <!--
 Template for new entries:
 

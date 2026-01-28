@@ -36,23 +36,24 @@ function loadFigureLabelsFromAnnotations() {
 }
 
 function initializeVisibilityToggles() {
+    const toggles = {};
     STATE.allLabels.forEach(label => {
-        STATE.visibilityToggles[label.name] = true;
+        toggles[label.name] = true;
     });
+    STATE.visibilityToggles = toggles;
 }
 
 function handleImageLoad() {
     STATE.imageLoaded = true;
     STATE.naturalWidth = DOM.img.naturalWidth;
     STATE.naturalHeight = DOM.img.naturalHeight;
-    
+
     DOM.loadingOverlay.style.display = 'none';
     DOM.imageWrapper.style.width = `${STATE.naturalWidth}px`;
     DOM.imageWrapper.style.height = `${STATE.naturalHeight}px`;
-    
+
     resetView();
-    renderLabelList();
-    renderAnnotations();
+    // Rendering is now reactive — state changes above trigger automatic re-render
 }
 
 function setupEventListeners() {
@@ -144,6 +145,8 @@ function initializeApp() {
             console.error('Error parsing template data:', e);
         }
     }
+
+    setupReactiveRendering();
 
     STATE.annotations = window.currentAnnotations || {};
     loadFigureLabelsFromAnnotations();

@@ -51,7 +51,7 @@ function resetView() {
 function applyZoom() {
     DOM.imageWrapper.style.transform = `translate(${STATE.translateX}px, ${STATE.translateY}px) scale(${STATE.currentZoom})`;
     DOM.zoomLevel.textContent = `${Math.round(STATE.currentZoom * 100)}%`;
-    renderAnnotations();
+    // Annotations re-render reactively via Store subscription
 }
 
 /**

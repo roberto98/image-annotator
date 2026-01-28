@@ -27,8 +27,7 @@ function saveToHistory() {
 
 function undo() {
     if (window.AppStore.undo()) {
-        renderLabelList();
-        renderAnnotations(true);
+        forceRender();
         updateUndoRedoButtons();
         showMessage('Undo successful', 'success');
     }
@@ -36,8 +35,7 @@ function undo() {
 
 function redo() {
     if (window.AppStore.redo()) {
-        renderLabelList();
-        renderAnnotations(true);
+        forceRender();
         updateUndoRedoButtons();
         showMessage('Redo successful', 'success');
     }

@@ -191,7 +191,6 @@ function handleKeyDown(e) {
             } else {
                 deselectAllFigures();
                 STATE.selectedLabel = null;
-                renderLabelList();
             }
         },
         'c': toggleCenterIndicators,

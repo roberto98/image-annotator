@@ -72,3 +72,43 @@ Created: 2026-01-26
 ### Next steps
 - US-003: Enable Reactive Rendering
 
+---
+
+## [2026-01-29] US-003: Enable Reactive Rendering
+
+### What was done
+- Wired `Store.subscribe()` to a microtask-batched `scheduleRender()` function in `rendering.js`
+- `scheduleRender()` uses `queueMicrotask` to batch multiple state changes into a single render per event loop turn (fires before browser repaint — no visual lag)
+- Added `forceRender()` for undo/redo to bypass dirty checking
+- Added `setupReactiveRendering()` called at the start of `initializeApp()`
+- Removed ALL manual `renderAnnotations()` and `renderLabelList()` calls from 7 JS files
+- Converted nested state mutations (`STATE.annotations[name] = ...`) to top-level assignments (`STATE.annotations = { ...STATE.annotations, [name]: ... }`) so the STATE proxy intercepts them and triggers notifications
+- Added dirty checking to `renderLabelList()` via `getLabelListHash()` to avoid unnecessary DOM rebuilds
+- `renderAnnotations()` retains its existing hash-based dirty checking as a second optimization layer
+
+### Acceptance Criteria Status
+- [x] Rendering subscribes to Store state changes (via `AppStore.subscribe()` in `setupReactiveRendering()`)
+- [x] Manual renderAnnotations() calls are removed (verified: zero calls outside rendering.js)
+- [x] Canvas updates automatically when annotations change (tested: select, toggle visibility, switch tools, zoom)
+- [x] No unnecessary re-renders during idle state (dual dirty checking: microtask batching + hash comparison)
+- [x] Typecheck passes (zero console errors/warnings verified in browser)
+
+### Key decisions
+- Used `queueMicrotask` over `requestAnimationFrame` for batching. Microtasks fire before browser repaint, so annotations render in the same frame as the state change — no visual lag during zoom/pan.
+- Converted nested mutations to top-level proxy-triggering assignments. The STATE Proxy only intercepts top-level `STATE.property = value` writes. Nested writes like `STATE.annotations[name] = {...}` bypass the proxy. By using `STATE.annotations = { ...STATE.annotations, [name]: data }`, the proxy catches the change and notifies subscribers.
+- Figure drag operations (mousemove handlers in interactions.js and figures.js) still mutate `figureData` directly and update DOM elements manually — these are performance-critical 60fps operations that don't go through renderAnnotations().
+- `renderActivePolygon()` calls in polygon drawing (handlePolygonClick, handlePolygonDrag) remain manual since they handle the in-progress drawing overlay, not committed annotations.
+
+### Files changed
+- `app/static/js/rendering.js` - Added scheduleRender(), forceRender(), setupReactiveRendering(), getLabelListHash(), dirty checking for renderLabelList()
+- `app/static/js/initialization.js` - Added setupReactiveRendering() call, removed render calls from handleImageLoad(), optimized initializeVisibilityToggles()
+- `app/static/js/annotations.js` - Converted 4 nested mutations to top-level, removed 8 manual render calls
+- `app/static/js/utilities.js` - Replaced renderLabelList()+renderAnnotations(true) with forceRender() in undo/redo
+- `app/static/js/zoom.js` - Removed renderAnnotations() from applyZoom()
+- `app/static/js/polygons.js` - Converted 1 nested mutation, removed 2 manual render calls
+- `app/static/js/figures.js` - Converted 3 nested mutations, removed 6 manual render calls
+- `app/static/js/interactions.js` - Removed 1 manual renderLabelList() call from Escape handler
+
+### Next steps
+- US-004: Create Label Popup Component
+

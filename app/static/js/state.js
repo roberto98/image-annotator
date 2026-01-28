@@ -1,22 +1,24 @@
 /**
- * Global state management for the annotation tool.
- * Creates STATE as a proxy to the Store for backward-compatible property access.
+ * State initialization and constants.
+ * STATE is created in store/index.js as the single source of truth.
+ * This file handles server-provided data initialization and color constants.
  */
 
 // Initialize store with server-provided data
 if (window.AppStore) {
-    const store = window.AppStore._state;
-    store.annotations = window.currentAnnotations || {};
+    const storeState = window.AppStore._state;
+    storeState.annotations = window.currentAnnotations || {};
 
     if (window.__APP_CONFIG__) {
-        store.patientId = window.__APP_CONFIG__.patientId || null;
-        store.imageName = window.__APP_CONFIG__.imageName || null;
+        storeState.patientId = window.__APP_CONFIG__.patientId || null;
+        storeState.imageName = window.__APP_CONFIG__.imageName || null;
     }
 }
 
-const STATE = window.createStateProxy
-    ? window.createStateProxy(window.AppStore)
-    : { annotations: window.currentAnnotations || {} };
+// STATE is now created and exported from store/index.js
+// Re-declare as local const for backward compatibility with scripts that
+// expect STATE to be available as a global after this file loads.
+const STATE = window.STATE;
 
 /** Color palette for annotations - each label gets a unique color */
 const COLORS = Object.freeze([

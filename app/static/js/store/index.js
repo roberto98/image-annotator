@@ -310,8 +310,9 @@ const INITIAL_STATE = {
 };
 
 /**
- * Create a proxy wrapper around the store for backward compatibility.
- * Allows direct property access (STATE.property) to read/write store state.
+ * Create a proxy wrapper around the store.
+ * Provides direct property access (STATE.property) that routes through the Store.
+ * All state changes are logged in debug mode and properly notify listeners with prevState.
  * @param {Store} storeInstance - The store instance to wrap
  * @returns {Proxy} Proxy that allows direct property access
  */
@@ -325,8 +326,9 @@ function createStateProxy(storeInstance) {
 
         set(target, prop, value) {
             debugLog(`STATE.${prop} =`, value);
+            const prevValue = storeInstance._state[prop];
             storeInstance._state[prop] = value;
-            storeInstance._notify(null);
+            storeInstance._notify({ ...storeInstance._state, [prop]: prevValue });
             return true;
         },
 
@@ -351,6 +353,8 @@ const store = new Store(INITIAL_STATE);
 if (typeof window !== 'undefined') {
     window.AppStore = store;
     window.Store = Store;
+    /** STATE - Single access point for all application state, backed by Store */
+    window.STATE = createStateProxy(store);
     window.createStateProxy = createStateProxy;
     window.setStoreDebugMode = setDebugMode;
 }

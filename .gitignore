@@ -208,3 +208,10 @@ __marimo__/
 
 /images/*
 /annotations/*
+
+.serena/
+.claude/
+docs/
+scripts/
+tasks/
+Claude.md

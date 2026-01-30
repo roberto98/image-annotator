@@ -17,18 +17,26 @@ function handleMouseDown(e) {
     STATE.startDragY = e.clientY - rect.top;
 
     const isInteractiveElement = e.target.classList.contains('figure-shape') ||
-                                 e.target.classList.contains('resize-handle') ||
-                                 e.target.classList.contains('line-point');
+        e.target.classList.contains('resize-handle') ||
+        e.target.classList.contains('line-point');
 
     if (!isInteractiveElement) deselectAllFigures();
 
     const clickedOnLine = e.target.classList.contains('figure-line') ||
-                         e.target.classList.contains('line-point') ||
-                         e.target.closest('.figure-line');
+        e.target.classList.contains('line-point') ||
+        e.target.closest('.figure-line');
 
     if (STATE.isAnnotationMode) {
         if (!STATE.selectedLabel) {
-            showMessage('Please select a label first', 'warning');
+            // Open label popup instead of blocking
+            const coords = viewport.eventToImage(e);
+            if (!viewport.isWithinBounds(coords.x, coords.y)) {
+                showMessage('Click within image bounds', 'warning');
+                return;
+            }
+            if (typeof LabelPopup !== 'undefined') {
+                LabelPopup.show(e.clientX, e.clientY, coords);
+            }
             return;
         }
 
@@ -171,7 +179,7 @@ function handleMouseUp(e) {
     if (STATE.linePointDragging) {
         completeLinePointInteraction();
     }
-    
+
     DOM.imageContainer.style.cursor = STATE.isAnnotationMode ? 'crosshair' : 'grab';
 }
 

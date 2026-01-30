@@ -306,7 +306,9 @@ const INITIAL_STATE = {
 
     hasUnsavedChanges: false,
     brightness: 100,
-    contrast: 100
+    contrast: 100,
+
+    labelUsageCounts: {}
 };
 
 /**

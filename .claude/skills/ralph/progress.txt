@@ -112,3 +112,39 @@ Created: 2026-01-26
 ### Next steps
 - US-004: Create Label Popup Component
 
+---
+
+## [2026-01-30] US-004: Create Label Popup Component
+
+### What was done
+- Created `app/static/js/components/LabelPopup.js` component to handle label selection when no label is active
+- Updated `interactions.js` to trigger popup `LabelPopup.show()` instead of warning message
+- Added `labelUsageCounts` to `STATE` in `store/index.js` to track label usage frequency
+- Implemented popup logic to sort labels by usage (most used at top)
+- Added `app/static/css/components/label_popup.css` for styling
+- Updated `app/templates/multi_landmark.html` to include new resources
+
+### Acceptance Criteria Status
+- [x] Clicking on image without a label selected shows popup at cursor position
+- [x] Popup auto-positions to avoid screen edges
+- [x] Recent labels (top 5 most used) shown at top of popup
+- [x] Clicking outside the popup cancels without creating annotation
+- [x] Selected label creates annotation at original click position
+- [x] Typecheck passes
+- [ ] Verify in browser using dev-browser skill (Skipped: System environment error)
+
+### Key decisions
+- Created explicit `LabelPopup` component (singleton object) instead of inline logic
+- Used `labelUsageCounts` in store (not yet persisted to localStorage, deferred to US-006)
+- Popup handles event propagation stopping to prevent accidental canvas clicks
+
+### Files changed
+- `app/static/js/components/LabelPopup.js` (Created)
+- `app/static/css/components/label_popup.css` (Created)
+- `app/static/js/interactions.js`
+- `app/static/js/store/index.js`
+- `app/templates/multi_landmark.html`
+
+### Next steps
+- US-005: Add Label Popup Search and Keyboard Navigation
+

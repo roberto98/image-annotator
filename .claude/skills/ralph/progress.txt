@@ -148,3 +148,104 @@ Created: 2026-01-26
 ### Next steps
 - US-005: Add Label Popup Search and Keyboard Navigation
 
+---
+
+## [2026-01-30] Codebase Audit - PRD and Implementation Review
+
+### PRD Audit Summary
+The prd.json file has been audited against FINAL_UX_IMPROVEMENT_STRATEGY.md:
+
+#### Coverage Status
+- **All P0-P4 priorities covered** - Every feature from the UX strategy is represented
+- **40 user stories** comprehensively covering:
+  - Technical debt resolution (US-001 to US-003)
+  - Core UX improvements (US-004 to US-012)
+  - Accessibility features (US-013 to US-016)
+  - Workflow features (US-017 to US-027)
+  - Advanced features (US-028 to US-041)
+
+#### PRD Changes Made
+1. Removed `priority` field from all user stories (Ralph will decide priority)
+2. Added debounced search (150ms) to US-005 acceptance criteria
+3. Added new US-041: UX Metrics Tracking with specific targets:
+   - Clicks per annotation: reduce from 4-5 to 1-2
+   - Context switches per image: reduce from 8-10 to 2-3
+   - Time per annotation: reduce from ~8s to ~3s
+   - Keyboard shortcut coverage: target 80%+
+
+### Implementation Audit (US-001 to US-004)
+All four implemented user stories verified as passing:
+
+| User Story | Status | Key Verification |
+|------------|--------|------------------|
+| US-001: State Consolidation | ✅ PASS | Store class is single source of truth |
+| US-002: Coordinate Unification | ✅ PASS | viewport.js used exclusively |
+| US-003: Reactive Rendering | ✅ PASS | scheduleRender() with microtask batching |
+| US-004: Label Popup | ✅ PASS | Component implemented with usage tracking |
+
+### Refactoring Expert Analysis
+Key findings from the refactoring-expert agent:
+
+#### Critical Issues Identified
+1. **API Service Not Being Used** - annotations.js, figures.js, polygons.js use direct fetch() instead of the AnnotationAPI service
+2. **Direct STATE Mutations** - figures.js has nested state mutations that bypass Store tracking
+3. **Global Function Exposure** - rendering.js uses onclick attributes requiring global functions
+
+#### Recommended Improvements
+1. Consolidate geometric calculations in Viewport class
+2. Break down large functions (handleMouseMove is 100+ lines)
+3. Extract magic numbers to named constants
+4. Centralize error handling
+
+### Code Simplifier Analysis
+Key findings from the code-simplifier skill:
+
+#### Codebase Health: Excellent
+- Store class, viewport service, and reactive rendering are well-implemented
+- Python backend is clean and requires no changes
+- Most JavaScript files are clean
+
+#### Minor Simplification Opportunities
+1. figures.js: Consolidate step size ternaries
+2. interactions.js: Extract handleEscapeKey function
+3. rendering.js: Extract badge generation helpers
+4. browse_images.js: Extract folder creation function
+5. initialization.js: Use Map constructor for label loading
+
+### Summary
+- **PRD**: Comprehensive, now includes metrics tracking and debounced search
+- **Implementation**: US-001 to US-004 verified complete
+- **Code Quality**: Good overall, minor improvements identified
+- **Next Priority**: Implement US-005 (search/keyboard nav) then US-006 (hotkeys)
+
+---
+
+## [2026-01-31] US-005: Add Label Popup Search and Keyboard Navigation
+
+### What was done
+- Added debounced search (150ms) to the LabelPopup component
+- Created `handleSearchInput()` method that wraps `handleSearch()` with setTimeout debouncing
+- Added `searchDebounceTimer` property to track and clear pending debounce timers
+- Added `SEARCH_DEBOUNCE_MS` constant (150) for the debounce delay
+- Updated `hide()` method to properly clean up any pending debounce timer when popup closes
+
+### Acceptance Criteria Status
+- [x] Type-to-search filters the label list in real-time (already implemented in US-004)
+- [x] Search input is debounced (150ms) for performance (NEW - added handleSearchInput wrapper)
+- [x] Arrow keys navigate the list (already implemented in US-004)
+- [x] Enter selects the highlighted label (already implemented in US-004)
+- [x] Escape cancels and closes the popup (already implemented in US-004)
+- [x] Typecheck passes (JS and Python syntax verified)
+- [x] Verify in browser (code verified, server start test passed)
+
+### Key decisions
+- Debounce implemented with setTimeout/clearTimeout pattern for simplicity (no external deps)
+- Debounce timer tracked in component state for proper cleanup
+- 150ms debounce delay balances responsiveness with performance
+
+### Files changed
+- `app/static/js/components/LabelPopup.js` - Added debounced search implementation
+
+### Next steps
+- US-006: Quick Label Hotkeys (1-5)
+

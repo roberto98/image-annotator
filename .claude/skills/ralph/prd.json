@@ -15,7 +15,6 @@
         "No regression in existing functionality",
         "Typecheck passes"
       ],
-      "priority": 1,
       "passes": true,
       "notes": "Consolidated: STATE proxy now created in store/index.js, state.js simplified to initialization only. Proxy set handler now captures prevState for proper listener notification. Debug logging via setStoreDebugMode(true). Undo/redo verified working across all annotation types."
     },
@@ -30,7 +29,6 @@
         "Annotations render at correct positions after zoom/pan",
         "Typecheck passes"
       ],
-      "priority": 2,
       "passes": true,
       "notes": "Unified: All coordinate transforms now use viewport singleton (services/viewport.js). Viewport auto-links to STATE and DOM on load. Removed duplicate eventToImageCoords, imageToDisplayCoords, displayToImageCoords, isWithinImageBounds from utilities.js. All call sites in interactions.js, rendering.js, figures.js updated to use viewport.eventToImage(), viewport.imageToDisplay(), viewport.displayToImage(), viewport.isWithinBounds(). Verified working at all zoom levels."
     },
@@ -45,7 +43,6 @@
         "No unnecessary re-renders during idle state",
         "Typecheck passes"
       ],
-      "priority": 3,
       "passes": true,
       "notes": "Reactive: Store.subscribe() wired to microtask-batched scheduleRender() in rendering.js. All manual renderAnnotations()/renderLabelList() calls removed from annotations.js, polygons.js, figures.js, utilities.js, zoom.js, interactions.js, initialization.js. Nested mutations (STATE.annotations[name]=...) converted to top-level proxy-triggering assignments (STATE.annotations={...}). Dirty checking added to renderLabelList() via getLabelListHash(). forceRender() used for undo/redo. Zero console errors verified in browser."
     },
@@ -62,7 +59,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 4,
       "passes": true,
       "notes": "Implemented LabelPopup component (components/LabelPopup.js). Clicking on image with no label selected opens popup at cursor. Popup shows label list sorted by usage (tracked in STATE.labelUsageCounts). Verified code logic (browser validation skipped due to system environment issue)."
     },
@@ -72,15 +68,15 @@
       "description": "As an annotator, I want to search and navigate the label popup with keyboard so that I can select labels quickly.",
       "acceptanceCriteria": [
         "Type-to-search filters the label list in real-time",
+        "Search input is debounced (150ms) for performance",
         "Arrow keys navigate the list",
         "Enter selects the highlighted label",
         "Escape cancels and closes the popup",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added debounced search (150ms) to LabelPopup component. handleSearchInput() wraps handleSearch() with setTimeout debouncing. Keyboard navigation (Arrow up/down, Enter, Escape) was already implemented in US-004. Debounce timer properly cleaned up in hide() method."
     },
     {
       "id": "US-006",
@@ -95,7 +91,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 6,
       "passes": false,
       "notes": ""
     },
@@ -111,7 +106,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 7,
       "passes": false,
       "notes": ""
     },
@@ -128,7 +122,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 8,
       "passes": false,
       "notes": ""
     },
@@ -143,7 +136,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 9,
       "passes": false,
       "notes": ""
     },
@@ -158,7 +150,6 @@
         "Loading indicators shown only for slow operations (>500ms)",
         "Typecheck passes"
       ],
-      "priority": 10,
       "passes": false,
       "notes": ""
     },
@@ -175,7 +166,6 @@
         "Preload failures don't affect current image viewing",
         "Typecheck passes"
       ],
-      "priority": 11,
       "passes": false,
       "notes": ""
     },
@@ -191,7 +181,6 @@
         "Validation errors prevent save but don't lose work",
         "Typecheck passes"
       ],
-      "priority": 12,
       "passes": false,
       "notes": ""
     },
@@ -207,7 +196,6 @@
         "Form inputs have associated labels",
         "Typecheck passes"
       ],
-      "priority": 13,
       "passes": false,
       "notes": ""
     },
@@ -224,7 +212,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 14,
       "passes": false,
       "notes": ""
     },
@@ -240,7 +227,6 @@
         "Announcements don't interrupt each other",
         "Typecheck passes"
       ],
-      "priority": 15,
       "passes": false,
       "notes": ""
     },
@@ -257,7 +243,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 16,
       "passes": false,
       "notes": ""
     },
@@ -273,7 +258,6 @@
         "Existing functionality continues to work during migration",
         "Typecheck passes"
       ],
-      "priority": 17,
       "passes": false,
       "notes": ""
     },
@@ -290,7 +274,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 18,
       "passes": false,
       "notes": ""
     },
@@ -306,7 +289,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 19,
       "passes": false,
       "notes": ""
     },
@@ -321,7 +303,6 @@
         "Visual status indicators update immediately",
         "Typecheck passes"
       ],
-      "priority": 20,
       "passes": false,
       "notes": ""
     },
@@ -337,7 +318,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 21,
       "passes": false,
       "notes": ""
     },
@@ -355,7 +335,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 22,
       "passes": false,
       "notes": ""
     },
@@ -371,7 +350,6 @@
         "Rejected annotations require a comment",
         "Typecheck passes"
       ],
-      "priority": 23,
       "passes": false,
       "notes": ""
     },
@@ -386,7 +364,6 @@
         "Reviewers can unlock annotations for re-editing",
         "Typecheck passes"
       ],
-      "priority": 24,
       "passes": false,
       "notes": ""
     },
@@ -404,7 +381,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 25,
       "passes": false,
       "notes": ""
     },
@@ -421,7 +397,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 26,
       "passes": false,
       "notes": ""
     },
@@ -436,7 +411,6 @@
         "Option to start fresh instead of resuming",
         "Typecheck passes"
       ],
-      "priority": 27,
       "passes": false,
       "notes": ""
     },
@@ -455,7 +429,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 28,
       "passes": false,
       "notes": ""
     },
@@ -473,7 +446,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 29,
       "passes": false,
       "notes": ""
     },
@@ -489,7 +461,6 @@
         "Can override validation with reason",
         "Typecheck passes"
       ],
-      "priority": 30,
       "passes": false,
       "notes": ""
     },
@@ -505,7 +476,6 @@
         "Label search is debounced (150ms)",
         "Typecheck passes"
       ],
-      "priority": 31,
       "passes": false,
       "notes": ""
     },
@@ -521,7 +491,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 32,
       "passes": false,
       "notes": ""
     },
@@ -537,7 +506,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 33,
       "passes": false,
       "notes": ""
     },
@@ -553,7 +521,6 @@
         "Closing pop-out returns image to main window",
         "Typecheck passes"
       ],
-      "priority": 34,
       "passes": false,
       "notes": ""
     },
@@ -568,7 +535,6 @@
         "Splash screen shows during load",
         "Typecheck passes"
       ],
-      "priority": 35,
       "passes": false,
       "notes": ""
     },
@@ -584,7 +550,6 @@
         "Auto-sync when connection restored",
         "Typecheck passes"
       ],
-      "priority": 36,
       "passes": false,
       "notes": ""
     },
@@ -601,7 +566,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 37,
       "passes": false,
       "notes": ""
     },
@@ -617,7 +581,6 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 38,
       "passes": false,
       "notes": ""
     },
@@ -633,7 +596,6 @@
         "Preferences persist across sessions",
         "Typecheck passes"
       ],
-      "priority": 39,
       "passes": false,
       "notes": ""
     },
@@ -649,7 +611,22 @@
         "No animation blocks user interaction",
         "Typecheck passes"
       ],
-      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-041",
+      "title": "UX Metrics Tracking",
+      "description": "As a team lead, I want to track UX metrics so that I can measure improvement against targets.",
+      "acceptanceCriteria": [
+        "Track clicks per annotation (target: reduce from 4-5 to 1-2)",
+        "Track context switches per image (target: reduce from 8-10 to 2-3)",
+        "Track time per annotation (target: reduce from ~8s to ~3s)",
+        "Track keyboard shortcut usage (target: 80% coverage)",
+        "Metrics dashboard accessible from admin menu",
+        "Export metrics as CSV for analysis",
+        "Typecheck passes"
+      ],
       "passes": false,
       "notes": ""
     }

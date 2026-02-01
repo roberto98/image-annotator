@@ -16,9 +16,25 @@
 .label-popup-header {
     padding: var(--spacing-sm) var(--spacing-md);
     background: var(--surface-2);
-    font-weight: 600;
     border-bottom: 1px solid var(--border);
     color: var(--text-1);
+}
+
+.label-popup-search {
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    color: var(--text-1);
+    font-size: var(--font-size-sm);
+    outline: none;
+    box-sizing: border-box;
+}
+
+.label-popup-search:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-transparent);
 }
 
 .label-popup-list {
@@ -39,6 +55,15 @@
     color: var(--primary);
 }
 
+.label-popup-item.is-highlighted {
+    background: var(--primary);
+    color: white;
+}
+
+.label-popup-item.is-highlighted.is-recent {
+    border-left-color: white;
+}
+
 .label-popup-item.is-recent {
     font-weight: 500;
     border-left: 3px solid var(--primary);
@@ -50,3 +75,4 @@
     color: var(--text-3);
     font-style: italic;
 }
+

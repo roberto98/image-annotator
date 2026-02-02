@@ -373,6 +373,53 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 - Phase 3: Basic Annotation Types (US-014 remaining: Tag Annotation)
 - Phase 4-10: 17 user stories remaining
 
+### US-014: Tag Annotation ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-03
+
+**Files Modified:**
+- `app/static/js/core/AnnotationRenderer.js` - Added renderTag() method for tag visualization
+- `app/static/js/annotations/drawing.js` - Tag tool activation flow with immediate label popup
+- `app/static/js/rendering.js` - Added tag rendering support
+- `app/static/css/annotations/renderer.css` - Badge styling for tag annotations
+
+**Key Implementation Details:**
+- Tag tool shows label popup immediately on activation (no geometry required)
+- Tags stored as `{ type: 'tag', data: {} }` - no geometric data
+- Tags appear in annotation sidebar list with "Tag" badge
+- renderTag() creates visual badge representation in SVG layer
+
+**All Acceptance Criteria Met:**
+- ✅ Select tag tool → label popup appears immediately
+- ✅ No geometry drawn, just label stored
+- ✅ Tag shown in annotation sidebar list
+- ✅ Tag stored as { type: 'tag', data: {} }
+
+**Note:** Phase 3 (all 8 annotation types) is now complete!
+
+---
+
+## Summary
+
+### Completed (14/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+- ✅ US-009: Circle Annotation
+- ✅ US-010: Rectangle Annotation
+- ✅ US-011: Polygon Annotation
+- ✅ US-012: Freehand Annotation
+- ✅ US-013: Angle Annotation
+- ✅ US-014: Tag Annotation
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - COMPLETE (8/8)
+
 ### Next Steps
-Continue with US-014: Tag Annotation - implement text tags (image-level labels) without geometry.
+Continue with Phase 4: Pan/Zoom Controls (US-015, US-016)
 

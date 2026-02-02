@@ -231,8 +231,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented. Tag tool shows label popup immediately, stores as {type:'tag', data:{}}, appears in sidebar with Tag badge."
     },
     {
       "id": "US-015",

@@ -208,10 +208,14 @@ __marimo__/
 
 /images/*
 /annotations/*
-
+.vscode/
+logs/
 .serena/
-.claude/
+.claude/*
+.github/agents/
 docs/
 scripts/
 tasks/
+ralph/
 Claude.md
+AGENTS.md

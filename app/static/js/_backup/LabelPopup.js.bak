@@ -1,0 +1,451 @@
+/**
+ * Label Popup Component
+ * REWRITTEN: New direct annotation workflow
+ * 
+ * Features:
+ * - Shows centered on screen when tool button is clicked
+ * - Shows at click position when clicking canvas without label
+ * - Mobile-friendly with large touch targets (44px min)
+ * - Automation-friendly with data attributes
+ * - Keyboard navigation support
+ */
+const LabelPopup = {
+    element: null,
+    isOpen: false,
+    pendingClickCoords: null,
+    highlightedIndex: -1,
+    filteredLabels: [],
+    searchDebounceTimer: null,
+    SEARCH_DEBOUNCE_MS: 100,
+    // Store bound handlers for cleanup
+    _boundOutsideClickHandler: null,
+    _boundPopupClickHandler: null,
+    _boundKeyHandler: null,
+
+    /**
+     * Initialize the popup DOM elements
+     */
+    init() {
+        if (this.element) return;
+
+        this.element = document.createElement('div');
+        this.element.className = 'label-popup';
+        this.element.setAttribute('data-component', 'label-popup');
+        this.element.setAttribute('role', 'dialog');
+        this.element.setAttribute('aria-label', 'Select a label');
+        this.element.innerHTML = `
+            <div class="label-popup-header">
+                <div class="label-popup-title">Select Label</div>
+                <input type="text" 
+                       class="label-popup-search" 
+                       placeholder="Search labels..." 
+                       data-input="label-search"
+                       autocomplete="off" />
+            </div>
+            <div class="label-popup-list" data-list="labels" role="listbox"></div>
+            <div class="label-popup-footer">
+                <button class="label-popup-cancel" data-action="cancel">Cancel</button>
+            </div>
+        `;
+        document.body.appendChild(this.element);
+
+        const searchInput = this.element.querySelector('.label-popup-search');
+        searchInput.addEventListener('input', (e) => this.handleSearchInput(e.target.value));
+        searchInput.addEventListener('keydown', (e) => this.handleKeyDown(e));
+
+        const cancelBtn = this.element.querySelector('.label-popup-cancel');
+        cancelBtn.addEventListener('click', () => this.hide());
+
+        // Store bound handlers for cleanup
+        this._boundOutsideClickHandler = (e) => {
+            if (this.isOpen && !this.element.contains(e.target)) {
+                this.hide();
+            }
+        };
+        this._boundPopupClickHandler = (e) => e.stopPropagation();
+        this._boundKeyHandler = (e) => {
+            if (this.isOpen && e.key === 'Escape') {
+                e.preventDefault();
+                this.hide();
+            }
+        };
+
+        // Close on click outside
+        document.addEventListener('mousedown', this._boundOutsideClickHandler);
+        document.addEventListener('touchstart', this._boundOutsideClickHandler, { passive: true });
+
+        // Prevent clicks inside popup from propagating to canvas
+        this.element.addEventListener('mousedown', this._boundPopupClickHandler);
+        this.element.addEventListener('touchstart', this._boundPopupClickHandler, { passive: true });
+
+        // Global escape handler
+        document.addEventListener('keydown', this._boundKeyHandler);
+    },
+
+    /**
+     * Clean up event listeners
+     */
+    destroy() {
+        // Clear debounce timer to prevent memory leak
+        if (this.searchDebounceTimer) {
+            clearTimeout(this.searchDebounceTimer);
+            this.searchDebounceTimer = null;
+        }
+
+        if (this._boundOutsideClickHandler) {
+            document.removeEventListener('mousedown', this._boundOutsideClickHandler);
+            document.removeEventListener('touchstart', this._boundOutsideClickHandler);
+            this._boundOutsideClickHandler = null;
+        }
+        if (this._boundKeyHandler) {
+            document.removeEventListener('keydown', this._boundKeyHandler);
+            this._boundKeyHandler = null;
+        }
+        if (this.element) {
+            if (this._boundPopupClickHandler) {
+                this.element.removeEventListener('mousedown', this._boundPopupClickHandler);
+                this.element.removeEventListener('touchstart', this._boundPopupClickHandler);
+                this._boundPopupClickHandler = null;
+            }
+            this.element.remove();
+            this.element = null;
+        }
+        this.hide();
+    },
+
+    /**
+     * Show the popup centered on screen (for tool button clicks)
+     */
+    showCentered() {
+        this.init();
+        this.isOpen = true;
+        this.pendingClickCoords = null; // No pending annotation
+        this.highlightedIndex = -1;
+
+        const searchInput = this.element.querySelector('.label-popup-search');
+        searchInput.value = '';
+        this.filteredLabels = [...STATE.allLabels];
+
+        this.renderList();
+        
+        this.element.style.display = 'flex';
+        
+        // Center on screen
+        const rect = this.element.getBoundingClientRect();
+        const left = Math.max(10, (window.innerWidth - rect.width) / 2);
+        const top = Math.max(10, (window.innerHeight - rect.height) / 2);
+        
+        this.element.style.left = `${left}px`;
+        this.element.style.top = `${top}px`;
+
+        // Focus search input after positioning
+        requestAnimationFrame(() => searchInput.focus());
+    },
+
+    /**
+     * Show the popup at specific coordinates (for canvas clicks)
+     * @param {number} x - Screen X coordinate
+     * @param {number} y - Screen Y coordinate
+     * @param {Object} imageCoords - Image coordinates {x, y} for the pending annotation
+     */
+    show(x, y, imageCoords) {
+        this.init();
+        this.isOpen = true;
+        this.pendingClickCoords = imageCoords;
+        this.highlightedIndex = -1;
+
+        const searchInput = this.element.querySelector('.label-popup-search');
+        searchInput.value = '';
+        this.filteredLabels = [...STATE.allLabels];
+
+        this.renderList();
+
+        this.element.style.display = 'flex';
+
+        const rect = this.element.getBoundingClientRect();
+        let left = x;
+        let top = y;
+
+        // Position checking to avoid screen edges
+        if (left + rect.width > window.innerWidth) {
+            left = window.innerWidth - rect.width - 20;
+        }
+        if (top + rect.height > window.innerHeight) {
+            top = window.innerHeight - rect.height - 20;
+        }
+        if (left < 10) left = 10;
+        if (top < 10) top = 10;
+
+        this.element.style.left = `${left}px`;
+        this.element.style.top = `${top}px`;
+
+        // Focus search input after positioning
+        requestAnimationFrame(() => searchInput.focus());
+    },
+
+    /**
+     * Hide the popup
+     */
+    hide() {
+        if (this.element) this.element.style.display = 'none';
+        this.isOpen = false;
+        this.pendingClickCoords = null;
+        this.highlightedIndex = -1;
+        this.filteredLabels = [];
+        
+        if (this.searchDebounceTimer) {
+            clearTimeout(this.searchDebounceTimer);
+            this.searchDebounceTimer = null;
+        }
+    },
+
+    /**
+     * Handle search input with debouncing
+     * @param {string} query - Search query
+     */
+    handleSearchInput(query) {
+        if (this.searchDebounceTimer) {
+            clearTimeout(this.searchDebounceTimer);
+        }
+        
+        this.searchDebounceTimer = setTimeout(() => {
+            this.handleSearch(query);
+            this.searchDebounceTimer = null;
+        }, this.SEARCH_DEBOUNCE_MS);
+    },
+
+    /**
+     * Perform the actual search
+     * @param {string} query - Search query
+     */
+    handleSearch(query) {
+        const trimmedQuery = query.trim().toLowerCase();
+        
+        this.filteredLabels = trimmedQuery
+            ? STATE.allLabels.filter(label => label.name.toLowerCase().includes(trimmedQuery))
+            : [...STATE.allLabels];
+
+        this.highlightedIndex = -1;
+        this.renderList();
+    },
+
+    /**
+     * Handle keyboard navigation
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    handleKeyDown(e) {
+        const items = this.element.querySelectorAll('.label-popup-item');
+        const maxIndex = items.length - 1;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.highlightedIndex = Math.min(this.highlightedIndex + 1, maxIndex);
+                this.updateHighlight();
+                break;
+
+            case 'ArrowUp':
+                e.preventDefault();
+                this.highlightedIndex = Math.max(this.highlightedIndex - 1, 0);
+                this.updateHighlight();
+                break;
+
+            case 'Enter':
+                e.preventDefault();
+                this._selectHighlightedOrFirst(items);
+                break;
+
+            case 'Escape':
+                e.preventDefault();
+                this.hide();
+                break;
+
+            case 'Tab':
+                this._handleTabNavigation(e);
+                break;
+        }
+    },
+
+    /**
+     * Select the highlighted item, or the first item if none highlighted
+     * @param {NodeList} items - Label items
+     * @private
+     */
+    _selectHighlightedOrFirst(items) {
+        if (items.length === 0) return;
+        
+        const targetIndex = this.highlightedIndex >= 0 && this.highlightedIndex < items.length
+            ? this.highlightedIndex
+            : 0;
+        items[targetIndex].click();
+    },
+
+    /**
+     * Handle tab navigation within popup
+     * @param {KeyboardEvent} e - Keyboard event
+     * @private
+     */
+    _handleTabNavigation(e) {
+        const searchInput = this.element.querySelector('.label-popup-search');
+        if (!e.shiftKey && document.activeElement === searchInput) {
+            e.preventDefault();
+            const firstItem = this.element.querySelector('.label-popup-item');
+            if (firstItem) firstItem.focus();
+        }
+    },
+
+    /**
+     * Update visual highlight of the selected item
+     */
+    updateHighlight() {
+        const items = this.element.querySelectorAll('.label-popup-item');
+        items.forEach((item, index) => {
+            const isHighlighted = index === this.highlightedIndex;
+            item.classList.toggle('is-highlighted', isHighlighted);
+            item.setAttribute('aria-selected', String(isHighlighted));
+            if (isHighlighted) {
+                item.scrollIntoView({ block: 'nearest' });
+            }
+        });
+    },
+
+    /**
+     * Sort labels by priority: annotated first, then by usage count, then alphabetically
+     * @param {Array} labels - Labels to sort
+     * @param {Object} annotations - Current annotations
+     * @param {Object} usage - Usage counts
+     * @returns {Array} Sorted labels
+     * @private
+     */
+    _sortLabels(labels, annotations, usage) {
+        return labels.sort((a, b) => {
+            const aAnnotated = !!annotations[a.name];
+            const bAnnotated = !!annotations[b.name];
+            if (aAnnotated !== bAnnotated) return aAnnotated ? -1 : 1;
+            
+            const aUsage = usage[a.name] || 0;
+            const bUsage = usage[b.name] || 0;
+            if (aUsage !== bUsage) return bUsage - aUsage;
+            
+            return a.name.localeCompare(b.name);
+        });
+    },
+
+    /**
+     * Create a label item element
+     * @param {Object} label - Label data
+     * @param {number} index - Item index
+     * @param {Object} annotations - Current annotations
+     * @param {Object} usage - Usage counts
+     * @returns {HTMLElement} Label item element
+     * @private
+     */
+    _createLabelItem(label, index, annotations, usage) {
+        const item = document.createElement('div');
+        item.className = 'label-popup-item';
+        item.setAttribute('role', 'option');
+        item.setAttribute('data-label', label.name);
+        item.setAttribute('tabindex', '0');
+
+        const isAnnotated = !!annotations[label.name];
+        const isRecent = (usage[label.name] || 0) > 0;
+        const isHighlighted = index === this.highlightedIndex;
+
+        item.classList.toggle('is-annotated', isAnnotated);
+        item.classList.toggle('is-recent', isRecent);
+        item.classList.toggle('is-highlighted', isHighlighted);
+        item.setAttribute('aria-selected', String(isHighlighted));
+
+        // Create content with status indicator
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'label-popup-item-name';
+        nameSpan.textContent = label.name;
+        item.appendChild(nameSpan);
+
+        if (isAnnotated) {
+            const statusSpan = document.createElement('span');
+            statusSpan.className = 'label-popup-item-status';
+            statusSpan.textContent = 'annotated';
+            item.appendChild(statusSpan);
+        }
+
+        // Click and keyboard handlers
+        item.addEventListener('click', () => this.selectLabel(label.name));
+        item.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.selectLabel(label.name);
+            }
+        });
+
+        return item;
+    },
+
+    /**
+     * Render the list of labels
+     */
+    renderList() {
+        const listEl = this.element.querySelector('.label-popup-list');
+        listEl.innerHTML = '';
+
+        const usage = STATE.labelUsageCounts || {};
+        const annotations = STATE.annotations || {};
+
+        this.filteredLabels = this._sortLabels(this.filteredLabels, annotations, usage);
+
+        this.filteredLabels.forEach((label, index) => {
+            listEl.appendChild(this._createLabelItem(label, index, annotations, usage));
+        });
+
+        if (this.filteredLabels.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'label-popup-empty';
+            emptyEl.textContent = 'No labels found';
+            listEl.appendChild(emptyEl);
+        }
+    },
+
+    /**
+     * Handle label selection
+     * @param {string} name - Selected label name
+     */
+    selectLabel(name) {
+        // Update usage count
+        const usage = { ...STATE.labelUsageCounts };
+        usage[name] = (usage[name] || 0) + 1;
+        STATE.labelUsageCounts = usage;
+
+        // Set the selected label
+        STATE.selectedLabel = name;
+        if (typeof updateFigureInteractivity === 'function') {
+            updateFigureInteractivity();
+        }
+
+        this.hide();
+
+        // If we have pending click coordinates, trigger the annotation
+        if (this.pendingClickCoords) {
+            this._triggerAnnotation(this.pendingClickCoords);
+        } else {
+            showMessage(`Selected: ${name} - Click on image to annotate`);
+        }
+    },
+
+    /**
+     * Trigger the appropriate annotation handler for the current tool
+     * @param {{x: number, y: number}} coords - Image coordinates
+     * @private
+     */
+    _triggerAnnotation(coords) {
+        const toolHandlers = {
+            landmark: annotateLandmark,
+            polygon: handlePolygonClick,
+            figure: startFigureDrawing
+        };
+
+        const handler = toolHandlers[STATE.currentTool];
+        if (typeof handler === 'function') {
+            handler(coords);
+        }
+    }
+};

@@ -380,9 +380,8 @@
 
     <!-- External JavaScript files -->
     
-    <!-- 1. Store and state management (foundation) -->
-    <script src="{{ url_for('static', filename='js/store/index.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/state.js') }}"></script>
+    <!-- 1. Core state management -->
+    <script src="{{ url_for('static', filename='js/core/AnnotationStore.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
     
     <!-- 2. Core services -->
@@ -406,20 +405,21 @@
     <script src="{{ url_for('static', filename='js/annotations/editing.js') }}"></script>
     
     <!-- 7. UI Components -->
-    <script src="{{ url_for('static', filename='js/components/LabelPopup.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/LabelSelector.js') }}"></script>
     
     <!-- 8. Rendering utilities (delegates to AnnotationRenderer for SVG rendering) -->
     <script src="{{ url_for('static', filename='js/rendering.js') }}"></script>
     
-    <!-- 9. Legacy modules (for compatibility - will be phased out) -->
+    <!-- 9. Compatibility shims for legacy state references -->
+    <script src="{{ url_for('static', filename='js/store/index.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/state.js') }}"></script>
+    
+    <!-- 10. Legacy modules (required for some features) -->
     <script src="{{ url_for('static', filename='js/zoom.js') }}"></script>
-    <!-- <script src="{{ url_for('static', filename='js/polygons.js') }}"></script> -->
-    <!-- <script src="{{ url_for('static', filename='js/figures.js') }}"></script> -->
     <script src="{{ url_for('static', filename='js/annotations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/interactions.js') }}"></script>
     
-    <!-- 10. Main entry point and initialization -->
+    <!-- 11. Main entry point and initialization -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='js/initialization.js') }}"></script>
 </body>

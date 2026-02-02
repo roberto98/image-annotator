@@ -192,7 +192,19 @@ function resetImageAdjustments() {
 }
 
 function toggleMode() {
+    // Don't toggle if drawing is in progress
+    if (window.DrawingHandler?.isDrawingInProgress?.()) {
+        showMessage('Cannot switch modes while drawing', 'warning');
+        return;
+    }
+    
     STATE.isAnnotationMode = !STATE.isAnnotationMode;
+    
+    // Also sync to AnnotationState if it exists
+    if (window.AnnotationState) {
+        window.AnnotationState.isAnnotationMode = STATE.isAnnotationMode;
+    }
+    
     updateModeDisplay();
     
     // Update figure interactivity when mode changes
@@ -201,14 +213,14 @@ function toggleMode() {
         updateFigureInteractivity();
     }
     
-    showMessage(STATE.isAnnotationMode ? 'Annotation Mode - Click to annotate' : 'Panning Mode - Drag to move');
+    showMessage(STATE.isAnnotationMode ? 'Annotation Mode - Click to annotate' : 'Navigation Mode - Drag to pan, scroll to zoom');
 }
 
 function updateModeDisplay() {
     const isPanning = !STATE.isAnnotationMode;
     DOM.modeIndicator.classList.toggle('panning', isPanning);
     DOM.modeIndicator.querySelector('span').textContent =
-        STATE.isAnnotationMode ? 'Annotation Mode' : 'Panning Mode';
+        STATE.isAnnotationMode ? 'Annotation Mode' : 'Navigation Mode';
     DOM.imageContainer.style.cursor = STATE.isAnnotationMode ? 'crosshair' : 'grab';
     
     // Update data attribute for automation

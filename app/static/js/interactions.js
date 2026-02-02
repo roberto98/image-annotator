@@ -1,186 +1,345 @@
 /**
- * Mouse and keyboard interaction handlers
+ * Mouse, touch, and keyboard interaction handlers
  * @module interactions
+ * 
+ * REWRITTEN: New interaction model
+ * - Pan mode freezes all annotation interactions
+ * - Click events used where possible (mobile/automation friendly)
+ * - Figure editing enabled in annotation mode
+ * - Touch event support
  */
+
+// Zoom limits for pinch zoom
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 1000;
 
 let lastMouseUpdateTime = 0;
 const MOUSE_UPDATE_INTERVAL = 16; // ~60fps
+
+// Touch state for gesture handling
+let touchState = {
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    startDistance: 0,
+    isPinching: false,
+    isTouchDragging: false
+};
+
+/**
+ * Update the mouse position display in the UI
+ * Throttled to ~60fps for performance
+ * @param {{x: number, y: number}} coords - Image coordinates
+ */
+function updateMousePositionDisplay(coords) {
+    const now = performance.now();
+    if (now - lastMouseUpdateTime >= MOUSE_UPDATE_INTERVAL) {
+        lastMouseUpdateTime = now;
+
+        // Safety check for viewport and DOM
+        if (!viewport || !DOM || !DOM.mousePosition) return;
+
+        const inBounds = typeof viewport.isWithinBounds === 'function'
+            ? viewport.isWithinBounds(coords.x, coords.y)
+            : coords.x >= 0 && coords.y >= 0;
+
+        DOM.mousePosition.textContent = `X: ${Math.round(coords.x)}, Y: ${Math.round(coords.y)}`;
+        DOM.mousePosition.style.color = inBounds ? 'white' : '#ff6b6b';
+    }
+}
+
+/**
+ * Handle panning drag movement
+ * Uses viewport.pan() for consistent coordinate transformation
+ * @param {number} mouseX - Current mouse X position relative to container
+ * @param {number} mouseY - Current mouse Y position relative to container
+ */
+function handlePanDrag(mouseX, mouseY) {
+    const deltaX = mouseX - STATE.startDragX;
+    const deltaY = mouseY - STATE.startDragY;
+    
+    // Use viewport.pan() if available, otherwise fall back to STATE
+    if (window.viewport && typeof window.viewport.pan === 'function') {
+        window.viewport.pan(deltaX, deltaY);
+        // Sync the offset back to STATE for legacy compatibility
+        STATE.translateX = window.viewport.offsetX;
+        STATE.translateY = window.viewport.offsetY;
+    } else {
+        STATE.translateX += deltaX;
+        STATE.translateY += deltaY;
+    }
+    
+    applyZoom();
+    STATE.startDragX = mouseX;
+    STATE.startDragY = mouseY;
+}
+
+/**
+ * Handle figure dragging movement
+ * @param {number} mouseX - Current mouse X position relative to container
+ * @param {number} mouseY - Current mouse Y position relative to container
+ */
+function handleFigureDrag(mouseX, mouseY) {
+    // Safety check for viewport
+    if (!viewport || typeof viewport.displayToImage !== 'function') return;
+
+    const newImageCoords = viewport.displayToImage(mouseX + STATE.figureDragOffsetX, mouseY + STATE.figureDragOffsetY);
+    const figureData = STATE.annotations[STATE.selectedFigure];
+
+    if (!figureData) {
+        STATE.figureDragging = false;
+        STATE.selectedFigure = null;
+        return;
+    }
+
+    if (figureData.shape === 'line') {
+        const deltaX = newImageCoords.x - STATE.figureOriginalX;
+        const deltaY = newImageCoords.y - STATE.figureOriginalY;
+
+        STATE.annotations = {
+            ...STATE.annotations,
+            [STATE.selectedFigure]: {
+                ...figureData,
+                startX: STATE.figureOriginalStartX + deltaX,
+                startY: STATE.figureOriginalStartY + deltaY,
+                endX: STATE.figureOriginalEndX + deltaX,
+                endY: STATE.figureOriginalEndY + deltaY,
+                x: newImageCoords.x,
+                y: newImageCoords.y
+            }
+        };
+    } else {
+        updateFigurePosition(STATE.selectedFigure, newImageCoords.x, newImageCoords.y);
+    }
+}
+
+/**
+ * Handle figure resizing movement
+ * @param {number} mouseX - Current mouse X position relative to container
+ * @param {number} mouseY - Current mouse Y position relative to container
+ */
+function handleFigureResize(mouseX, mouseY) {
+    const handle = STATE.resizeHandle;
+    let sizeChange = 0;
+
+    const deltaX = (mouseX - STATE.figureDragStartX) / STATE.currentZoom;
+    const deltaY = (mouseY - STATE.figureDragStartY) / STATE.currentZoom;
+
+    if (handle.includes('e')) sizeChange += deltaX;
+    if (handle.includes('w')) sizeChange -= deltaX;
+    if (handle.includes('s')) sizeChange += deltaY;
+    if (handle.includes('n')) sizeChange -= deltaY;
+
+    updateFigureSize(STATE.selectedFigure, STATE.figureOriginalSize + sizeChange);
+}
+
+/**
+ * Handle line point dragging movement
+ * @param {{x: number, y: number}} coords - Current image coordinates
+ */
+function handleLinePointDrag(coords) {
+    const figureData = STATE.annotations[STATE.linePointDraggedFigure];
+
+    if (!figureData) {
+        STATE.linePointDragging = false;
+        STATE.linePointDraggedFigure = null;
+        STATE.linePointDraggedType = null;
+        return;
+    }
+
+    // Update start or end point based on which is being dragged
+    const isStart = STATE.linePointDraggedType === 'start';
+    const newStartX = isStart ? coords.x : figureData.startX;
+    const newStartY = isStart ? coords.y : figureData.startY;
+    const newEndX = isStart ? figureData.endX : coords.x;
+    const newEndY = isStart ? figureData.endY : coords.y;
+
+    // Calculate new center and size
+    const dx = newEndX - newStartX;
+    const dy = newEndY - newStartY;
+
+    STATE.annotations = {
+        ...STATE.annotations,
+        [STATE.linePointDraggedFigure]: {
+            ...figureData,
+            startX: newStartX,
+            startY: newStartY,
+            endX: newEndX,
+            endY: newEndY,
+            x: (newStartX + newEndX) / 2,
+            y: (newStartY + newEndY) / 2,
+            size: Math.sqrt(dx * dx + dy * dy)
+        }
+    };
+}
 
 /**
  * Handle mouse down event on the image container
  * Routes to appropriate handler based on current tool and mode
  * @param {MouseEvent} e - The mouse event
  */
+
+/**
+ * Handle mouse down event on the image container
+ * Routes to appropriate handler based on current tool and mode
+ * @param {MouseEvent} e - The mouse event
+ */
+
 function handleMouseDown(e) {
+    // [New System Compatibility]
+    // If the new DrawingHandler is active, yield control to it completely.
+    if (window.DrawingHandler && window.DrawingHandler.isActive) {
+        return;
+    }
+
+    // Ignore if popup is open
+    if (typeof LabelPopup !== 'undefined' && LabelPopup.isOpen) return;
+    if (window.LabelSelector && window.LabelSelector.isOpen) return;
+
+    // Safety check for viewport
+    if (!viewport || typeof viewport.eventToImage !== 'function') return;
+
     const rect = DOM.imageContainer.getBoundingClientRect();
     STATE.startDragX = e.clientX - rect.left;
     STATE.startDragY = e.clientY - rect.top;
 
-    const isInteractiveElement = e.target.classList.contains('figure-shape') ||
-        e.target.classList.contains('resize-handle') ||
-        e.target.classList.contains('line-point');
-
-    if (!isInteractiveElement) deselectAllFigures();
-
-    const clickedOnLine = e.target.classList.contains('figure-line') ||
-        e.target.classList.contains('line-point') ||
-        e.target.closest('.figure-line');
-
-    if (STATE.isAnnotationMode) {
-        if (!STATE.selectedLabel) {
-            // Open label popup instead of blocking
-            const coords = viewport.eventToImage(e);
-            if (!viewport.isWithinBounds(coords.x, coords.y)) {
-                showMessage('Click within image bounds', 'warning');
-                return;
-            }
-            if (typeof LabelPopup !== 'undefined') {
-                LabelPopup.show(e.clientX, e.clientY, coords);
-            }
-            return;
-        }
-
-        const coords = viewport.eventToImage(e);
-        if (!viewport.isWithinBounds(coords.x, coords.y)) {
-            showMessage('Click within image bounds', 'warning');
-            return;
-        }
-
-        if (STATE.currentTool === 'landmark') {
-            annotateLandmark(coords);
-        } else if (STATE.currentTool === 'polygon') {
-            handlePolygonClick(coords);
-        } else if (STATE.currentTool === 'figure') {
-            if (clickedOnLine && STATE.figureShape === 'line') return;
-            startFigureDrawing(coords);
-        }
-    } else {
+    // Pan mode - only allow panning, freeze all annotation interactions
+    if (!STATE.isAnnotationMode) {
         STATE.isDragging = true;
         DOM.imageContainer.style.cursor = 'grabbing';
+        return;
     }
+
+    // Legacy support removal:
+    // Drawing and editing is now handled by DrawingHandler and EditingHandler.
+    // interactions.js is now primarily for Pan/Zoom and legacy compatibility if needed.
 }
 
 /**
  * Handle mouse move event for dragging, drawing, and coordinate display
- * Throttled for performance optimization
  * @param {MouseEvent} e - The mouse event
  */
+
 function handleMouseMove(e) {
     if (!STATE.imageLoaded) return;
+
+    // [New System Compatibility]
+    // If the new DrawingHandler is active, yield control to it completely.
+    if (window.DrawingHandler && window.DrawingHandler.isActive) {
+        return;
+    }
+
+    // Safety check for viewport
+    if (!viewport || typeof viewport.eventToImage !== 'function') return;
 
     const rect = DOM.imageContainer.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const coords = viewport.eventToImage(e);
 
-    const now = performance.now();
-    if (now - lastMouseUpdateTime >= MOUSE_UPDATE_INTERVAL) {
-        lastMouseUpdateTime = now;
-        const inBounds = viewport.isWithinBounds(coords.x, coords.y);
-        DOM.mousePosition.textContent = `X: ${Math.round(coords.x)}, Y: ${Math.round(coords.y)}`;
-        DOM.mousePosition.style.color = inBounds ? 'white' : '#ff6b6b';
-    }
+    // Throttled coordinate display update
+    updateMousePositionDisplay(coords);
 
+    // Pan mode dragging
     if (STATE.isDragging && !STATE.isAnnotationMode) {
-        STATE.translateX += mouseX - STATE.startDragX;
-        STATE.translateY += mouseY - STATE.startDragY;
-        applyZoom();
-        STATE.startDragX = mouseX;
-        STATE.startDragY = mouseY;
-    }
-
-    if (STATE.polygonDragging && STATE.currentTool === 'polygon') {
-        handlePolygonDrag(coords);
-    }
-
-    if (STATE.figureDrawing && STATE.currentTool === 'figure') {
-        updateFigurePreview(coords);
-    }
-
-    if (STATE.currentTool === 'figure' && STATE.figureShape === 'line' && STATE.linePoints.length === 1) {
-        updateFigurePreview(coords);
-    }
-
-    if (STATE.figureDragging && STATE.selectedFigure) {
-        const newImageCoords = viewport.displayToImage(mouseX + STATE.figureDragOffsetX, mouseY + STATE.figureDragOffsetY);
-        const figureData = STATE.annotations[STATE.selectedFigure];
-
-        if (figureData.shape === 'line') {
-            const deltaX = newImageCoords.x - STATE.figureOriginalX;
-            const deltaY = newImageCoords.y - STATE.figureOriginalY;
-
-            figureData.startX = STATE.figureOriginalStartX + deltaX;
-            figureData.startY = STATE.figureOriginalStartY + deltaY;
-            figureData.endX = STATE.figureOriginalEndX + deltaX;
-            figureData.endY = STATE.figureOriginalEndY + deltaY;
-            figureData.x = newImageCoords.x;
-            figureData.y = newImageCoords.y;
-
-            updateLineElement(STATE.selectedFigure, figureData);
-        } else {
-            updateFigurePosition(STATE.selectedFigure, newImageCoords.x, newImageCoords.y);
-        }
-    }
-
-    if (STATE.figureResizing && STATE.selectedFigure && STATE.resizeHandle) {
-        const handle = STATE.resizeHandle;
-        let sizeChange = 0;
-
-        const deltaX = (mouseX - STATE.figureDragStartX) / STATE.currentZoom;
-        const deltaY = (mouseY - STATE.figureDragStartY) / STATE.currentZoom;
-
-        if (handle.includes('e')) sizeChange += deltaX;
-        if (handle.includes('w')) sizeChange -= deltaX;
-        if (handle.includes('s')) sizeChange += deltaY;
-        if (handle.includes('n')) sizeChange -= deltaY;
-
-        updateFigureSize(STATE.selectedFigure, STATE.figureOriginalSize + sizeChange);
-    }
-
-    if (STATE.linePointDragging && STATE.linePointDraggedFigure) {
-        const figureData = STATE.annotations[STATE.linePointDraggedFigure];
-
-        if (STATE.linePointDraggedType === 'start') {
-            figureData.startX = coords.x;
-            figureData.startY = coords.y;
-        } else if (STATE.linePointDraggedType === 'end') {
-            figureData.endX = coords.x;
-            figureData.endY = coords.y;
-        }
-
-        figureData.x = (figureData.startX + figureData.endX) / 2;
-        figureData.y = (figureData.startY + figureData.endY) / 2;
-
-        const dx = figureData.endX - figureData.startX;
-        const dy = figureData.endY - figureData.startY;
-        figureData.size = Math.sqrt(dx * dx + dy * dy);
-
-        updateLineElement(STATE.linePointDraggedFigure, figureData);
+        handlePanDrag(mouseX, mouseY);
+        return;
     }
 }
 
 /**
- * Handle mouse up event to complete dragging/drawing operations
+ * Handle mouse up event
  * @param {MouseEvent} e - The mouse event
  */
+
 function handleMouseUp(e) {
+    // [New System Compatibility]
+    if (window.DrawingHandler && window.DrawingHandler.isActive) {
+        return;
+    }
+
     STATE.isDragging = false;
-    STATE.polygonDragging = false;
-    STATE.selectedPointIndex = -1;
+    
+    // Set appropriate cursor based on mode
+    if (STATE.isAnnotationMode) {
+        DOM.imageContainer.style.cursor = 'crosshair';
+    } else {
+        DOM.imageContainer.style.cursor = 'grab';
+    }
+}
 
-    if (STATE.figureDrawing && STATE.currentTool === 'figure') {
-        completeFigureDrawing(viewport.eventToImage(e));
+// Mobile/Touch handlers (Pan/Zoom only)
+
+function handleTouchStart(e) {
+    if (typeof LabelPopup !== 'undefined' && LabelPopup.isOpen) return;
+
+    // Only handle pinch zoom or pan
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        touchState.isPinching = true;
+        touchState.startDistance = getTouchDistance(e.touches);
+    } else if (e.touches.length === 1 && !STATE.isAnnotationMode) {
+        // Pan mode
+        e.preventDefault();
+        const touch = e.touches[0];
+        touchState.startX = touch.clientX;
+        touchState.startY = touch.clientY;
+        touchState.lastX = touch.clientX;
+        touchState.lastY = touch.clientY;
+        touchState.isTouchDragging = true;
+
+        // Pass to mouse down for logic reuse
+        const mouseEvent = new MouseEvent('mousedown', {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            bubbles: true
+        });
+        handleMouseDown(mouseEvent);
+    }
+}
+
+function handleTouchMove(e) {
+    if (e.touches.length === 2 && touchState.isPinching) {
+        e.preventDefault();
+        const currentDistance = getTouchDistance(e.touches);
+        const scale = currentDistance / touchState.startDistance;
+
+        // Apply pinch zoom with defined limits
+        const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, STATE.currentZoom * scale));
+        STATE.currentZoom = newZoom;
+        applyZoom();
+
+        touchState.startDistance = currentDistance;
+    } else if (e.touches.length === 1 && touchState.isTouchDragging) {
+        const touch = e.touches[0];
+
+        // Simulate mouse move for pan
+        const mouseEvent = new MouseEvent('mousemove', {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            bubbles: true
+        });
+        handleMouseMove(mouseEvent);
+
+        touchState.lastX = touch.clientX;
+        touchState.lastY = touch.clientY;
+    }
+}
+
+function handleTouchEnd(e) {
+    if (touchState.isTouchDragging && e.touches.length === 0) {
+        // Simulate mouse up
+        const mouseEvent = new MouseEvent('mouseup', {
+            clientX: touchState.lastX,
+            clientY: touchState.lastY,
+            bubbles: true
+        });
+        handleMouseUp(mouseEvent);
     }
 
-    if (STATE.figureDragging || STATE.figureResizing) {
-        completeFigureInteraction();
-    }
-
-    if (STATE.linePointDragging) {
-        completeLinePointInteraction();
-    }
-
-    DOM.imageContainer.style.cursor = STATE.isAnnotationMode ? 'crosshair' : 'grab';
+    touchState.isTouchDragging = false;
+    touchState.isPinching = false;
 }
 
 /**
@@ -188,34 +347,33 @@ function handleMouseUp(e) {
  * @param {KeyboardEvent} e - The keyboard event
  */
 function handleKeyDown(e) {
+    // Skip if typing in input
     if (e.target === DOM.labelInput) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    // Arrow keys for Pan/Zoom or other interaction could go here
+    // But EditingHandler handles arrow keys for annotations.
+
+    // Special handling for spacebar - check if drawing in progress
+    if (e.key === ' ') {
+        // Don't toggle mode while drawing
+        if (window.DrawingHandler?.isDrawingInProgress?.()) {
+            return;
+        }
+        e.preventDefault();
+        toggleMode();
+        return;
+    }
 
     const keyHandlers = {
-        'Delete': () => STATE.selectedFigure && deleteSelectedFigure(),
-        'Backspace': () => STATE.selectedFigure && deleteSelectedFigure(),
-        'Escape': () => {
-            if (STATE.currentTool === 'polygon') {
-                cancelPolygon();
-            } else {
-                deselectAllFigures();
-                STATE.selectedLabel = null;
-            }
-        },
+        'Escape': handleEscapeKey,
         'c': toggleCenterIndicators,
         'C': toggleCenterIndicators,
-        ' ': toggleMode,
         'r': resetView,
         '+': zoomIn,
         '=': zoomIn,
-        '-': zoomOut,
-        'Enter': () => STATE.currentTool === 'polygon' && completePolygon()
+        '-': zoomOut
     };
-
-    if (STATE.selectedFigure && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-        moveFigureWithArrow(e.key, e);
-        return;
-    }
 
     const handler = keyHandlers[e.key];
     if (handler) {
@@ -223,3 +381,11 @@ function handleKeyDown(e) {
         handler();
     }
 }
+
+/**
+ * Handle Escape key
+ */
+function handleEscapeKey() {
+    // Allow other handlers to react first
+}
+

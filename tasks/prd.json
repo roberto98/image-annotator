@@ -301,8 +301,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Move annotations by dragging, all types supported, live preview, undo support."
     },
     {
       "id": "US-019",
@@ -320,8 +320,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Resize handles on selection, all annotation types supported, undo support."
     },
     {
       "id": "US-020",
@@ -336,8 +336,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented. Delete key and button remove annotations, no confirmation (undo available), confirmation dialogs removed."
     },
     {
       "id": "US-021",

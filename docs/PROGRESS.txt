@@ -580,11 +580,113 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 - ✅ US-015: Pan Mode
 - ✅ US-016: Zoom Controls
 - ✅ US-017: Annotation Selection
+- ✅ US-018: Move Annotations
+- ✅ US-019: Resize Annotations
+- ✅ US-020: Delete Annotations
 
 ### Phase 2: Frontend Foundation - COMPLETE
 ### Phase 3: Basic Annotation Types - COMPLETE (8/8)
-### Phase 4: Navigation & Interaction - IN PROGRESS (3/6)
+### Phase 4: Navigation & Interaction - IN PROGRESS (6/6) - COMPLETE
+
+### US-018: Move Annotations ✓ COMPLETE
+**Status:** Complete (Verified as already implemented)
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Features Verified:**
+- Drag selected annotation moves it
+- All annotation types support move (point, line, circle, rectangle, polygon, freehand, angle)
+- Move updates coordinates in image space
+- Live preview during drag
+- Undo reverts move
+
+**All Acceptance Criteria Met:**
+- ✅ Drag selected annotation moves it
+- ✅ All annotation types support move
+- ✅ Move updates coordinates in image space
+- ✅ Live preview during drag
+- ✅ Undo reverts move
+
+---
+
+### US-019: Resize Annotations ✓ COMPLETE
+**Status:** Complete (Verified as already implemented)
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Features Verified:**
+- Selected annotation shows resize handles
+- Circle: drag edge changes radius
+- Rectangle: drag corners changes size
+- Line: drag endpoints changes line
+- Polygon: drag vertices reshapes polygon
+- Angle: drag points changes angle
+- Undo reverts resize
+
+**All Acceptance Criteria Met:**
+- ✅ Selected annotation shows resize handles
+- ✅ Circle: drag edge changes radius
+- ✅ Rectangle: drag corners changes size
+- ✅ Line: drag endpoints changes line
+- ✅ Polygon: drag vertices reshapes polygon
+- ✅ Angle: drag points changes angle
+- ✅ Undo reverts resize
+
+---
+
+### US-020: Delete Annotations ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-03
+
+**Files Modified:**
+- `app/static/js/annotations/editing.js` - Removed confirmation dialog from deleteSelected()
+- `app/static/js/annotations.js` - Removed confirmation dialog from deleteAnnotation()
+
+**Key Implementation Details:**
+- Delete key removes selected annotation
+- Delete button in annotation list removes annotation
+- No confirmation dialog (undo available via Ctrl+Z)
+- Undo restores deleted annotation with all properties
+- Confirmation dialogs removed per PRD requirement
+
+**All Acceptance Criteria Met:**
+- ✅ Delete key removes selected annotation
+- ✅ Delete button in annotation list removes annotation
+- ✅ No confirmation dialog (undo available)
+- ✅ Undo restores deleted annotation with all properties
+
+---
+
+## Summary
+
+### Completed (20/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+- ✅ US-009: Circle Annotation
+- ✅ US-010: Rectangle Annotation
+- ✅ US-011: Polygon Annotation
+- ✅ US-012: Freehand Annotation
+- ✅ US-013: Angle Annotation
+- ✅ US-014: Tag Annotation
+- ✅ US-015: Pan Mode
+- ✅ US-016: Zoom Controls
+- ✅ US-017: Annotation Selection
+- ✅ US-018: Move Annotations
+- ✅ US-019: Resize Annotations
+- ✅ US-020: Delete Annotations
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - COMPLETE (8/8)
+### Phase 4: Navigation & Interaction - COMPLETE (6/6)
 
 ### Next Steps
-Continue with Phase 4: US-018 (Move Annotations)
+Continue with Phase 5: US-021 (Label Popup)
 

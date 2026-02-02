@@ -10,8 +10,37 @@
  */
 
 // Zoom limits for pinch zoom
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 1000;
+const MIN_ZOOM = 0.1;  // 10%
+const MAX_ZOOM = 5.0;  // 500%
+
+/**
+ * Calculate distance between two touch points
+ * Used for pinch-to-zoom gesture detection
+ * @param {TouchList} touches - Touch list from touch event
+ * @returns {number} Distance between the two touch points in pixels
+ */
+function getTouchDistance(touches) {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Calculate the center point between two touches
+ * Used for pinch-to-zoom to zoom toward the pinch center
+ * @param {TouchList} touches - Touch list from touch event
+ * @returns {{x: number, y: number}} Center point coordinates
+ */
+function getTouchCenter(touches) {
+    if (touches.length < 2) {
+        return { x: touches[0]?.clientX || 0, y: touches[0]?.clientY || 0 };
+    }
+    return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+    };
+}
 
 let lastMouseUpdateTime = 0;
 const MOUSE_UPDATE_INTERVAL = 16; // ~60fps
@@ -24,7 +53,11 @@ let touchState = {
     lastY: 0,
     startDistance: 0,
     isPinching: false,
-    isTouchDragging: false
+    isTouchDragging: false,
+    // Pinch zoom state
+    pinchCenterX: 0,
+    pinchCenterY: 0,
+    pinchStartZoom: 1
 };
 
 /**
@@ -279,6 +312,13 @@ function handleTouchStart(e) {
         e.preventDefault();
         touchState.isPinching = true;
         touchState.startDistance = getTouchDistance(e.touches);
+        touchState.pinchStartZoom = STATE.currentZoom;
+        
+        // Store the pinch center relative to container
+        const center = getTouchCenter(e.touches);
+        const rect = DOM.imageContainer.getBoundingClientRect();
+        touchState.pinchCenterX = center.x - rect.left;
+        touchState.pinchCenterY = center.y - rect.top;
     } else if (e.touches.length === 1 && !STATE.isAnnotationMode) {
         // Pan mode
         e.preventDefault();
@@ -303,14 +343,33 @@ function handleTouchMove(e) {
     if (e.touches.length === 2 && touchState.isPinching) {
         e.preventDefault();
         const currentDistance = getTouchDistance(e.touches);
-        const scale = currentDistance / touchState.startDistance;
+        const scaleRatio = currentDistance / touchState.startDistance;
 
-        // Apply pinch zoom with defined limits
-        const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, STATE.currentZoom * scale));
+        // Calculate new zoom based on the initial pinch zoom
+        const oldZoom = STATE.currentZoom;
+        const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, touchState.pinchStartZoom * scaleRatio));
+        
+        // If zoom didn't change (at limits), do nothing
+        if (newZoom === oldZoom) return;
+        
         STATE.currentZoom = newZoom;
-        applyZoom();
 
-        touchState.startDistance = currentDistance;
+        // Zoom centered on the initial pinch center
+        const centerX = touchState.pinchCenterX;
+        const centerY = touchState.pinchCenterY;
+
+        // Calculate the point under the pinch center in image space (before zoom)
+        const pointRelX = (centerX - STATE.translateX) / oldZoom;
+        const pointRelY = (centerY - STATE.translateY) / oldZoom;
+
+        // Adjust translation so the pinch center stays over the same image point
+        STATE.translateX = centerX - pointRelX * STATE.currentZoom;
+        STATE.translateY = centerY - pointRelY * STATE.currentZoom;
+
+        applyZoom();
+        
+        // Note: We don't update startDistance here because we want to track
+        // the total scale change from the initial pinch, not incremental changes
     } else if (e.touches.length === 1 && touchState.isTouchDragging) {
         const touch = e.touches[0];
 

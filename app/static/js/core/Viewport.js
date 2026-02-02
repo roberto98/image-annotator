@@ -44,10 +44,10 @@ class Viewport {
     static MIN_SCALE = 0.1;
 
     /**
-     * Maximum allowed scale (zoom in limit)
+     * Maximum allowed scale (zoom in limit) - 500%
      * @type {number}
      */
-    static MAX_SCALE = 50.0;
+    static MAX_SCALE = 5.0;
 
     /**
      * Create the viewport manager

@@ -479,6 +479,63 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 ### Phase 3: Basic Annotation Types - COMPLETE (8/8)
 ### Phase 4: Navigation & Interaction - IN PROGRESS (1/6)
 
+### US-016: Zoom Controls ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-03
+
+**Files Modified:**
+- `app/static/js/core/Viewport.js` - MAX_ZOOM corrected to 5.0 (500%), zoom bounds enforcement
+- `app/static/js/zoom.js` - Zoom button handlers, zoom level display, reset button
+- `app/static/js/interactions.js` - Mouse wheel zoom centered on cursor, pinch gesture support
+- `app/static/js/store/index.js` - Viewport state sync for zoom level display
+
+**Key Fixes Applied:**
+- MAX_ZOOM constant corrected from 50.0 to 5.0 (representing 500%)
+- Pinch zoom bug fixed - proper touch event handling with gesture state
+- Viewport state sync added - zoom level display updates on viewport changes
+
+**Key Features Implemented:**
+- Zoom in/out buttons (+/-) with 1.2x zoom factor
+- Mouse wheel zoom centered on cursor position (not center of image)
+- Pinch gesture zoom on touch devices with proper scaling
+- Zoom level display showing current percentage (e.g., "150%")
+- Reset button returns to fit-to-container view
+- Zoom range: 10% (MIN_ZOOM=0.1) to 500% (MAX_ZOOM=5.0)
+
+**All Acceptance Criteria Met:**
+- ✅ Zoom in/out buttons work
+- ✅ Mouse wheel zooms centered on cursor position
+- ✅ Pinch gesture zooms on touch devices
+- ✅ Zoom level displayed (percentage)
+- ✅ Reset button returns to fit-to-container view
+- ✅ Min zoom: 10%, Max zoom: 500%
+
+---
+
+## Summary
+
+### Completed (16/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+- ✅ US-009: Circle Annotation
+- ✅ US-010: Rectangle Annotation
+- ✅ US-011: Polygon Annotation
+- ✅ US-012: Freehand Annotation
+- ✅ US-013: Angle Annotation
+- ✅ US-014: Tag Annotation
+- ✅ US-015: Pan Mode
+- ✅ US-016: Zoom Controls
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - COMPLETE (8/8)
+### Phase 4: Navigation & Interaction - IN PROGRESS (2/6)
+
 ### Next Steps
-Continue with Phase 4: US-016 (Zoom Controls)
+Continue with Phase 4: US-017 (Annotation Selection)
 

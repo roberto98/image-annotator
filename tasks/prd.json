@@ -113,8 +113,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Point annotation feature was already implemented but hover integration needed fixing. Fixed by: (1) Added handleMouseOver/handleMouseOut event handlers to EditingHandler that call annotationRenderer.setHovered(); (2) Added pointer-events:all and cursor:pointer to annotation groups in AnnotationRenderer.js for interactivity; (3) Proper event listener attachment/detachment in EditingHandler init/cleanup. All acceptance criteria verified working."
     },
     {
       "id": "US-008",

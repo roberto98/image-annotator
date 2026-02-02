@@ -566,6 +566,10 @@ class AnnotationRenderer {
         const group = document.createElementNS(SVG_NS, 'g');
         group.classList.add('annotation', `annotation-${type}-group`);
         
+        // Enable pointer events for hover/click detection
+        group.style.pointerEvents = 'all';
+        group.style.cursor = 'pointer';
+        
         if (isSelected) {
             group.classList.add('annotation--selected', 'selected');
         }

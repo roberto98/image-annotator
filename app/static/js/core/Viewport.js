@@ -75,6 +75,20 @@ class Viewport {
         this._offsetY = 0;
 
         /**
+         * Image width in pixels (set via setImageSize)
+         * @type {number}
+         * @private
+         */
+        this._imageWidth = 0;
+
+        /**
+         * Image height in pixels (set via setImageSize)
+         * @type {number}
+         * @private
+         */
+        this._imageHeight = 0;
+
+        /**
          * Subscriber callbacks: { id: callback }
          * @type {Object.<number, ViewportChangeCallback>}
          * @private
@@ -87,6 +101,36 @@ class Viewport {
          * @private
          */
         this._nextSubscriberId = 1;
+    }
+
+    // ========================================================================
+    // Image Size Management
+    // ========================================================================
+
+    /**
+     * Set the image dimensions for bounds checking
+     * @param {number} width - Image width in pixels
+     * @param {number} height - Image height in pixels
+     */
+    setImageSize(width, height) {
+        this._imageWidth = width;
+        this._imageHeight = height;
+    }
+
+    /**
+     * Get image width
+     * @returns {number}
+     */
+    get imageWidth() {
+        return this._imageWidth;
+    }
+
+    /**
+     * Get image height
+     * @returns {number}
+     */
+    get imageHeight() {
+        return this._imageHeight;
     }
 
     // ========================================================================
@@ -467,16 +511,25 @@ class Viewport {
     }
 
     /**
-     * Check if a point (image coords) is within given image bounds
+     * Check if a point (image coords) is within image bounds
      * 
      * @param {number} x - X coordinate in image space
      * @param {number} y - Y coordinate in image space
-     * @param {number} imageWidth - Image width
-     * @param {number} imageHeight - Image height
+     * @param {number} [imageWidth] - Image width (optional, uses stored value if not provided)
+     * @param {number} [imageHeight] - Image height (optional, uses stored value if not provided)
      * @returns {boolean} True if point is within bounds
      */
     isWithinBounds(x, y, imageWidth, imageHeight) {
-        return x >= 0 && x < imageWidth && y >= 0 && y < imageHeight;
+        // Use provided dimensions or fall back to stored dimensions
+        const width = imageWidth ?? this._imageWidth;
+        const height = imageHeight ?? this._imageHeight;
+        
+        // If no dimensions available, assume within bounds
+        if (width <= 0 || height <= 0) {
+            return true;
+        }
+        
+        return x >= 0 && x < width && y >= 0 && y < height;
     }
 
     /**
@@ -484,14 +537,23 @@ class Viewport {
      * 
      * @param {number} x - X coordinate in image space
      * @param {number} y - Y coordinate in image space
-     * @param {number} imageWidth - Image width
-     * @param {number} imageHeight - Image height
+     * @param {number} [imageWidth] - Image width (optional, uses stored value if not provided)
+     * @param {number} [imageHeight] - Image height (optional, uses stored value if not provided)
      * @returns {Point} Clamped coordinates
      */
     clampToBounds(x, y, imageWidth, imageHeight) {
+        // Use provided dimensions or fall back to stored dimensions
+        const width = imageWidth ?? this._imageWidth;
+        const height = imageHeight ?? this._imageHeight;
+        
+        // If no dimensions available, return original point
+        if (width <= 0 || height <= 0) {
+            return { x, y };
+        }
+        
         return {
-            x: Math.max(0, Math.min(imageWidth - 1, x)),
-            y: Math.max(0, Math.min(imageHeight - 1, y))
+            x: Math.max(0, Math.min(width - 1, x)),
+            y: Math.max(0, Math.min(height - 1, y))
         };
     }
 

@@ -419,7 +419,66 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 
 ### Phase 2: Frontend Foundation - COMPLETE
 ### Phase 3: Basic Annotation Types - COMPLETE (8/8)
+### Phase 4: Navigation & Interaction - IN PROGRESS (1/6)
+
+---
+
+## Phase 4: Navigation & Interaction
+
+### US-015: Pan Mode ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-03
+
+**Files Modified:**
+- `app/static/js/core/Viewport.js` - Added pan mode state management (isPanMode, setPanMode, togglePanMode)
+- `app/static/js/main.js` - Added spacebar toggle for pan mode (when not drawing)
+- `app/static/js/utilities.js` - Pan drag handling integration
+- `app/static/js/interactions.js` - Pan mode cursor changes and drag behavior
+- `app/static/js/initialization.js` - Mode toggle button initialization
+- `app/templates/multi_landmark.html` - Added mode toggle button in toolbar
+- `app/static/css/multi_landmark.css` - Mode indicator and toggle button styling
+
+**Key Features Implemented:**
+- Mode toggle button in toolbar switches between Annotation Mode and Navigation Mode
+- Spacebar keyboard shortcut toggles pan mode (only when not actively drawing)
+- In pan mode: mouse drag pans the image, scroll wheel zooms
+- In pan mode: all annotation creation and editing is disabled
+- Visual mode indicator shows current mode (colored badge in toolbar)
+- Cursor changes to 'grab' in pan mode, 'grabbing' while dragging
+
+**All Acceptance Criteria Met:**
+- ✅ Toggle pan mode via mode toggle button
+- ✅ Spacebar toggles pan mode (when not drawing)
+- ✅ In pan mode: drag moves image, scroll zooms
+- ✅ In pan mode: all annotation creation/editing disabled
+- ✅ Clear visual indicator shows current mode (Annotation Mode / Navigation Mode)
+- ✅ Cursor changes in pan mode
+
+---
+
+## Summary
+
+### Completed (15/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+- ✅ US-009: Circle Annotation
+- ✅ US-010: Rectangle Annotation
+- ✅ US-011: Polygon Annotation
+- ✅ US-012: Freehand Annotation
+- ✅ US-013: Angle Annotation
+- ✅ US-014: Tag Annotation
+- ✅ US-015: Pan Mode
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - COMPLETE (8/8)
+### Phase 4: Navigation & Interaction - IN PROGRESS (1/6)
 
 ### Next Steps
-Continue with Phase 4: Pan/Zoom Controls (US-015, US-016)
+Continue with Phase 4: US-016 (Zoom Controls)
 

@@ -243,10 +243,13 @@
                 </button>
             </div>
 
-            <!-- Mode Indicator -->
-            <div class="mode-indicator" id="modeIndicator">
+            <!-- Mode Indicator (Click or press Space to toggle) -->
+            <div class="mode-indicator" id="modeIndicator" role="button" tabindex="0" 
+                 title="Toggle between Annotation Mode and Navigation Mode (Spacebar)"
+                 aria-label="Mode toggle: Annotation Mode">
                 <div class="mode-dot"></div>
                 <span>Annotation Mode</span>
+                <kbd class="mode-shortcut">Space</kbd>
             </div>
 
             <!-- Mouse Position -->

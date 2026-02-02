@@ -1,11 +1,6 @@
 // Rendering functions for annotations and UI elements
 // Reactive rendering: canvas auto-updates when Store state changes (US-003)
 // Dependencies: utilities.js (calculateLineProperties, escapeHtml)
-//
-// NOTE: This file now delegates annotation rendering to the new SVG-based
-// AnnotationRenderer (core/AnnotationRenderer.js). The old DOM-based
-// renderAnnotations() has been replaced with delegation to window.annotationRenderer.
-// Legacy preview rendering is retained for DrawingHandler compatibility.
 
 const RENDER_STATE = {
     annotationsHash: '',
@@ -45,7 +40,7 @@ function forceRender() {
 
 /**
  * Set up reactive rendering by subscribing to Store state changes.
- * Once active, the canvas and label list update automatically - no manual
+ * Once active, the canvas and label list update automatically — no manual
  * renderAnnotations() or renderLabelList() calls are needed.
  */
 function setupReactiveRendering() {
@@ -80,15 +75,25 @@ function getAnnotationsHash() {
     });
 }
 
-// ============================================================================
-// Annotation Rendering - Delegated to SVG Renderer
-// ============================================================================
+/**
+ * Render a single annotation based on its type
+ * @param {string} name - Annotation name
+ * @param {Object} data - Annotation data
+ * @param {string} color - Display color
+ */
+function renderSingleAnnotation(name, data, color) {
+    if (data.type === 'polygon' && data.points) {
+        renderPolygonShape(data.points, color, name);
+    } else if (data.type === 'figure') {
+        renderFigure(data, color, name);
+    } else if (data.status === 'ok' && data.coordinates) {
+        renderLandmarkPoint(name, data.coordinates, color);
+    }
+}
 
 /**
- * Render all annotations on the image canvas.
- * This function now delegates to the SVG-based AnnotationRenderer for the main
- * rendering work, while still handling legacy drawing previews.
- * 
+ * Render all annotations on the image canvas
+ * Uses dirty checking to avoid unnecessary re-renders
  * @param {boolean} force - Force full re-render even if state unchanged
  */
 function renderAnnotations(force = false) {
@@ -97,48 +102,15 @@ function renderAnnotations(force = false) {
     if (!force && currentHash === RENDER_STATE.annotationsHash) return;
     RENDER_STATE.annotationsHash = currentHash;
 
-    // Use new SVG-based AnnotationRenderer if available
-    if (window.annotationRenderer && window.annotationRenderer._svg) {
-        // Build annotations object with visibility filtering
-        const visibleAnnotations = {};
-        Object.entries(STATE.annotations).forEach(([name, data], index) => {
-            if (STATE.visibilityToggles[name] === false) return;
-            
-            // Add color from COLORS array
-            const color = window.COLORS?.[index % (window.COLORS?.length || 1)] || '#ff0000';
-            visibleAnnotations[name] = {
-                ...data,
-                color: color
-            };
-        });
-        
-        // Delegate to new renderer
-        window.annotationRenderer.setSelected(STATE.selectedLabel);
-        window.annotationRenderer.render(visibleAnnotations, STATE.calibration || null);
-        
-        // Still render legacy polygon preview if active
-        if (STATE.currentTool === 'polygon' && STATE.activePolygonPoints?.length > 0) {
-            renderActivePolygonLegacy();
-        }
-        
-        // Render DrawingHandler preview if active
-        if (window.DrawingHandler?.isActive) {
-            renderDrawingPreview();
-        }
-        
-        return;
-    }
-
-    // Fallback to legacy DOM-based rendering if SVG renderer not available
     document.querySelectorAll('.annotation-point, .annotation-label, .polygon-shape, .figure-shape').forEach(el => el.remove());
 
     Object.entries(STATE.annotations).forEach(([name, data], index) => {
         if (STATE.visibilityToggles[name] === false) return;
-        renderSingleAnnotationLegacy(name, data, COLORS[index % COLORS.length]);
+        renderSingleAnnotation(name, data, COLORS[index % COLORS.length]);
     });
 
-    if (STATE.currentTool === 'polygon' && STATE.activePolygonPoints?.length > 0) {
-        renderActivePolygonLegacy();
+    if (STATE.currentTool === 'polygon' && STATE.activePolygonPoints.length > 0) {
+        renderActivePolygon();
     }
 
     if (STATE.figurePreview) {
@@ -151,27 +123,7 @@ function renderAnnotations(force = false) {
     }
 }
 
-// ============================================================================
-// Legacy Rendering Functions (kept for fallback compatibility)
-// ============================================================================
-
-/**
- * Render a single annotation based on its type (legacy DOM-based)
- * @param {string} name - Annotation name
- * @param {Object} data - Annotation data
- * @param {string} color - Display color
- */
-function renderSingleAnnotationLegacy(name, data, color) {
-    if (data.type === 'polygon' && data.points) {
-        renderPolygonShapeLegacy(data.points, color, name);
-    } else if (data.type === 'figure') {
-        renderFigureLegacy(data, color, name);
-    } else if (data.status === 'ok' && data.coordinates) {
-        renderLandmarkPointLegacy(name, data.coordinates, color);
-    }
-}
-
-function renderLandmarkPointLegacy(name, coords, color) {
+function renderLandmarkPoint(name, coords, color) {
     if (!viewport.isWithinBounds(coords.x, coords.y)) return;
 
     const { x, y } = viewport.imageToDisplay(coords.x, coords.y);
@@ -194,12 +146,12 @@ function renderLandmarkPointLegacy(name, coords, color) {
 }
 
 /**
- * Render a polygon shape annotation (legacy DOM-based)
+ * Render a polygon shape annotation
  * @param {Array} points - Array of {x, y} point objects
  * @param {string} color - CSS color for the polygon
  * @param {string} name - Label name for the polygon
  */
-function renderPolygonShapeLegacy(points, color, name) {
+function renderPolygonShape(points, color, name) {
     if (!points || points.length < 3) return;
     
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -238,7 +190,18 @@ function renderPolygonShapeLegacy(points, color, name) {
     DOM.imageContainer.appendChild(svg);
 }
 
-function renderFigureLegacy(data, color, name) {
+/**
+ * Check if a figure should be interactive
+ * @param {string} name - Figure name
+ * @returns {boolean} True if figure should be interactive
+ */
+function isFigureInteractive(name) {
+    return STATE.isAnnotationMode && 
+           STATE.currentTool === 'figure' && 
+           STATE.selectedLabel === name;
+}
+
+function renderFigure(data, color, name) {
     const displayCoords = viewport.imageToDisplay(data.x, data.y);
     const displaySize = data.size * STATE.currentZoom;
 
@@ -248,12 +211,10 @@ function renderFigureLegacy(data, color, name) {
     figure.setAttribute('data-annotation-type', 'figure');
     figure.setAttribute('data-shape', data.shape);
 
-    const isInteractive = STATE.isAnnotationMode && 
-                          STATE.currentTool === 'figure' && 
-                          STATE.selectedLabel === name;
+    const isInteractive = isFigureInteractive(name);
 
     if (data.shape === 'line') {
-        renderLineShapeLegacy(figure, data, name, isInteractive);
+        renderLineShape(figure, data, name, isInteractive);
     } else {
         figure.style.left = `${displayCoords.x - displaySize / 2}px`;
         figure.style.top = `${displayCoords.y - displaySize / 2}px`;
@@ -262,11 +223,14 @@ function renderFigureLegacy(data, color, name) {
         figure.style.borderColor = color;
         figure.style.background = `${color}33`;
 
-        addResizeHandlesLegacy(figure, isInteractive);
+        addResizeHandles(figure, isInteractive);
     }
 
     figure.classList.add(isInteractive ? 'interactive' : 'non-interactive');
-    addCenterIndicatorLegacy(figure);
+    addCenterIndicator(figure);
+
+    // Note: Event listeners are handled via event delegation in setupFigureEventDelegation()
+    // This prevents memory leaks from attaching new listeners on every render
 
     DOM.imageContainer.appendChild(figure);
 
@@ -279,7 +243,7 @@ function renderFigureLegacy(data, color, name) {
     DOM.imageContainer.appendChild(label);
 }
 
-function renderLineShapeLegacy(figure, data, name, isInteractive) {
+function renderLineShape(figure, data, name, isInteractive) {
     const displayStart = viewport.imageToDisplay(data.startX, data.startY);
     const displayEnd = viewport.imageToDisplay(data.endX, data.endY);
 
@@ -298,6 +262,7 @@ function renderLineShapeLegacy(figure, data, name, isInteractive) {
             point.className = `line-point line-${pointType}`;
             point.dataset.pointType = pointType;
             point.dataset.figureName = name;
+            // Note: Event listener handled via delegation in setupFigureEventDelegation()
             point.style.left = pointType === 'start' ? '0px' : '100%';
             point.style.top = '50%';
             figure.appendChild(point);
@@ -305,7 +270,7 @@ function renderLineShapeLegacy(figure, data, name, isInteractive) {
     }
 }
 
-function addResizeHandlesLegacy(figure, isInteractive) {
+function addResizeHandles(figure, isInteractive) {
     ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'].forEach(handle => {
         const resizeHandle = document.createElement('div');
         resizeHandle.className = `resize-handle ${handle}`;
@@ -315,7 +280,7 @@ function addResizeHandlesLegacy(figure, isInteractive) {
     });
 }
 
-function addCenterIndicatorLegacy(figure) {
+function addCenterIndicator(figure) {
     const centerIndicator = document.createElement('div');
     centerIndicator.className = 'center-indicator';
     centerIndicator.style.cssText = 'left: 50%; top: 50%; transform: translate(-50%, -50%)';
@@ -324,10 +289,6 @@ function addCenterIndicatorLegacy(figure) {
     }
     figure.appendChild(centerIndicator);
 }
-
-// ============================================================================
-// Label List Rendering (unchanged - not part of SVG layer)
-// ============================================================================
 
 /** Generate a hash of label-list-relevant state for dirty tracking */
 function getLabelListHash() {
@@ -350,12 +311,7 @@ function getLabelListHash() {
 function getTypeBadgeHtml(type) {
     const badges = {
         polygon: '<span class="type-badge badge-polygon">Polygon</span>',
-        figure: '<span class="type-badge badge-figure">Figure</span>',
-        line: '<span class="type-badge badge-line">Line</span>',
-        circle: '<span class="type-badge badge-circle">Circle</span>',
-        rectangle: '<span class="type-badge badge-rect">Rectangle</span>',
-        angle: '<span class="type-badge badge-angle">Angle</span>',
-        freehand: '<span class="type-badge badge-freehand">Freehand</span>'
+        figure: '<span class="type-badge badge-figure">Figure</span>'
     };
     return badges[type] || '<span class="type-badge badge-landmark">Point</span>';
 }
@@ -374,28 +330,6 @@ function getAnnotationInfoText(annotation) {
     }
     if (annotation.shape) {
         return `${annotation.shape} (${annotation.size}px)`;
-    }
-    // New annotation types
-    if (annotation.type === 'line' && annotation.data) {
-        const d = annotation.data;
-        const length = Math.sqrt(Math.pow(d.end.x - d.start.x, 2) + Math.pow(d.end.y - d.start.y, 2));
-        return `length: ${Math.round(length)}px`;
-    }
-    if (annotation.type === 'circle' && annotation.data) {
-        return `r: ${Math.round(annotation.data.radius)}px`;
-    }
-    if (annotation.type === 'rectangle' && annotation.data) {
-        const d = annotation.data;
-        const w = Math.abs(d.bottomRight.x - d.topLeft.x);
-        const h = Math.abs(d.bottomRight.y - d.topLeft.y);
-        return `${Math.round(w)} x ${Math.round(h)}px`;
-    }
-    if (annotation.type === 'angle' && annotation.data) {
-        // Calculate angle if Measurements module is available
-        if (window.Measurements) {
-            const m = window.Measurements.measureAngle(annotation.data);
-            return m.formatted?.angle || '';
-        }
     }
     return '';
 }
@@ -519,30 +453,10 @@ function setupLabelListEventDelegation() {
     });
 }
 
-// ============================================================================
-// Legacy Active Polygon Rendering
-// ============================================================================
+function renderActivePolygon() {
+    clearPolygonElements();
 
-/**
- * Clear active polygon drawing elements (fallback if polygons.js not loaded)
- */
-function clearPolygonElementsFallback() {
-    document.querySelectorAll('.polygon-point, .polygon-line').forEach(el => el.remove());
-    if (STATE.activePolygonElements) {
-        STATE.activePolygonElements.points = [];
-        STATE.activePolygonElements.lines = [];
-    }
-}
-
-function renderActivePolygonLegacy() {
-    // Use the function from polygons.js if available, otherwise use fallback
-    if (typeof clearPolygonElements === 'function') {
-        clearPolygonElements();
-    } else {
-        clearPolygonElementsFallback();
-    }
-
-    if (!STATE.activePolygonPoints || STATE.activePolygonPoints.length === 0) return;
+    if (STATE.activePolygonPoints.length === 0) return;
 
     STATE.activePolygonPoints.forEach((point, index) => {
         const { x, y } = viewport.imageToDisplay(point.x, point.y);
@@ -554,9 +468,7 @@ function renderActivePolygonLegacy() {
         pointEl.style.top = `${y}px`;
 
         DOM.imageContainer.appendChild(pointEl);
-        if (STATE.activePolygonElements?.points) {
-            STATE.activePolygonElements.points.push(pointEl);
-        }
+        STATE.activePolygonElements.points.push(pointEl);
     });
 
     for (let i = 0; i < STATE.activePolygonPoints.length; i++) {
@@ -564,12 +476,12 @@ function renderActivePolygonLegacy() {
         const p2 = STATE.activePolygonPoints[(i + 1) % STATE.activePolygonPoints.length];
         
         if (i < STATE.activePolygonPoints.length - 1 || STATE.activePolygonPoints.length >= 3) {
-            drawPolygonLineLegacy(p1, p2);
+            drawPolygonLine(p1, p2);
         }
     }
 }
 
-function drawPolygonLineLegacy(p1, p2) {
+function drawPolygonLine(p1, p2) {
     const display1 = viewport.imageToDisplay(p1.x, p1.y);
     const display2 = viewport.imageToDisplay(p2.x, p2.y);
     
@@ -583,14 +495,8 @@ function drawPolygonLineLegacy(p1, p2) {
     line.style.transform = `rotate(${angle}deg)`;
     
     DOM.imageContainer.appendChild(line);
-    if (STATE.activePolygonElements?.lines) {
-        STATE.activePolygonElements.lines.push(line);
-    }
+    STATE.activePolygonElements.lines.push(line);
 }
-
-// ============================================================================
-// Event Delegation Setup
-// ============================================================================
 
 let _figureEventDelegationSetup = false;
 
@@ -1039,20 +945,3 @@ function renderDrawingInstruction(tool, pointCount, previewPoint) {
     DOM.imageContainer.appendChild(instruction);
 }
 
-// ============================================================================
-// Exports / Global Registration
-// ============================================================================
-
-// These functions need to be available globally for other modules
-window.scheduleRender = scheduleRender;
-window.forceRender = forceRender;
-window.setupReactiveRendering = setupReactiveRendering;
-window.teardownReactiveRendering = teardownReactiveRendering;
-window.renderAnnotations = renderAnnotations;
-window.renderLabelList = renderLabelList;
-window.setupLabelListEventDelegation = setupLabelListEventDelegation;
-window.setupFigureEventDelegation = setupFigureEventDelegation;
-window.clearDrawingPreview = clearDrawingPreview;
-window.renderDrawingPreview = renderDrawingPreview;
-
-console.log('[rendering.js] Rendering module loaded - delegates to SVG AnnotationRenderer when available');

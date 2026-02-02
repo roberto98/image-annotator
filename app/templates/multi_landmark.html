@@ -384,6 +384,7 @@
     
     <!-- 2. Core services -->
     <script src="{{ url_for('static', filename='js/core/Viewport.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/AnnotationRenderer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utilities.js') }}"></script>
     
     <!-- 3. New annotation system - constants first (shared across all modules) -->
@@ -397,19 +398,18 @@
     <script src="{{ url_for('static', filename='js/annotations/api.js') }}"></script>
     <script src="{{ url_for('static', filename='js/annotations/state.js') }}"></script>
     
-    <!-- 6. New annotation system - renderer -->
-    <script src="{{ url_for('static', filename='js/annotations/renderer.js') }}"></script>
-    
-    <!-- 7. New annotation system - handlers -->
+    <!-- 6. New annotation system - handlers -->
     <script src="{{ url_for('static', filename='js/annotations/drawing.js') }}"></script>
     <script src="{{ url_for('static', filename='js/annotations/editing.js') }}"></script>
     
-    <!-- 8. UI Components -->
+    <!-- 7. UI Components -->
     <script src="{{ url_for('static', filename='js/components/LabelPopup.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/LabelSelector.js') }}"></script>
     
-    <!-- 9. Legacy modules (for compatibility - will be phased out) -->
+    <!-- 8. Rendering utilities (delegates to AnnotationRenderer for SVG rendering) -->
     <script src="{{ url_for('static', filename='js/rendering.js') }}"></script>
+    
+    <!-- 9. Legacy modules (for compatibility - will be phased out) -->
     <script src="{{ url_for('static', filename='js/zoom.js') }}"></script>
     <!-- <script src="{{ url_for('static', filename='js/polygons.js') }}"></script> -->
     <!-- <script src="{{ url_for('static', filename='js/figures.js') }}"></script> -->

@@ -96,8 +96,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented AnnotationRenderer.js (~1430 lines) in app/static/js/core/ with: SVG overlay positioned over image container, viewport transform synchronization via matrix transform, all annotation types rendered (point, line, circle, rectangle, polygon, freehand, angle), selection and hover state management, measurement label overlay, edit handles for selected annotations. Comprehensive CSS with dark mode and accessibility support. Singleton pattern: window.annotationRenderer. Old rendering.js updated to delegate to SVG renderer. Backups created at _backup/renderer.js.bak and _backup/rendering.js.bak."
     },
     {
       "id": "US-007",

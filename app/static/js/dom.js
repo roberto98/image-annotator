@@ -26,12 +26,19 @@ const DOM = {
     modeIndicator: document.getElementById('modeIndicator'),
     mousePosition: document.getElementById('mousePosition'),
     
-    // Tool buttons
+    // Tool buttons - primary tools with data-tool attributes
     landmarkToolBtn: document.getElementById('landmarkToolBtn'),
     polygonToolBtn: document.getElementById('polygonToolBtn'),
+    lineToolBtn: document.getElementById('lineToolBtn'),
+    circleToolBtn: document.getElementById('circleToolBtn'),
+    rectangleToolBtn: document.getElementById('rectangleToolBtn'),
+    angleToolBtn: document.getElementById('angleToolBtn'),
+    freehandToolBtn: document.getElementById('freehandToolBtn'),
+    
+    // Legacy figure tool button (may not exist in new UI)
     figureToolBtn: document.getElementById('figureToolBtn'),
     
-    // Figure configuration
+    // Figure configuration (legacy - kept for backward compatibility)
     figureConfig: document.getElementById('figureConfig'),
     circleBtn: document.getElementById('circleBtn'),
     rectangleBtn: document.getElementById('rectangleBtn'),
@@ -49,3 +56,6 @@ const DOM = {
     // Navigation buttons
     propagateBtn: document.getElementById('propagateBtn')
 };
+
+// Expose DOM globally for other modules
+window.DOM = DOM;

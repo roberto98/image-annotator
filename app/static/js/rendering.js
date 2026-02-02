@@ -355,7 +355,8 @@ function getTypeBadgeHtml(type) {
         circle: '<span class="type-badge badge-circle">Circle</span>',
         rectangle: '<span class="type-badge badge-rect">Rectangle</span>',
         angle: '<span class="type-badge badge-angle">Angle</span>',
-        freehand: '<span class="type-badge badge-freehand">Freehand</span>'
+        freehand: '<span class="type-badge badge-freehand">Freehand</span>',
+        tag: '<span class="type-badge badge-tag">Tag</span>'
     };
     return badges[type] || '<span class="type-badge badge-landmark">Point</span>';
 }
@@ -396,6 +397,10 @@ function getAnnotationInfoText(annotation) {
             const m = window.Measurements.measureAngle(annotation.data);
             return m.formatted?.angle || '';
         }
+    }
+    if (annotation.type === 'tag') {
+        // Tags have no geometric data, just show "Image label"
+        return 'Image label';
     }
     return '';
 }

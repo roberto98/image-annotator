@@ -3,9 +3,12 @@
 
 from flask import Blueprint
 
-api_bp = Blueprint('api', __name__, url_prefix='/api')
+api_bp = Blueprint("api", __name__, url_prefix="/api")
 
-# Import route modules to register endpoints
-from app.blueprints.api import common, landmarks, segments, figures, images, export
+# Import remaining V1 route modules (images, export)
+from app.blueprints.api import images, export
 
-__all__ = ['api_bp']
+# Import v2 annotations blueprint
+from app.blueprints.api.annotations_v2 import annotations_v2_bp
+
+__all__ = ["api_bp", "annotations_v2_bp"]

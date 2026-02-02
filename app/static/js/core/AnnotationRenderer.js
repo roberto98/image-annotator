@@ -393,7 +393,8 @@ class AnnotationRenderer {
             'rectangle': () => this.renderRectangle(id, data, color, isSelected, isHovered, calibration),
             'polygon': () => this.renderPolygon(id, data, color, isSelected, isHovered, calibration),
             'freehand': () => this.renderFreehand(id, data, color, isSelected, isHovered),
-            'angle': () => this.renderAngle(id, data, color, isSelected, isHovered)
+            'angle': () => this.renderAngle(id, data, color, isSelected, isHovered),
+            'tag': () => this.renderTag(id, data, color, isSelected, isHovered)
         };
         
         const renderer = renderers[type];
@@ -1312,6 +1313,29 @@ class AnnotationRenderer {
             x: data.vertex.x + textRadius * Math.cos(bisectorAngle),
             y: data.vertex.y + textRadius * Math.sin(bisectorAngle)
         };
+    }
+    
+    // ========================================================================
+    // Tag Annotation Rendering
+    // ========================================================================
+    
+    /**
+     * Render a tag annotation
+     * Tags have no visual representation on the image canvas - they are
+     * image-level labels that only appear in the annotation sidebar/list.
+     * This method is intentionally a no-op.
+     * 
+     * @param {string} id - Annotation ID (label name)
+     * @param {Object} data - Tag data (empty object for tags)
+     * @param {string} color - Display color (unused for tags)
+     * @param {boolean} isSelected - Whether selected (unused for tags)
+     * @param {boolean} isHovered - Whether hovered (unused for tags)
+     */
+    renderTag(id, data, color, isSelected, isHovered) {
+        // Tags have no visual representation on the image
+        // They appear only in the annotation list/sidebar
+        // This is intentionally a no-op
+        window.Debug?.log('AnnotationRenderer', `Tag "${id}" has no visual representation`);
     }
     
     // ========================================================================

@@ -209,6 +209,45 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 - Phase 3: Basic Annotation Types (US-008 to US-014 remaining)
 - Phase 4-10: 23 user stories remaining
 
+### US-008: Line Annotation ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Components Verified:**
+- `DrawingHandler` - Handles 2-click flow (click start → click end)
+- `AnnotationRenderer.renderLine()` - SVG line rendering with endpoints
+- `Measurements.measureLine()` - Length calculation with calibration support
+
+**All Acceptance Criteria Met:**
+- ✅ Select line tool → click start → click end
+- ✅ Live preview line follows cursor after first click
+- ✅ Line shows length in pixels (or mm if calibrated)
+- ✅ Label popup appears after second click
+- ✅ Line stored as { type: 'line', data: { start: {x,y}, end: {x,y} } } in image coords
+
+---
+
+## Summary
+
+### Completed (8/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - IN PROGRESS (2/8 complete)
+
+### In Progress
+- Phase 3: Basic Annotation Types (US-009 to US-014 remaining)
+- Phase 4-10: 22 user stories remaining
+
 ### Next Steps
-Continue with US-008: Line Annotation - implement two-click line drawing with live preview and distance measurement.
+Continue with US-009: Circle Annotation - implement two-click circle drawing with live preview and radius/diameter measurement.
 

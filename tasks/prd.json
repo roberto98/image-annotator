@@ -130,8 +130,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Verified: 2-click flow, live preview, length measurement with calibration support, label popup, correct storage format."
     },
     {
       "id": "US-009",

@@ -1103,8 +1103,7 @@ const EditingHandler = {
         const label = this._getSelectedLabel();
         if (!label) return;
         
-        // Confirmation dialog
-        if (!confirm(`Delete annotation "${label}"?`)) return;
+        // No confirmation dialog - undo is available (US-020)
         
         // Save to history before deleting
         this._saveToHistory();

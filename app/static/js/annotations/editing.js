@@ -54,6 +54,9 @@ const EditingHandler = {
     /** Whether handler is initialized */
     _initialized: false,
     
+    /** Flag to prevent deselection right after drag */
+    _justDragged: false,
+    
     // Bound event handler references for cleanup
     _handleMouseDown: null,
     _handleMouseMove: null,
@@ -64,6 +67,7 @@ const EditingHandler = {
     _handleTouchStart: null,
     _handleTouchMove: null,
     _handleTouchEnd: null,
+    _handleContainerClick: null,
     
     // Touch state
     _touchStartPos: null,
@@ -260,6 +264,7 @@ const EditingHandler = {
         this._handleTouchStart = this.handleTouchStart.bind(this);
         this._handleTouchMove = this.handleTouchMove.bind(this);
         this._handleTouchEnd = this.handleTouchEnd.bind(this);
+        this._handleContainerClick = this.handleContainerClick.bind(this);
         
         this.attachListeners();
         this._initialized = true;
@@ -291,6 +296,9 @@ const EditingHandler = {
                 container.addEventListener('mouseout', this._handleMouseOut);
                 container.addEventListener('touchstart', this._handleTouchStart, { passive: false });
             }
+            
+            // Listen for clicks on container to handle empty space deselection
+            container.addEventListener('click', this._handleContainerClick);
         }
         
         // Global keyboard listener - use capture to get events before other handlers
@@ -315,6 +323,7 @@ const EditingHandler = {
             container.removeEventListener('mouseover', this._handleMouseOver);
             container.removeEventListener('mouseout', this._handleMouseOut);
             container.removeEventListener('touchstart', this._handleTouchStart);
+            container.removeEventListener('click', this._handleContainerClick);
         }
         
         document.removeEventListener('keydown', this._handleKeyDown, true);
@@ -351,6 +360,42 @@ const EditingHandler = {
         const pointIndex = target.dataset.pointIndex;
         
         this._startDrag(e, label, handleType, pointIndex);
+    },
+    
+    /**
+     * Handle click on container for empty space deselection
+     * @param {MouseEvent} e - Mouse event
+     */
+    handleContainerClick(e) {
+        // Only handle in annotation mode (not pan mode)
+        if (!this._isAnnotationMode()) return;
+        
+        // Ignore if a drag just happened (we moved the annotation)
+        // A small threshold handles minor movement during click
+        if (this._justDragged) {
+            this._justDragged = false;
+            return;
+        }
+        
+        // Ignore if clicking on an annotation element
+        const target = e.target.closest('[data-annotation]');
+        if (target) return;
+        
+        // Ignore if clicking on UI elements (popups, buttons, etc.)
+        if (e.target.closest('.label-popup, .label-selector, button, input, .toolbar')) {
+            return;
+        }
+        
+        // Ignore if a drawing is in progress
+        if (window.DrawingHandler?.isDrawingInProgress?.()) {
+            return;
+        }
+        
+        // Check if there's a current selection to clear
+        const selectedLabel = this._getSelectedLabel();
+        if (selectedLabel) {
+            this.deselect();
+        }
     },
     
     /**
@@ -691,6 +736,9 @@ const EditingHandler = {
         
         // Remove visual feedback
         this._removeDragFeedback();
+        
+        // Mark that we just finished dragging to prevent accidental deselection
+        this._justDragged = true;
         
         // Save to server
         const label = this.editingLabel || this._getSelectedLabel();
@@ -1101,6 +1149,11 @@ const EditingHandler = {
             state.selectedPointIndex = -1;
         }
         
+        // Update renderer visual state
+        if (window.annotationRenderer?.setSelected) {
+            window.annotationRenderer.setSelected(null);
+        }
+        
         this._render();
         window.showMessage?.('Selection cleared', 'info', 500);
     },
@@ -1211,6 +1264,11 @@ const EditingHandler = {
         } else if (state.selectedAnnotation !== undefined) {
             // Legacy fallback - just set the label
             this._setSelectedLabel(label);
+        }
+        
+        // Update renderer visual state
+        if (window.annotationRenderer?.setSelected) {
+            window.annotationRenderer.setSelected(label);
         }
     },
     

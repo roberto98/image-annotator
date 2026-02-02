@@ -135,6 +135,15 @@ class AnnotationRenderer {
         this._config = { ...this._config, ...options };
     }
     
+    /**
+     * Get the current viewport scale (with fallback)
+     * @returns {number} Current scale factor
+     * @private
+     */
+    get _currentScale() {
+        return this._viewport?.scale || 1;
+    }
+    
     // ========================================================================
     // Initialization
     // ========================================================================
@@ -354,9 +363,7 @@ class AnnotationRenderer {
      */
     clear() {
         // Clear transform group (keeps defs)
-        if (this._transformGroup) {
-            this._transformGroup.innerHTML = '';
-        }
+        this._transformGroup?.replaceChildren();
         
         // Clear label layer
         if (this._labelLayer) {
@@ -464,7 +471,8 @@ class AnnotationRenderer {
      * @private
      */
     _updateAnnotationState(annotationId) {
-        const group = this._transformGroup?.querySelector(`[data-annotation-id="${annotationId}"]`);
+        const escapedId = CSS.escape(annotationId);
+        const group = this._transformGroup?.querySelector(`[data-annotation-id="${escapedId}"]`);
         if (!group) return;
         
         const isSelected = annotationId === this._selectedId;
@@ -478,6 +486,72 @@ class AnnotationRenderer {
     // ========================================================================
     // SVG Element Helpers
     // ========================================================================
+    
+    /**
+     * Get common render properties (scale, strokeWidth, fillOpacity)
+     * @param {boolean} isSelected - Whether annotation is selected
+     * @returns {{scale: number, strokeWidth: number, fillOpacity: number}}
+     * @private
+     */
+    _getRenderProps(isSelected) {
+        const scale = this._currentScale;
+        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
+        const fillOpacity = isSelected ? this._config.selectedFillOpacity : this._config.fillOpacity;
+        return { scale, strokeWidth, fillOpacity };
+    }
+    
+    /**
+     * Get stroke attributes for shapes
+     * @param {string} color - Stroke color
+     * @param {number} strokeWidth - Stroke width
+     * @param {Object} [extras] - Additional attributes
+     * @returns {Object} SVG attributes object
+     * @private
+     */
+    _strokeAttrs(color, strokeWidth, extras = {}) {
+        return {
+            'stroke': color,
+            'stroke-width': strokeWidth,
+            ...extras
+        };
+    }
+    
+    /**
+     * Get fill+stroke attributes for shapes
+     * @param {string} color - Color for both fill and stroke
+     * @param {number} strokeWidth - Stroke width
+     * @param {number} fillOpacity - Fill opacity
+     * @param {Object} [extras] - Additional attributes
+     * @returns {Object} SVG attributes object
+     * @private
+     */
+    _fillStrokeAttrs(color, strokeWidth, fillOpacity, extras = {}) {
+        return {
+            'fill': color,
+            'fill-opacity': fillOpacity,
+            'stroke': color,
+            'stroke-width': strokeWidth,
+            ...extras
+        };
+    }
+    
+    /**
+     * Create a small marker circle (used for endpoints, vertices, centers)
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {string} color - Fill color
+     * @param {string} className - CSS class name
+     * @param {number} scale - Current viewport scale
+     * @param {number} [baseRadius=3] - Base radius before scaling
+     * @returns {SVGCircleElement}
+     * @private
+     */
+    _createMarker(x, y, color, className, scale, baseRadius = 3) {
+        return this._createCircle(x, y, baseRadius / scale, {
+            'class': className,
+            'fill': color
+        });
+    }
     
     /**
      * Create an SVG group element for an annotation
@@ -503,7 +577,6 @@ class AnnotationRenderer {
         group.dataset.annotation = id; // Legacy compatibility
         group.dataset.label = id; // Legacy compatibility
         
-        // ARIA attributes for accessibility
         group.setAttribute('role', 'img');
         group.setAttribute('aria-label', `${type} annotation: ${id}`);
         
@@ -603,7 +676,7 @@ class AnnotationRenderer {
     _createHandle(x, y, handleType, color, annotationId) {
         // Handle radius needs to be scaled inversely with viewport
         // so it appears the same size regardless of zoom
-        const scale = this._viewport?.scale || 1;
+        const scale = this._currentScale;
         const radius = this._config.handleRadius / scale;
         const strokeWidth = 2 / scale;
         
@@ -719,56 +792,33 @@ class AnnotationRenderer {
      */
     renderPoint(id, data, color, isSelected, isHovered) {
         const group = this._createGroup(id, 'point', isSelected, isHovered);
-        
-        const scale = this._viewport?.scale || 1;
+        const { scale, strokeWidth } = this._getRenderProps(isSelected);
         const r = this._config.pointRadius / scale;
-        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
         
-        // Outer circle
-        const outerCircle = this._createCircle(data.x, data.y, r, {
+        // Outer circle with inner fill
+        group.appendChild(this._createCircle(data.x, data.y, r, {
             'class': 'annotation-point-outer',
             'fill': 'none',
-            'stroke': color,
-            'stroke-width': strokeWidth
-        });
-        group.appendChild(outerCircle);
+            ...this._strokeAttrs(color, strokeWidth)
+        }));
         
-        // Inner fill
-        const innerCircle = this._createCircle(data.x, data.y, r - 2 / scale, {
+        group.appendChild(this._createCircle(data.x, data.y, r - 2 / scale, {
             'class': 'annotation-point-inner',
             'fill': color,
             'fill-opacity': '0.3'
-        });
-        group.appendChild(innerCircle);
+        }));
         
         // Cross marker
-        const crossSize = (r + 2 / scale);
-        const crossAttrs = {
-            'class': 'annotation-point-cross',
-            'stroke': color,
-            'stroke-width': strokeWidth
-        };
+        const crossSize = r + 2 / scale;
+        const crossAttrs = { 'class': 'annotation-point-cross', ...this._strokeAttrs(color, strokeWidth) };
+        group.appendChild(this._createLine(data.x - crossSize, data.y, data.x + crossSize, data.y, crossAttrs));
+        group.appendChild(this._createLine(data.x, data.y - crossSize, data.x, data.y + crossSize, crossAttrs));
         
-        group.appendChild(this._createLine(
-            data.x - crossSize, data.y,
-            data.x + crossSize, data.y,
-            crossAttrs
-        ));
-        group.appendChild(this._createLine(
-            data.x, data.y - crossSize,
-            data.x, data.y + crossSize,
-            crossAttrs
-        ));
-        
-        // Edit handle
         if (this._config.showHandles && isSelected) {
-            const handle = this._createHandle(data.x, data.y, 'center', color, id);
-            group.appendChild(handle);
+            group.appendChild(this._createHandle(data.x, data.y, 'center', color, id));
         }
         
         this._transformGroup.appendChild(group);
-        
-        // Name label
         this._createNameLabel(data.x + r, data.y, id, color);
     }
     
@@ -787,29 +837,17 @@ class AnnotationRenderer {
      */
     renderLine(id, data, color, isSelected, isHovered, calibration) {
         const group = this._createGroup(id, 'line', isSelected, isHovered);
-        
-        const scale = this._viewport?.scale || 1;
-        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
+        const { scale, strokeWidth } = this._getRenderProps(isSelected);
         
         // Main line
-        const line = this._createLine(data.start.x, data.start.y, data.end.x, data.end.y, {
+        group.appendChild(this._createLine(data.start.x, data.start.y, data.end.x, data.end.y, {
             'class': 'annotation-line',
-            'stroke': color,
-            'stroke-width': strokeWidth,
-            'stroke-linecap': 'round'
-        });
-        group.appendChild(line);
+            ...this._strokeAttrs(color, strokeWidth, { 'stroke-linecap': 'round' })
+        }));
         
         // Endpoint markers
-        const endpointRadius = 4 / scale;
-        group.appendChild(this._createCircle(data.start.x, data.start.y, endpointRadius, {
-            'class': 'annotation-line-endpoint',
-            'fill': color
-        }));
-        group.appendChild(this._createCircle(data.end.x, data.end.y, endpointRadius, {
-            'class': 'annotation-line-endpoint',
-            'fill': color
-        }));
+        group.appendChild(this._createMarker(data.start.x, data.start.y, color, 'annotation-line-endpoint', scale, 4));
+        group.appendChild(this._createMarker(data.end.x, data.end.y, color, 'annotation-line-endpoint', scale, 4));
         
         // Edit handles
         if (this._config.showHandles && isSelected) {
@@ -833,19 +871,16 @@ class AnnotationRenderer {
             // Calculate perpendicular offset for label placement
             const angle = Math.atan2(data.end.y - data.start.y, data.end.x - data.start.x);
             const offset = this._config.measurementOffset / scale;
-            const offsetX = Math.sin(angle) * offset;
-            const offsetY = -Math.cos(angle) * offset;
             
             this._createMeasurementLabel(
-                midX + offsetX,
-                midY + offsetY,
+                midX + Math.sin(angle) * offset,
+                midY - Math.cos(angle) * offset,
                 measurements.formatted.length,
                 color,
                 'measurement-length'
             );
         }
         
-        // Name label
         this._createNameLabel(data.start.x, data.start.y - 10 / scale, id, color);
     }
     
@@ -864,31 +899,19 @@ class AnnotationRenderer {
      */
     renderCircle(id, data, color, isSelected, isHovered, calibration) {
         const group = this._createGroup(id, 'circle', isSelected, isHovered);
+        const { scale, strokeWidth, fillOpacity } = this._getRenderProps(isSelected);
         
-        const scale = this._viewport?.scale || 1;
-        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
-        const fillOpacity = isSelected ? this._config.selectedFillOpacity : this._config.fillOpacity;
-        
-        // Circle outline (radius is already in image coordinates)
-        const circle = this._createCircle(data.center.x, data.center.y, data.radius, {
+        // Circle shape
+        group.appendChild(this._createCircle(data.center.x, data.center.y, data.radius, {
             'class': 'annotation-circle',
-            'fill': color,
-            'fill-opacity': fillOpacity,
-            'stroke': color,
-            'stroke-width': strokeWidth
-        });
-        group.appendChild(circle);
+            ...this._fillStrokeAttrs(color, strokeWidth, fillOpacity)
+        }));
         
-        // Center point marker
-        const centerRadius = 3 / scale;
-        const centerMarker = this._createCircle(data.center.x, data.center.y, centerRadius, {
-            'class': 'annotation-circle-center',
-            'fill': color
-        });
-        group.appendChild(centerMarker);
+        // Center marker
+        group.appendChild(this._createMarker(data.center.x, data.center.y, color, 'annotation-circle-center', scale));
         
-        // Radius line
-        const radiusLine = this._createLine(
+        // Radius line (dashed)
+        group.appendChild(this._createLine(
             data.center.x, data.center.y,
             data.center.x + data.radius, data.center.y,
             {
@@ -897,18 +920,12 @@ class AnnotationRenderer {
                 'stroke-width': 1 / scale,
                 'stroke-dasharray': `${4 / scale},${2 / scale}`
             }
-        );
-        group.appendChild(radiusLine);
+        ));
         
         // Edit handles
         if (this._config.showHandles && isSelected) {
-            // Center handle
-            const centerHandle = this._createHandle(data.center.x, data.center.y, 'center', color, id);
-            group.appendChild(centerHandle);
-            
-            // Radius handle
-            const radiusHandle = this._createHandle(data.center.x + data.radius, data.center.y, 'radius', color, id);
-            group.appendChild(radiusHandle);
+            group.appendChild(this._createHandle(data.center.x, data.center.y, 'center', color, id));
+            group.appendChild(this._createHandle(data.center.x + data.radius, data.center.y, 'radius', color, id));
         }
         
         this._transformGroup.appendChild(group);
@@ -917,7 +934,6 @@ class AnnotationRenderer {
         if (this._config.showMeasurements && window.Measurements) {
             const measurements = window.Measurements.measureCircle(data, calibration);
             
-            // Radius text
             this._createMeasurementLabel(
                 data.center.x + data.radius / 2,
                 data.center.y - 8 / scale,
@@ -941,7 +957,6 @@ class AnnotationRenderer {
             }
         }
         
-        // Name label
         this._createNameLabel(data.center.x + data.radius, data.center.y, id, color);
     }
     
@@ -959,9 +974,7 @@ class AnnotationRenderer {
      * @param {number|null} calibration - Pixels per mm
      */
     renderRectangle(id, data, color, isSelected, isHovered, calibration) {
-        const group = this._createGroup(id, 'rectangle', isSelected, isHovered);
-        
-        // Handle both formats
+        // Normalize rectangle data to x, y, width, height
         let x, y, width, height;
         if (data.topLeft && data.bottomRight) {
             x = Math.min(data.topLeft.x, data.bottomRight.x);
@@ -974,25 +987,19 @@ class AnnotationRenderer {
             x = data.center.x - width / 2;
             y = data.center.y - height / 2;
         } else {
-            return; // Invalid data
+            return;
         }
         
-        const scale = this._viewport?.scale || 1;
-        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
-        const fillOpacity = isSelected ? this._config.selectedFillOpacity : this._config.fillOpacity;
+        const group = this._createGroup(id, 'rectangle', isSelected, isHovered);
+        const { scale, strokeWidth, fillOpacity } = this._getRenderProps(isSelected);
         
-        // Rectangle
-        const rect = this._createRect(x, y, width, height, {
+        // Rectangle shape
+        group.appendChild(this._createRect(x, y, width, height, {
             'class': 'annotation-rectangle',
-            'fill': color,
-            'fill-opacity': fillOpacity,
-            'stroke': color,
-            'stroke-width': strokeWidth
-        });
-        group.appendChild(rect);
+            ...this._fillStrokeAttrs(color, strokeWidth, fillOpacity)
+        }));
         
-        // Corner markers
-        const cornerRadius = 3 / scale;
+        // Corner markers and handles
         const corners = [
             { x: x, y: y, type: 'nw' },
             { x: x + width, y: y, type: 'ne' },
@@ -1001,14 +1008,10 @@ class AnnotationRenderer {
         ];
         
         corners.forEach(corner => {
-            group.appendChild(this._createCircle(corner.x, corner.y, cornerRadius, {
-                'class': 'annotation-rectangle-corner',
-                'fill': color
-            }));
+            group.appendChild(this._createMarker(corner.x, corner.y, color, 'annotation-rectangle-corner', scale));
             
             if (this._config.showHandles && isSelected) {
-                const handle = this._createHandle(corner.x, corner.y, corner.type, color, id);
-                group.appendChild(handle);
+                group.appendChild(this._createHandle(corner.x, corner.y, corner.type, color, id));
             }
         });
         
@@ -1019,21 +1022,12 @@ class AnnotationRenderer {
             const measurements = window.Measurements.measureRectangle(data, calibration);
             
             // Width label
-            this._createMeasurementLabel(
-                x + width / 2,
-                y - 5 / scale,
-                measurements.formatted.width,
-                color,
-                'measurement-width'
-            );
+            this._createMeasurementLabel(x + width / 2, y - 5 / scale, measurements.formatted.width, color, 'measurement-width');
             
             // Height label
             const heightLabel = this._createMeasurementLabel(
-                x + width + 10 / scale,
-                y + height / 2,
-                measurements.formatted.height,
-                color,
-                'measurement-height'
+                x + width + 10 / scale, y + height / 2,
+                measurements.formatted.height, color, 'measurement-height'
             );
             if (heightLabel) {
                 heightLabel.style.transform = 'translate(0, -50%)';
@@ -1042,11 +1036,8 @@ class AnnotationRenderer {
             // Area label (if large enough)
             if (width * scale > 60 && height * scale > 40) {
                 const areaLabel = this._createMeasurementLabel(
-                    x + width / 2,
-                    y + height / 2,
-                    `A: ${measurements.formatted.area}`,
-                    color,
-                    'measurement-area'
+                    x + width / 2, y + height / 2,
+                    `A: ${measurements.formatted.area}`, color, 'measurement-area'
                 );
                 if (areaLabel) {
                     areaLabel.style.transform = 'translate(-50%, -50%)';
@@ -1054,7 +1045,6 @@ class AnnotationRenderer {
             }
         }
         
-        // Name label
         const nameLabel = this._createNameLabel(x, y - 5 / scale, id, color);
         if (nameLabel) {
             nameLabel.style.transform = 'translate(0, -100%)';
@@ -1079,34 +1069,19 @@ class AnnotationRenderer {
         if (points.length < 3) return;
         
         const group = this._createGroup(id, 'polygon', isSelected, isHovered);
-        
-        const scale = this._viewport?.scale || 1;
-        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
-        const fillOpacity = isSelected ? this._config.selectedFillOpacity : this._config.fillOpacity;
+        const { scale, strokeWidth, fillOpacity } = this._getRenderProps(isSelected);
         
         // Create polygon path
-        const pathData = points.map((p, i) => 
-            `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-        ).join(' ') + ' Z';
+        const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
         
-        const polygon = this._createPath(pathData, {
+        group.appendChild(this._createPath(pathData, {
             'class': 'annotation-polygon',
-            'fill': color,
-            'fill-opacity': fillOpacity,
-            'stroke': color,
-            'stroke-width': strokeWidth,
-            'stroke-linejoin': 'round'
-        });
-        group.appendChild(polygon);
+            ...this._fillStrokeAttrs(color, strokeWidth, fillOpacity, { 'stroke-linejoin': 'round' })
+        }));
         
         // Vertex markers and handles
-        const vertexRadius = 3 / scale;
         points.forEach((p, index) => {
-            const marker = this._createCircle(p.x, p.y, vertexRadius, {
-                'class': 'annotation-polygon-vertex',
-                'fill': color
-            });
-            group.appendChild(marker);
+            group.appendChild(this._createMarker(p.x, p.y, color, 'annotation-polygon-vertex', scale));
             
             if (this._config.showHandles && isSelected) {
                 const handle = this._createHandle(p.x, p.y, `vertex-${index}`, color, id);
@@ -1122,32 +1097,21 @@ class AnnotationRenderer {
             const measurements = window.Measurements.measurePolygon(data, calibration);
             const centroid = measurements.centroid;
             
-            // Area label at centroid
             const areaLabel = this._createMeasurementLabel(
-                centroid.x,
-                centroid.y,
-                `A: ${measurements.formatted.area}`,
-                color,
-                'measurement-area'
+                centroid.x, centroid.y, `A: ${measurements.formatted.area}`, color, 'measurement-area'
             );
             if (areaLabel) {
                 areaLabel.style.transform = 'translate(-50%, -50%)';
             }
             
-            // Perimeter label
             const perimeterLabel = this._createMeasurementLabel(
-                centroid.x,
-                centroid.y + 18 / scale,
-                `P: ${measurements.formatted.perimeter}`,
-                color,
-                'measurement-perimeter'
+                centroid.x, centroid.y + 18 / scale, `P: ${measurements.formatted.perimeter}`, color, 'measurement-perimeter'
             );
             if (perimeterLabel) {
                 perimeterLabel.style.transform = 'translate(-50%, -50%)';
             }
         }
         
-        // Name label
         this._createNameLabel(points[0].x, points[0].y - 10 / scale, id, color);
     }
     
@@ -1168,11 +1132,38 @@ class AnnotationRenderer {
         if (points.length < 2) return;
         
         const group = this._createGroup(id, 'freehand', isSelected, isHovered);
+        const { scale, strokeWidth } = this._getRenderProps(isSelected);
         
-        const scale = this._viewport?.scale || 1;
-        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
+        // Build smooth path using quadratic curves
+        const pathData = this._buildFreehandPath(points);
         
-        // Create smooth path using quadratic curves
+        group.appendChild(this._createPath(pathData, {
+            'class': 'annotation-freehand',
+            'fill': 'none',
+            ...this._strokeAttrs(color, strokeWidth, { 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
+        }));
+        
+        // Start and end markers
+        const lastPoint = points[points.length - 1];
+        group.appendChild(this._createMarker(points[0].x, points[0].y, color, 'annotation-freehand-start', scale, 4));
+        group.appendChild(this._createCircle(lastPoint.x, lastPoint.y, 4 / scale, {
+            'class': 'annotation-freehand-end',
+            'fill': 'white',
+            'stroke': color,
+            'stroke-width': 2 / scale
+        }));
+        
+        this._transformGroup.appendChild(group);
+        this._createNameLabel(points[0].x, points[0].y - 10 / scale, id, color);
+    }
+    
+    /**
+     * Build smooth path data for freehand drawing using quadratic curves
+     * @param {Point[]} points - Array of points
+     * @returns {string} SVG path data
+     * @private
+     */
+    _buildFreehandPath(points) {
         let pathData = `M ${points[0].x} ${points[0].y}`;
         
         if (points.length === 2) {
@@ -1187,41 +1178,7 @@ class AnnotationRenderer {
             pathData += ` L ${last.x} ${last.y}`;
         }
         
-        const freehandPath = this._createPath(pathData, {
-            'class': 'annotation-freehand',
-            'fill': 'none',
-            'stroke': color,
-            'stroke-width': strokeWidth,
-            'stroke-linecap': 'round',
-            'stroke-linejoin': 'round'
-        });
-        group.appendChild(freehandPath);
-        
-        // Start and end markers
-        const markerRadius = 4 / scale;
-        const startMarker = this._createCircle(points[0].x, points[0].y, markerRadius, {
-            'class': 'annotation-freehand-start',
-            'fill': color
-        });
-        group.appendChild(startMarker);
-        
-        const endMarker = this._createCircle(
-            points[points.length - 1].x,
-            points[points.length - 1].y,
-            markerRadius,
-            {
-                'class': 'annotation-freehand-end',
-                'fill': 'white',
-                'stroke': color,
-                'stroke-width': 2 / scale
-            }
-        );
-        group.appendChild(endMarker);
-        
-        this._transformGroup.appendChild(group);
-        
-        // Name label
-        this._createNameLabel(points[0].x, points[0].y - 10 / scale, id, color);
+        return pathData;
     }
     
     // ========================================================================
@@ -1238,122 +1195,42 @@ class AnnotationRenderer {
      */
     renderAngle(id, data, color, isSelected, isHovered) {
         const group = this._createGroup(id, 'angle', isSelected, isHovered);
-        
-        const scale = this._viewport?.scale || 1;
-        const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
-        
-        // Arm 1: vertex to point1
-        const arm1 = this._createLine(
-            data.vertex.x, data.vertex.y,
-            data.point1.x, data.point1.y,
-            {
-                'class': 'annotation-angle-arm',
-                'stroke': color,
-                'stroke-width': strokeWidth,
-                'stroke-linecap': 'round'
-            }
-        );
-        group.appendChild(arm1);
-        
-        // Arm 2: vertex to point2
-        const arm2 = this._createLine(
-            data.vertex.x, data.vertex.y,
-            data.point2.x, data.point2.y,
-            {
-                'class': 'annotation-angle-arm',
-                'stroke': color,
-                'stroke-width': strokeWidth,
-                'stroke-linecap': 'round'
-            }
-        );
-        group.appendChild(arm2);
-        
-        // Calculate angles for arc
-        const angle1 = Math.atan2(data.point1.y - data.vertex.y, data.point1.x - data.vertex.x);
-        const angle2 = Math.atan2(data.point2.y - data.vertex.y, data.point2.x - data.vertex.x);
-        
-        // Determine arc direction
-        let startAngle = angle1;
-        let endAngle = angle2;
-        let sweepFlag = 0;
-        
-        let diff = endAngle - startAngle;
-        while (diff < -Math.PI) diff += 2 * Math.PI;
-        while (diff > Math.PI) diff -= 2 * Math.PI;
-        
-        if (diff < 0) {
-            sweepFlag = 0;
-        } else {
-            sweepFlag = 1;
-        }
-        
-        // Arc radius (in image coordinates)
-        const arm1Length = Math.sqrt(
-            (data.point1.x - data.vertex.x) ** 2 + (data.point1.y - data.vertex.y) ** 2
-        );
-        const arm2Length = Math.sqrt(
-            (data.point2.x - data.vertex.x) ** 2 + (data.point2.y - data.vertex.y) ** 2
-        );
-        const arcRadius = Math.min(
-            this._config.arcRadius / scale,
-            arm1Length * 0.4,
-            arm2Length * 0.4
-        );
-        
-        // Arc endpoints
-        const arcStart = {
-            x: data.vertex.x + arcRadius * Math.cos(startAngle),
-            y: data.vertex.y + arcRadius * Math.sin(startAngle)
-        };
-        const arcEnd = {
-            x: data.vertex.x + arcRadius * Math.cos(endAngle),
-            y: data.vertex.y + arcRadius * Math.sin(endAngle)
+        const { scale, strokeWidth } = this._getRenderProps(isSelected);
+        const armAttrs = {
+            'class': 'annotation-angle-arm',
+            ...this._strokeAttrs(color, strokeWidth, { 'stroke-linecap': 'round' })
         };
         
-        // Create arc path
-        const largeArcFlag = Math.abs(diff) > Math.PI ? 1 : 0;
-        const arcPath = `M ${arcStart.x} ${arcStart.y} A ${arcRadius} ${arcRadius} 0 ${largeArcFlag} ${sweepFlag} ${arcEnd.x} ${arcEnd.y}`;
+        // Arms: vertex to point1 and vertex to point2
+        group.appendChild(this._createLine(data.vertex.x, data.vertex.y, data.point1.x, data.point1.y, armAttrs));
+        group.appendChild(this._createLine(data.vertex.x, data.vertex.y, data.point2.x, data.point2.y, armAttrs));
         
-        const arc = this._createPath(arcPath, {
+        // Calculate arc
+        const arcData = this._calculateAngleArc(data, scale);
+        
+        group.appendChild(this._createPath(arcData.path, {
             'class': 'annotation-angle-arc',
             'fill': 'none',
-            'stroke': color,
-            'stroke-width': (strokeWidth - 0.5 / scale)
-        });
-        group.appendChild(arc);
-        
-        // Vertex marker
-        const vertexRadius = 4 / scale;
-        const vertexMarker = this._createCircle(data.vertex.x, data.vertex.y, vertexRadius, {
-            'class': 'annotation-angle-vertex',
-            'fill': color
-        });
-        group.appendChild(vertexMarker);
-        
-        // Endpoint markers
-        const endpointRadius = 3 / scale;
-        group.appendChild(this._createCircle(data.point1.x, data.point1.y, endpointRadius, {
-            'class': 'annotation-angle-endpoint',
-            'fill': color
+            ...this._strokeAttrs(color, strokeWidth - 0.5 / scale)
         }));
-        group.appendChild(this._createCircle(data.point2.x, data.point2.y, endpointRadius, {
-            'class': 'annotation-angle-endpoint',
-            'fill': color
-        }));
+        
+        // Markers: vertex (larger) and endpoints
+        group.appendChild(this._createMarker(data.vertex.x, data.vertex.y, color, 'annotation-angle-vertex', scale, 4));
+        group.appendChild(this._createMarker(data.point1.x, data.point1.y, color, 'annotation-angle-endpoint', scale));
+        group.appendChild(this._createMarker(data.point2.x, data.point2.y, color, 'annotation-angle-endpoint', scale));
         
         // Edit handles
         if (this._config.showHandles && isSelected) {
-            const point1Handle = this._createHandle(data.point1.x, data.point1.y, 'point1', color, id);
-            point1Handle.dataset.pointIndex = '0';
-            group.appendChild(point1Handle);
-            
-            const vertexHandle = this._createHandle(data.vertex.x, data.vertex.y, 'vertex', color, id);
-            vertexHandle.dataset.pointIndex = '1';
-            group.appendChild(vertexHandle);
-            
-            const point2Handle = this._createHandle(data.point2.x, data.point2.y, 'point2', color, id);
-            point2Handle.dataset.pointIndex = '2';
-            group.appendChild(point2Handle);
+            const handles = [
+                { point: data.point1, type: 'point1', index: '0' },
+                { point: data.vertex, type: 'vertex', index: '1' },
+                { point: data.point2, type: 'point2', index: '2' }
+            ];
+            handles.forEach(h => {
+                const handle = this._createHandle(h.point.x, h.point.y, h.type, color, id);
+                handle.dataset.pointIndex = h.index;
+                group.appendChild(handle);
+            });
         }
         
         this._transformGroup.appendChild(group);
@@ -1361,26 +1238,76 @@ class AnnotationRenderer {
         // Angle measurement
         if (this._config.showMeasurements && window.Measurements) {
             const measurements = window.Measurements.measureAngle(data);
-            
-            // Position angle text along the arc bisector
-            const bisectorAngle = (startAngle + endAngle) / 2;
-            const textRadius = arcRadius + 15 / scale;
-            const textX = data.vertex.x + textRadius * Math.cos(bisectorAngle);
-            const textY = data.vertex.y + textRadius * Math.sin(bisectorAngle);
+            const textPos = this._getArcLabelPosition(data, arcData.radius, scale);
             
             const angleLabel = this._createMeasurementLabel(
-                textX, textY,
-                measurements.formatted.angle,
-                color,
-                'measurement-angle'
+                textPos.x, textPos.y, measurements.formatted.angle, color, 'measurement-angle'
             );
             if (angleLabel) {
                 angleLabel.style.transform = 'translate(-50%, -50%)';
             }
         }
         
-        // Name label
         this._createNameLabel(data.vertex.x, data.vertex.y - 20 / scale, id, color);
+    }
+    
+    /**
+     * Calculate arc path data for angle annotation
+     * @param {{point1: Point, vertex: Point, point2: Point}} data - Angle data
+     * @param {number} scale - Current viewport scale
+     * @returns {{path: string, radius: number, startAngle: number, endAngle: number}}
+     * @private
+     */
+    _calculateAngleArc(data, scale) {
+        const angle1 = Math.atan2(data.point1.y - data.vertex.y, data.point1.x - data.vertex.x);
+        const angle2 = Math.atan2(data.point2.y - data.vertex.y, data.point2.x - data.vertex.x);
+        
+        // Normalize angle difference
+        let diff = angle2 - angle1;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        
+        const sweepFlag = diff < 0 ? 0 : 1;
+        const largeArcFlag = Math.abs(diff) > Math.PI ? 1 : 0;
+        
+        // Calculate arc radius based on arm lengths
+        const arm1Length = Math.hypot(data.point1.x - data.vertex.x, data.point1.y - data.vertex.y);
+        const arm2Length = Math.hypot(data.point2.x - data.vertex.x, data.point2.y - data.vertex.y);
+        const radius = Math.min(this._config.arcRadius / scale, arm1Length * 0.4, arm2Length * 0.4);
+        
+        // Arc endpoints
+        const arcStart = {
+            x: data.vertex.x + radius * Math.cos(angle1),
+            y: data.vertex.y + radius * Math.sin(angle1)
+        };
+        const arcEnd = {
+            x: data.vertex.x + radius * Math.cos(angle2),
+            y: data.vertex.y + radius * Math.sin(angle2)
+        };
+        
+        const path = `M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${arcEnd.x} ${arcEnd.y}`;
+        
+        return { path, radius, startAngle: angle1, endAngle: angle2 };
+    }
+    
+    /**
+     * Get position for angle measurement label
+     * @param {{point1: Point, vertex: Point, point2: Point}} data - Angle data
+     * @param {number} arcRadius - Arc radius
+     * @param {number} scale - Current viewport scale
+     * @returns {{x: number, y: number}}
+     * @private
+     */
+    _getArcLabelPosition(data, arcRadius, scale) {
+        const angle1 = Math.atan2(data.point1.y - data.vertex.y, data.point1.x - data.vertex.x);
+        const angle2 = Math.atan2(data.point2.y - data.vertex.y, data.point2.x - data.vertex.x);
+        const bisectorAngle = (angle1 + angle2) / 2;
+        const textRadius = arcRadius + 15 / scale;
+        
+        return {
+            x: data.vertex.x + textRadius * Math.cos(bisectorAngle),
+            y: data.vertex.y + textRadius * Math.sin(bisectorAngle)
+        };
     }
     
     // ========================================================================
@@ -1394,15 +1321,8 @@ class AnnotationRenderer {
      * @param {string} [color] - Preview color
      */
     renderPreview(type, data, color = '#666666') {
-        // Create a temporary group for preview
-        const previewGroup = document.createElementNS(SVG_NS, 'g');
-        previewGroup.classList.add('annotation-preview');
-        previewGroup.style.opacity = '0.7';
-        
-        // Render based on type with dashed strokes
-        // This is a simplified version - can be expanded as needed
-        
-        this._transformGroup.appendChild(previewGroup);
+        // TODO: Implement preview rendering
+        console.warn('[AnnotationRenderer] renderPreview not yet implemented');
     }
     
     /**

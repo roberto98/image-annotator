@@ -106,7 +106,7 @@ class Viewport {
      * @param {number} value - New scale value
      */
     set scale(value) {
-        const clampedValue = Math.max(Viewport.MIN_SCALE, Math.min(Viewport.MAX_SCALE, value));
+        const clampedValue = this._clampScale(value);
         if (this._scale !== clampedValue) {
             const oldState = this._getState();
             this._scale = clampedValue;
@@ -127,6 +127,10 @@ class Viewport {
      * @param {number} value - New offsetX value
      */
     set offsetX(value) {
+        if (!this._isValidNumber(value)) {
+            console.warn('[Viewport] Invalid offsetX value:', value);
+            return;
+        }
         if (this._offsetX !== value) {
             const oldState = this._getState();
             this._offsetX = value;
@@ -147,6 +151,10 @@ class Viewport {
      * @param {number} value - New offsetY value
      */
     set offsetY(value) {
+        if (!this._isValidNumber(value)) {
+            console.warn('[Viewport] Invalid offsetY value:', value);
+            return;
+        }
         if (this._offsetY !== value) {
             const oldState = this._getState();
             this._offsetY = value;
@@ -168,6 +176,10 @@ class Viewport {
      * @returns {Point} Coordinates in image space
      */
     screenToImage(screenX, screenY) {
+        if (!Number.isFinite(screenX) || !Number.isFinite(screenY)) {
+            console.warn('[Viewport] screenToImage called with invalid coordinates:', screenX, screenY);
+            return { x: 0, y: 0 };
+        }
         return {
             x: (screenX - this._offsetX) / this._scale,
             y: (screenY - this._offsetY) / this._scale
@@ -184,6 +196,10 @@ class Viewport {
      * @returns {Point} Coordinates in screen space
      */
     imageToScreen(imageX, imageY) {
+        if (!Number.isFinite(imageX) || !Number.isFinite(imageY)) {
+            console.warn('[Viewport] imageToScreen called with invalid coordinates:', imageX, imageY);
+            return { x: 0, y: 0 };
+        }
         return {
             x: imageX * this._scale + this._offsetX,
             y: imageY * this._scale + this._offsetY
@@ -227,26 +243,20 @@ class Viewport {
      * @param {number} centerY - Y coordinate (screen space) to zoom around
      */
     setScale(newScale, centerX, centerY) {
-        // Clamp the new scale to valid range
-        const clampedScale = Math.max(Viewport.MIN_SCALE, Math.min(Viewport.MAX_SCALE, newScale));
-        
-        // If scale won't change, nothing to do
+        const clampedScale = this._clampScale(newScale);
         if (clampedScale === this._scale) {
             return;
         }
 
         const oldState = this._getState();
 
-        // Convert the center point to image coordinates at current scale
-        const imageCenterX = (centerX - this._offsetX) / this._scale;
-        const imageCenterY = (centerY - this._offsetY) / this._scale;
-
-        // Update scale
+        // Convert center point to image coordinates, then back after scale change
+        const imageCenter = this.screenToImage(centerX, centerY);
         this._scale = clampedScale;
-
+        
         // Adjust offset so the center point stays fixed on screen
-        this._offsetX = centerX - imageCenterX * this._scale;
-        this._offsetY = centerY - imageCenterY * this._scale;
+        this._offsetX = centerX - imageCenter.x * this._scale;
+        this._offsetY = centerY - imageCenter.y * this._scale;
 
         this._notify('all', this._getState(), oldState);
     }
@@ -314,27 +324,26 @@ class Viewport {
      * @returns {FitResult} The calculated fit parameters
      */
     fitToContainer(imageWidth, imageHeight, containerWidth, containerHeight, padding = 0) {
-        // Validate inputs
         if (imageWidth <= 0 || imageHeight <= 0 || containerWidth <= 0 || containerHeight <= 0) {
             console.warn('[Viewport] fitToContainer called with invalid dimensions');
-            return { scale: this._scale, offsetX: this._offsetX, offsetY: this._offsetY };
+            return this._getState();
         }
 
         const oldState = this._getState();
 
-        // Account for padding
-        const availableWidth = containerWidth - padding * 2;
-        const availableHeight = containerHeight - padding * 2;
+        // Clamp padding to prevent negative available space
+        const maxPadding = Math.min(containerWidth, containerHeight) / 2 - 1;
+        const safePadding = Math.max(0, Math.min(padding, maxPadding));
 
-        // Calculate scale to fit (maintain aspect ratio)
-        const scaleX = availableWidth / imageWidth;
-        const scaleY = availableHeight / imageHeight;
-        const fitScale = Math.min(scaleX, scaleY);
+        // Calculate available space and fit scale
+        const availableWidth = containerWidth - safePadding * 2;
+        const availableHeight = containerHeight - safePadding * 2;
+        const fitScale = Math.min(availableWidth / imageWidth, availableHeight / imageHeight);
 
-        // Clamp to valid range
-        this._scale = Math.max(Viewport.MIN_SCALE, Math.min(Viewport.MAX_SCALE, fitScale));
+        // Apply scale with clamping
+        this._scale = this._clampScale(fitScale);
 
-        // Calculate offset to center the image
+        // Center the image in the container
         const scaledWidth = imageWidth * this._scale;
         const scaledHeight = imageHeight * this._scale;
         this._offsetX = (containerWidth - scaledWidth) / 2;
@@ -342,11 +351,7 @@ class Viewport {
 
         this._notify('all', this._getState(), oldState);
 
-        return {
-            scale: this._scale,
-            offsetX: this._offsetX,
-            offsetY: this._offsetY
-        };
+        return this._getState();
     }
 
     /**
@@ -357,7 +362,7 @@ class Viewport {
      * @param {number} offsetY - New Y offset
      */
     setState(scale, offsetX, offsetY) {
-        const clampedScale = Math.max(Viewport.MIN_SCALE, Math.min(Viewport.MAX_SCALE, scale));
+        const clampedScale = this._clampScale(scale);
         
         if (this._scale === clampedScale && this._offsetX === offsetX && this._offsetY === offsetY) {
             return;
@@ -393,6 +398,26 @@ class Viewport {
             offsetX: this._offsetX,
             offsetY: this._offsetY
         };
+    }
+
+    /**
+     * Clamp scale value to valid range
+     * @param {number} value - Scale value to clamp
+     * @returns {number} Clamped scale value
+     * @private
+     */
+    _clampScale(value) {
+        return Math.max(Viewport.MIN_SCALE, Math.min(Viewport.MAX_SCALE, value));
+    }
+
+    /**
+     * Check if a value is a valid finite number
+     * @param {*} value - Value to check
+     * @returns {boolean} True if valid finite number
+     * @private
+     */
+    _isValidNumber(value) {
+        return Number.isFinite(value);
     }
 
     /**
@@ -596,7 +621,8 @@ class Viewport {
         }
 
         if (!containerRect) {
-            return { x: 0, y: 0 };
+            console.warn('[Viewport] eventToImage: container not found');
+            return null;
         }
 
         // Extract client coordinates from event (supports both mouse and touch)

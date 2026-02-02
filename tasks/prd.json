@@ -355,8 +355,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented. LabelSelector is unified component (LabelPopup removed), Escape cancels and deletes pending annotation, positioned near annotation, Enter/click assigns label."
     },
     {
       "id": "US-022",
@@ -372,8 +372,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented. Fuzzy matching for autocomplete, arrow keys navigate, Enter selects, recently used labels first."
     },
     {
       "id": "US-023",

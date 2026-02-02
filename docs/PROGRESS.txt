@@ -687,6 +687,91 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 ### Phase 3: Basic Annotation Types - COMPLETE (8/8)
 ### Phase 4: Navigation & Interaction - COMPLETE (6/6)
 
+---
+
+## Phase 5: Labeling
+
+### US-021: Label Popup ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-04
+
+**Files Modified:**
+- `app/static/js/components/LabelSelector.js` - Unified label component (replaces LabelPopup)
+- `app/static/css/components/label_selector.css` - Styling for the new component
+- Deleted `app/static/js/components/LabelPopup.js` - Replaced by LabelSelector
+
+**Key Implementation Details:**
+- LabelSelector is now the unified component for label assignment
+- Popup appears immediately after annotation creation
+- Escape key cancels and deletes the pending annotation
+- Enter key or click assigns the label
+- Popup positioned near annotation, clamped within viewport bounds
+
+**All Acceptance Criteria Met:**
+- ✅ Popup appears immediately after annotation creation
+- ✅ Input field for typing label name
+- ✅ Autocomplete shows matching existing labels
+- ✅ Enter or click Assign button assigns label and closes popup
+- ✅ Escape cancels and deletes the annotation
+- ✅ Popup positioned near annotation, clamped within viewport
+- ✅ Delete old LabelPopup.js and LabelSelector.js, create new unified LabelPopup.js
+
+---
+
+### US-022: Label Autocomplete ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-04
+
+**Files Modified:**
+- `app/static/js/components/LabelSelector.js` - Added fuzzy matching algorithm
+
+**Key Implementation Details:**
+- Fuzzy matching algorithm for case-insensitive substring matching
+- Arrow keys (Up/Down) navigate through suggestion list
+- Enter key selects the highlighted suggestion
+- Recently used labels are prioritized and appear first in the list
+- Suggestions update dynamically as user types
+
+**All Acceptance Criteria Met:**
+- ✅ Shows matching labels as user types
+- ✅ Case-insensitive fuzzy matching
+- ✅ Arrow keys navigate suggestions
+- ✅ Enter selects highlighted suggestion
+- ✅ Recently used labels appear first in list
+
+---
+
+## Summary
+
+### Completed (22/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+- ✅ US-009: Circle Annotation
+- ✅ US-010: Rectangle Annotation
+- ✅ US-011: Polygon Annotation
+- ✅ US-012: Freehand Annotation
+- ✅ US-013: Angle Annotation
+- ✅ US-014: Tag Annotation
+- ✅ US-015: Pan Mode
+- ✅ US-016: Zoom Controls
+- ✅ US-017: Annotation Selection
+- ✅ US-018: Move Annotations
+- ✅ US-019: Resize Annotations
+- ✅ US-020: Delete Annotations
+- ✅ US-021: Label Popup
+- ✅ US-022: Label Autocomplete
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - COMPLETE (8/8)
+### Phase 4: Navigation & Interaction - COMPLETE (6/6)
+### Phase 5: Labeling - COMPLETE (2/2)
+
 ### Next Steps
-Continue with Phase 5: US-021 (Label Popup)
+Continue with Phase 6: US-023 (Undo/Redo Stack)
 

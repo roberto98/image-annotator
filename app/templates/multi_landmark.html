@@ -8,6 +8,8 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/base.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/multi_landmark.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/components/label_popup.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/components/label_selector.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='css/annotations/renderer.css') }}">
 </head>
 
 <body>
@@ -21,7 +23,7 @@
 
             <!-- Tool Selection -->
             <div class="tool-selector">
-                <button class="tool-btn active" id="landmarkToolBtn" data-tool="landmark">
+                <button class="tool-btn active" id="landmarkToolBtn" data-tool="point">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="10" r="3" />
                         <path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z" />
@@ -34,11 +36,45 @@
                     </svg>
                     Polygons
                 </button>
-                <button class="tool-btn" id="figureToolBtn" data-tool="figure">
+                <button class="tool-btn" id="lineToolBtn" data-tool="line">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="20" x2="20" y2="4" stroke-linecap="round" />
+                        <circle cx="4" cy="20" r="2" />
+                        <circle cx="20" cy="4" r="2" />
+                    </svg>
+                    Line
+                </button>
+                <button class="tool-btn" id="circleToolBtn" data-tool="circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                    </svg>
+                    Circle
+                </button>
+                <button class="tool-btn" id="rectangleToolBtn" data-tool="rectangle">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="18" height="18" rx="2" />
                     </svg>
-                    Figures
+                    Rectangle
+                </button>
+                <button class="tool-btn" id="angleToolBtn" data-tool="angle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="4 20 4 4 20 20" />
+                        <path d="M4 14 a6 6 0 0 0 6 6" />
+                    </svg>
+                    Angle
+                </button>
+                <button class="tool-btn" id="freehandToolBtn" data-tool="freehand">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 17c3-3 6-11 9-11s6 14 9 11" stroke-linecap="round" />
+                    </svg>
+                    Freehand
+                </button>
+                <button class="tool-btn" id="tagToolBtn" data-tool="tag">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                    </svg>
+                    Tag
                 </button>
             </div>
         </div>
@@ -340,18 +376,48 @@
     </script>
 
     <!-- External JavaScript files -->
+    
+    <!-- 1. Store and state management (foundation) -->
     <script src="{{ url_for('static', filename='js/store/index.js') }}"></script>
     <script src="{{ url_for('static', filename='js/state.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/services/viewport.js') }}"></script>
+    
+    <!-- 2. Core services -->
+    <script src="{{ url_for('static', filename='js/core/Viewport.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utilities.js') }}"></script>
+    
+    <!-- 3. New annotation system - constants first (shared across all modules) -->
+    <script src="{{ url_for('static', filename='js/annotations/constants.js') }}"></script>
+    
+    <!-- 4. New annotation system - types and measurements -->
+    <script src="{{ url_for('static', filename='js/annotations/types.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/annotations/measurements.js') }}"></script>
+    
+    <!-- 5. New annotation system - API and state -->
+    <script src="{{ url_for('static', filename='js/annotations/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/annotations/state.js') }}"></script>
+    
+    <!-- 6. New annotation system - renderer -->
+    <script src="{{ url_for('static', filename='js/annotations/renderer.js') }}"></script>
+    
+    <!-- 7. New annotation system - handlers -->
+    <script src="{{ url_for('static', filename='js/annotations/drawing.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/annotations/editing.js') }}"></script>
+    
+    <!-- 8. UI Components -->
+    <script src="{{ url_for('static', filename='js/components/LabelPopup.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/LabelSelector.js') }}"></script>
+    
+    <!-- 9. Legacy modules (for compatibility - will be phased out) -->
     <script src="{{ url_for('static', filename='js/rendering.js') }}"></script>
     <script src="{{ url_for('static', filename='js/zoom.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/figures.js') }}"></script>
+    <!-- <script src="{{ url_for('static', filename='js/polygons.js') }}"></script> -->
+    <!-- <script src="{{ url_for('static', filename='js/figures.js') }}"></script> -->
     <script src="{{ url_for('static', filename='js/annotations.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/components/LabelPopup.js') }}"></script>
     <script src="{{ url_for('static', filename='js/interactions.js') }}"></script>
+    
+    <!-- 10. Main entry point and initialization -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='js/initialization.js') }}"></script>
 </body>
 

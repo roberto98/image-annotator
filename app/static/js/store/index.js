@@ -258,7 +258,7 @@ const INITIAL_STATE = {
     imageName: null,
 
     currentZoom: 1,
-    maxZoom: 1000,
+    maxZoom: 5.0,  // 500% max zoom
     translateX: 0,
     translateY: 0,
 

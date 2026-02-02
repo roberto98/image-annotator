@@ -536,6 +536,55 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 ### Phase 3: Basic Annotation Types - COMPLETE (8/8)
 ### Phase 4: Navigation & Interaction - IN PROGRESS (2/6)
 
+### US-017: Annotation Selection ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-03
+
+**Files Modified:**
+- `app/static/js/annotations/editing.js` - Added handleContainerClick for empty space deselection, renderer sync
+
+**Key Features Implemented:**
+- Click on annotation selects it (via EditingHandler click events)
+- Selected annotation shows visual highlight via CSS (.annotation-selected class)
+- Single selection only - clicking new annotation deselects previous
+- Click empty space deselects current selection (handleContainerClick)
+- Selection disabled in pan mode (checked in EditingHandler)
+- AnnotationRenderer.setSelected() syncs visual state
+
+**All Acceptance Criteria Met:**
+- ✅ Click on annotation selects it
+- ✅ Selected annotation shows visual highlight (thicker outline or different color)
+- ✅ Only one annotation selected at a time
+- ✅ Click empty space deselects
+- ✅ Selection disabled in pan mode
+
+---
+
+## Summary
+
+### Completed (17/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+- ✅ US-009: Circle Annotation
+- ✅ US-010: Rectangle Annotation
+- ✅ US-011: Polygon Annotation
+- ✅ US-012: Freehand Annotation
+- ✅ US-013: Angle Annotation
+- ✅ US-014: Tag Annotation
+- ✅ US-015: Pan Mode
+- ✅ US-016: Zoom Controls
+- ✅ US-017: Annotation Selection
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - COMPLETE (8/8)
+### Phase 4: Navigation & Interaction - IN PROGRESS (3/6)
+
 ### Next Steps
-Continue with Phase 4: US-017 (Annotation Selection)
+Continue with Phase 4: US-018 (Move Annotations)
 

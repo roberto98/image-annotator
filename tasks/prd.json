@@ -284,8 +284,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented. Click annotation to select, visual highlight via CSS, single selection only, click empty space deselects, disabled in pan mode."
     },
     {
       "id": "US-018",

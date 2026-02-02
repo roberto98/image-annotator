@@ -1,0 +1,132 @@
+# Image Annotation System Rebuild - Progress Log
+
+**Started:** 2024-02-02
+**Status:** In Progress
+
+---
+
+## Phase 1: Core Architecture & Backend
+
+### US-001: Backend API Cleanup ✓ COMPLETE
+**Status:** Complete
+**Started:** 2024-02-02
+**Completed:** 2024-02-02
+
+**Changes made:**
+- Removed V1 API endpoint files (landmarks.py, figures.py, segments.py, common.py)
+- Backed up V1 files to backup/v1_api/ directory
+- Updated api/__init__.py to remove V1 imports
+- Added helper functions to images.py and export.py to replace common.py
+- V2 API remains as the sole annotation API
+
+**Note:** V1 AnnotationManager still exists in app/annotations.py and is used by:
+  - app/app.py initialization
+  - app/blueprints/views/main.py 
+  - app/images.py
+  - app/blueprints/api/images.py (mask generation, propagation)
+  - app/blueprints/api/export.py
+
+These will be migrated to V2 API in subsequent stories. The V1 file storage (annotations/) will be removed after full migration.
+
+### US-002: Image Metadata API ✓ COMPLETE
+**Status:** Complete
+**Started:** 2024-02-02
+**Completed:** 2024-02-02
+
+**Changes made:**
+- Added `extract_pixel_spacing()` function to app/imaging/dicom.py
+- Added `extract_modality()` function to app/imaging/dicom.py
+- Created `GET /api/v2/images/<patient>/<image>/metadata` endpoint in annotations_v2.py
+- Endpoint returns: width, height, format, pixelSpacing (from DICOM or null), modality
+- Auto-extracts PixelSpacing and ImagerPixelSpacing from DICOM tags
+- Returns null for pixelSpacing if not available (no inference)
+- Path traversal protection included
+
+### US-003: Annotation History Storage ✓ COMPLETE
+**Status:** Complete
+**Started:** 2024-02-02
+**Completed:** 2024-02-02
+
+**Changes made:**
+- Updated default annotation structure to include "history": [] array
+- History format: { timestamp, action, label, before, after }
+- Backend stores history passively (frontend manages undo/redo logic)
+- History persists across sessions in the annotation JSON file
+
+---
+
+## Phase 2: Frontend Foundation
+
+### US-004: Clean State Management ✓ COMPLETE
+**Status:** Complete
+**Started:** 2024-02-02
+**Completed:** 2024-02-02
+
+**Changes made:**
+- Created new `app/static/js/core/AnnotationStore.js` with single unified state
+- Proxy-based reactivity for automatic subscriber notifications
+- State includes: annotations, currentTool, isAnnotationMode, viewport, selectedAnnotation, undoStack, redoStack
+- Full undo/redo implementation with history tracking
+- Replaces old dual state system (STATE + AnnotationState)
+- Subscribe/unsubscribe pattern for components to listen to changes
+
+**Note:** Old state files still exist but will be removed in US-030:
+  - app/static/js/store/index.js
+  - app/static/js/state.js
+  - app/static/js/annotations/state.js
+
+### US-005: Viewport Service ✓ COMPLETE
+**Status:** Complete
+**Started:** 2024-02-03
+**Completed:** 2024-02-03
+
+**Changes made:**
+- Created `app/static/js/core/Viewport.js` - New viewport service class
+- Updated `app/templates/multi_landmark.html` - Updated script path to core/Viewport.js
+- Updated `app/static/js/utilities.js` - Updated reference comment
+- Removed `app/static/js/services/viewport.js` - Old implementation
+- Created backup at `backup/js_services/viewport.js.bak`
+
+**Key Features Implemented:**
+- `screenToImage(x, y)` / `imageToScreen(x, y)` - Core coordinate transformations
+- `screenToImagePoint()` / `imageToScreenPoint()` - Point object convenience methods
+- `setScale(newScale, centerX, centerY)` - Zoom centered on cursor position
+- `pan(deltaX, deltaY)` - Pan viewport by delta
+- `reset()` - Reset to default state (scale=1, offset=0,0)
+- `fitToContainer(imageWidth, imageHeight, containerWidth, containerHeight)` - Fit image to container
+- `setState(scale, offsetX, offsetY)` - Batch update viewport state
+- `testRoundTrip(screenX, screenY)` - Numerical stability verification (<0.01px error)
+- `subscribe(callback)` / `unsubscribe(id)` - Reactive state change notifications
+- Comprehensive JSDoc type annotations
+
+**Backward Compatibility:**
+- `displayToImage()` / `imageToDisplay()` - Deprecated aliases
+- `eventToImage()` - Legacy event coordinate conversion
+- `zoom`, `translateX`, `translateY` getters - Legacy property aliases
+- `linkState()`, `setContainer()`, `setImage()` - No-op methods with deprecation warnings
+
+**Notes for next developer:**
+- Viewport is a singleton exported as `window.viewport`
+- Class also exported as `window.Viewport` for testing/extending
+- MIN_SCALE=0.1, MAX_SCALE=50.0 are static class properties
+- Subscribe pattern similar to AnnotationStore for consistent reactivity
+
+---
+
+## Summary
+
+### Completed (5/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+
+### In Progress
+- Phase 2: Frontend Foundation (US-006 remaining)
+- Phase 3-10: 25 user stories remaining
+
+### Next Steps
+Continue with US-006: SVG Annotation Layer.
+After completing Phase 2, implement all 8 annotation types (Phase 3-4).
+

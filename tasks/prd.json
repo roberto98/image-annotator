@@ -1,0 +1,514 @@
+{
+  "project": "Image Annotation System",
+  "branchName": "ralph/annotation-system-rebuild",
+  "description": "Complete rebuild of image annotation system (frontend and backend) with clean architecture, proper coordinate handling, reliable pan/zoom, comprehensive logging, and full undo/redo support",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Backend API Cleanup",
+      "description": "As a developer, I need a clean unified backend API so that the frontend has reliable endpoints.",
+      "acceptanceCriteria": [
+        "Remove all V1 API endpoints (/api/landmarks, /api/figures, /api/segments)",
+        "Keep and enhance V2 API (/api/v2/annotations)",
+        "Add path traversal protection to all V2 endpoints",
+        "Unified annotation storage in data/ directory only",
+        "Remove old annotations/ directory code",
+        "Typecheck passes"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Image Metadata API",
+      "description": "As a frontend, I need to retrieve image dimensions and DICOM metadata so I can calibrate measurements.",
+      "acceptanceCriteria": [
+        "GET /api/v2/images/<patient>/<image>/metadata endpoint created",
+        "Returns { width, height, format, pixelSpacing, modality }",
+        "Auto-extracts PixelSpacing from DICOM PixelSpacing or ImagerPixelSpacing tags",
+        "Returns null for pixelSpacing if not available (not inferred)",
+        "Returns actual image dimensions after DICOM conversion",
+        "Typecheck passes"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Annotation History Storage",
+      "description": "As a frontend, I need to persist history entries for session logging.",
+      "acceptanceCriteria": [
+        "Add history array to V2 annotation file schema",
+        "History entries include: timestamp, action, label, before, after",
+        "History appended on each annotation save",
+        "Backend doesn't use history for undo (frontend-only)",
+        "Typecheck passes"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Clean State Management",
+      "description": "As a developer, I need a single source of truth for application state.",
+      "acceptanceCriteria": [
+        "Create new AnnotationStore.js with Proxy-based reactivity",
+        "Stores: annotations, currentTool, isAnnotationMode, viewport, selectedAnnotation, undoStack, redoStack",
+        "Subscribe/unsubscribe pattern for state changes",
+        "Delete old store/index.js, state.js, annotations/state.js",
+        "Typecheck passes"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Viewport Service",
+      "description": "As a developer, I need a viewport service that tracks pan/zoom and transforms coordinates.",
+      "acceptanceCriteria": [
+        "Create new Viewport.js class with scale, offsetX, offsetY properties",
+        "screenToImage(x, y) transforms screen coords to image space",
+        "imageToScreen(x, y) transforms image coords to screen space",
+        "Numerical stability test: round-trip conversion has <0.01px error",
+        "Delete old services/viewport.js",
+        "Typecheck passes"
+      ],
+      
+      "passes": true,
+      "notes": "Implemented Viewport.js in app/static/js/core/ with: screenToImage/imageToScreen transformations, setScale (zoom around point), pan, reset, fitToContainer methods, subscribe/unsubscribe pattern for state changes, <0.01px round-trip error via testRoundTrip() method, backward compatibility with deprecated methods (displayToImage, imageToDisplay, eventToImage, zoom/translateX/translateY getters). Old services/viewport.js removed, backup at backup/js_services/viewport.js.bak."
+    },
+    {
+      "id": "US-006",
+      "title": "SVG Annotation Layer",
+      "description": "As a developer, I need an SVG layer that renders annotations in sync with image transform.",
+      "acceptanceCriteria": [
+        "Create new AnnotationRenderer.js that manages SVG overlay",
+        "SVG element overlays image, same size as container",
+        "SVG transform synced with viewport (scale, translate)",
+        "Annotations drawn in image coordinates",
+        "Pan/zoom test: create annotation, pan, zoom, position unchanged",
+        "Delete old annotations/renderer.js, rendering.js",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Point Annotation",
+      "description": "As a user, I want to place point markers on the image.",
+      "acceptanceCriteria": [
+        "Select point tool → single click places marker",
+        "Visual marker (circle with crosshair) drawn at click location",
+        "Label popup appears after placement",
+        "Point stored as { type: 'point', data: { x, y } } in image coordinates",
+        "Hover shows highlight",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Line Annotation",
+      "description": "As a user, I want to draw lines to measure distances.",
+      "acceptanceCriteria": [
+        "Select line tool → click start → click end",
+        "Live preview line follows cursor after first click",
+        "Line shows length in pixels (or mm if calibrated)",
+        "Label popup appears after second click",
+        "Line stored as { type: 'line', data: { start: {x,y}, end: {x,y} } } in image coords",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Circle Annotation",
+      "description": "As a user, I want to draw circles to mark regions.",
+      "acceptanceCriteria": [
+        "Select circle tool → click center → click edge point",
+        "Live preview circle follows cursor after first click",
+        "Circle shows radius/diameter measurement",
+        "Label popup appears after second click",
+        "Circle stored as { type: 'circle', data: { center: {x,y}, radius } } in image coords",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Rectangle Annotation",
+      "description": "As a user, I want to draw rectangles to mark bounding boxes.",
+      "acceptanceCriteria": [
+        "Select rectangle tool → click corner → click opposite corner",
+        "Live preview rectangle follows cursor after first click",
+        "Rectangle shows width × height measurement",
+        "Label popup appears after second click",
+        "Rectangle stored as { type: 'rectangle', data: { topLeft: {x,y}, bottomRight: {x,y} } } in image coords",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Polygon Annotation",
+      "description": "As a user, I want to draw polygons for segmentation.",
+      "acceptanceCriteria": [
+        "Select polygon tool → click points → double-click to close",
+        "Live preview shows partial polygon and line to cursor",
+        "Minimum 3 points required to complete",
+        "Label popup appears after completion",
+        "Polygon stored as { type: 'polygon', data: { points: [{x,y}...], closed: true } } in image coords",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Freehand Annotation",
+      "description": "As a user, I want to draw freehand curves.",
+      "acceptanceCriteria": [
+        "Select freehand tool → press and drag to draw",
+        "Live trail follows pointer movement",
+        "Path simplified on completion (Douglas-Peucker algorithm, reduce point count)",
+        "Label popup appears after release",
+        "Freehand stored as { type: 'freehand', data: { points: [{x,y}...] } } in image coords",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Angle Annotation",
+      "description": "As a user, I want to measure angles between lines.",
+      "acceptanceCriteria": [
+        "Select angle tool → click 3 points (arm1, vertex, arm2)",
+        "Live preview shows partial angle construction",
+        "Angle arc and degree measurement displayed at vertex",
+        "Label popup appears after third click",
+        "Angle stored as { type: 'angle', data: { point1: {x,y}, vertex: {x,y}, point2: {x,y} } } in image coords",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Tag Annotation",
+      "description": "As a user, I want to add text tags (image-level labels) without geometry.",
+      "acceptanceCriteria": [
+        "Select tag tool → label popup appears immediately",
+        "No geometry drawn, just label stored",
+        "Tag shown in annotation sidebar list",
+        "Tag stored as { type: 'tag', data: {} }",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Pan Mode",
+      "description": "As a user, I want to pan the image without accidentally creating annotations.",
+      "acceptanceCriteria": [
+        "Toggle pan mode via mode toggle button",
+        "Spacebar toggles pan mode (when not drawing)",
+        "In pan mode: drag moves image, scroll zooms",
+        "In pan mode: all annotation creation/editing disabled",
+        "Clear visual indicator shows current mode (Annotation Mode / Navigation Mode)",
+        "Cursor changes in pan mode",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Zoom Controls",
+      "description": "As a user, I want to zoom in/out for detailed annotation.",
+      "acceptanceCriteria": [
+        "Zoom in/out buttons work",
+        "Mouse wheel zooms centered on cursor position",
+        "Pinch gesture zooms on touch devices",
+        "Zoom level displayed (percentage)",
+        "Reset button returns to fit-to-container view",
+        "Min zoom: 10%, Max zoom: 500%",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Annotation Selection",
+      "description": "As a user, I want to select annotations to edit them.",
+      "acceptanceCriteria": [
+        "Click on annotation selects it",
+        "Selected annotation shows visual highlight (thicker outline or different color)",
+        "Only one annotation selected at a time",
+        "Click empty space deselects",
+        "Selection disabled in pan mode",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Move Annotations",
+      "description": "As a user, I want to move annotations by dragging.",
+      "acceptanceCriteria": [
+        "Drag selected annotation moves it",
+        "All annotation types support move (point, line, circle, rectangle, polygon, freehand, angle)",
+        "Move updates coordinates in image space",
+        "Live preview during drag",
+        "Undo reverts move",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Resize Annotations",
+      "description": "As a user, I want to resize annotations using handles.",
+      "acceptanceCriteria": [
+        "Selected annotation shows resize handles",
+        "Circle: drag edge changes radius",
+        "Rectangle: drag corners changes size",
+        "Line: drag endpoints changes line",
+        "Polygon: drag vertices reshapes polygon",
+        "Angle: drag points changes angle",
+        "Undo reverts resize",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Delete Annotations",
+      "description": "As a user, I want to delete annotations.",
+      "acceptanceCriteria": [
+        "Delete key removes selected annotation",
+        "Delete button in annotation list removes annotation",
+        "No confirmation dialog (undo available)",
+        "Undo restores deleted annotation with all properties",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Label Popup",
+      "description": "As a user, I want to assign labels to annotations via popup.",
+      "acceptanceCriteria": [
+        "Popup appears immediately after annotation creation",
+        "Input field for typing label name",
+        "Autocomplete shows matching existing labels",
+        "Enter or click Assign button assigns label and closes popup",
+        "Escape cancels and deletes the annotation",
+        "Popup positioned near annotation, clamped within viewport",
+        "Delete old LabelPopup.js and LabelSelector.js, create new unified LabelPopup.js",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Label Autocomplete",
+      "description": "As a user, I want suggestions while typing label names.",
+      "acceptanceCriteria": [
+        "Shows matching labels as user types",
+        "Case-insensitive fuzzy matching",
+        "Arrow keys navigate suggestions",
+        "Enter selects highlighted suggestion",
+        "Recently used labels appear first in list",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Undo/Redo Stack",
+      "description": "As a developer, I need a history stack for annotation operations.",
+      "acceptanceCriteria": [
+        "Track create, update, move, resize, delete operations in undoStack",
+        "Each history entry: { action, label, before, after, timestamp }",
+        "Undo pops from undoStack, pushes to redoStack, applies reverse operation",
+        "Redo pops from redoStack, pushes to undoStack, reapplies operation",
+        "Clear redoStack when new operation performed",
+        "Typecheck passes"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Undo/Redo UI",
+      "description": "As a user, I want undo/redo buttons and keyboard shortcuts.",
+      "acceptanceCriteria": [
+        "Undo button (Ctrl/Cmd+Z shortcut)",
+        "Redo button (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z shortcut)",
+        "Buttons disabled when respective stack empty",
+        "Toast notification shows Undone: <action> or Redone: <action>",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Visual Feedback",
+      "description": "As a user, I want clear visual feedback during annotation.",
+      "acceptanceCriteria": [
+        "Hover states on annotations (outline highlight)",
+        "Live preview while drawing all annotation types",
+        "Selection outlines with resize handles",
+        "Measurements displayed on annotations (length, area, angle)",
+        "Cursor changes based on tool/action (crosshair, pointer, move, resize)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Toast Notifications",
+      "description": "As a user, I want notifications for actions and errors.",
+      "acceptanceCriteria": [
+        "Success toast for save operations (Annotation saved)",
+        "Error toast for failures (Failed to save annotation)",
+        "Info toast for mode changes (Annotation Mode, Navigation Mode)",
+        "Info toast for tool selection (Point tool selected)",
+        "Toasts auto-dismiss after 3 seconds",
+        "Toasts don't block interaction",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Structured Logging",
+      "description": "As a developer, I need comprehensive logging for debugging.",
+      "acceptanceCriteria": [
+        "Create Logger.js module with levels (debug, info, warn, error)",
+        "Log tool selection with tool name",
+        "Log mode changes with mode name",
+        "Log pointer events (pointerdown, pointermove, pointerup) with coordinates",
+        "Log state transitions (annotation created, updated, deleted)",
+        "Log annotation lifecycle with label and data",
+        "Log API calls with endpoint, method, response status",
+        "All logs include timestamp",
+        "Logs written to console in development",
+        "Typecheck passes"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Unit Tests for Geometry",
+      "description": "As a developer, I need tests for coordinate transformations.",
+      "acceptanceCriteria": [
+        "Test Viewport.screenToImage / imageToScreen round-trip precision",
+        "Test no precision loss after pan/zoom operations",
+        "Test annotation bounds calculations for all types",
+        "Test hit detection for all annotation types",
+        "All tests pass"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "E2E Tests for Critical Paths",
+      "description": "As a developer, I need E2E tests for annotation workflows.",
+      "acceptanceCriteria": [
+        "Test: create point annotation → assign label → verify saved",
+        "Test: pan/zoom → create annotation → coordinates correct in image space",
+        "Test: select annotation → delete → undo → annotation restored",
+        "Test: touch simulation works (pointer events)",
+        "All tests pass"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Remove Legacy Code",
+      "description": "As a developer, I need to remove all legacy code.",
+      "acceptanceCriteria": [
+        "Delete V1 API files (landmarks.py, figures.py, segments.py)",
+        "Delete legacy frontend files (figures.js, polygons.js, old rendering.js, interactions.js, annotations.js, zoom.js)",
+        "Delete old state management (store/index.js, state.js, annotations/state.js)",
+        "Update HTML template to only include new files",
+        "Application works without legacy code",
+        "No console errors",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

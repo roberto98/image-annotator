@@ -26,3 +26,6 @@ const COLORS = Object.freeze([
     '#ff00ff', '#00ffff', '#ff8000', '#8000ff',
     '#ff0080', '#80ff00', '#0080ff', '#ff4040'
 ]);
+
+// Export COLORS to window for global access by other modules
+window.COLORS = COLORS;

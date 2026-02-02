@@ -1,0 +1,926 @@
+/**
+ * Annotation Renderer Styles
+ * Styles for SVG-based annotation rendering with measurements
+ */
+
+/* ============================================================================
+   SVG Layer Base Styles
+   ============================================================================ */
+
+.annotation-svg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 10;
+}
+
+/* Transform group - applies viewport scale/translate */
+.annotation-transform-group {
+    /* Transform is applied via JS */
+}
+
+/* New renderer class */
+.annotation-renderer {
+    /* Specific styles for new AnnotationRenderer */
+}
+
+.annotation-measurements-layer,
+.annotation-label-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 11;
+    font-family: var(--font-family-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+/* ============================================================================
+   Common Annotation Styles
+   ============================================================================ */
+
+/* All annotation groups - both old and new selectors */
+.annotation-svg-layer [class*="-group"],
+.annotation-svg-layer .annotation {
+    transition: opacity 0.15s ease;
+}
+
+/* Selected state - glow effect - supports both class patterns */
+.annotation-svg-layer [class*="-group"].selected,
+.annotation-svg-layer .annotation--selected {
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* Hover effect for interactive elements */
+.annotation-svg-layer [class*="-group"]:hover,
+.annotation-svg-layer .annotation--hovered {
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.3));
+}
+
+.annotation-svg-layer [class*="-group"].selected:hover {
+    filter: drop-shadow(0 0 6px currentColor);
+}
+
+/* ============================================================================
+   Interactive Handles
+   ============================================================================ */
+
+.annotation-handle {
+    pointer-events: all !important;
+    cursor: move;
+    transition: r 0.15s ease, stroke-width 0.15s ease;
+}
+
+.annotation-handle:hover {
+    r: 7;
+    stroke-width: 3;
+}
+
+.annotation-handle:active {
+    r: 8;
+}
+
+/* Corner handles for rectangles */
+.handle-nw { cursor: nw-resize; }
+.handle-ne { cursor: ne-resize; }
+.handle-sw { cursor: sw-resize; }
+.handle-se { cursor: se-resize; }
+
+/* Edge handles for rectangles */
+.handle-n { cursor: n-resize; }
+.handle-s { cursor: s-resize; }
+.handle-e { cursor: e-resize; }
+.handle-w { cursor: w-resize; }
+
+/* Circle radius handles */
+.handle-radius,
+.handle-radius-top,
+.handle-radius-bottom,
+.handle-radius-left {
+    cursor: ew-resize;
+}
+
+/* Center handles */
+.handle-center {
+    cursor: move;
+}
+
+/* Line endpoint handles */
+.handle-start,
+.handle-end {
+    cursor: crosshair;
+}
+
+/* Angle handles */
+.handle-point1,
+.handle-point2 {
+    cursor: crosshair;
+}
+
+.handle-vertex {
+    cursor: move;
+}
+
+/* Polygon vertex handles */
+[class^="handle-vertex-"] {
+    cursor: move;
+}
+
+/* ============================================================================
+   Point Annotation
+   ============================================================================ */
+
+.annotation-point-outer {
+    transition: stroke-width 0.15s ease;
+}
+
+.annotation-point-group.selected .annotation-point-outer {
+    stroke-width: 3;
+}
+
+.annotation-point-inner {
+    transition: fill-opacity 0.15s ease;
+}
+
+.annotation-point-group:hover .annotation-point-inner {
+    fill-opacity: 0.5;
+}
+
+.annotation-point-cross {
+    transition: stroke-width 0.15s ease;
+}
+
+/* ============================================================================
+   Line Annotation
+   ============================================================================ */
+
+.annotation-line {
+    transition: stroke-width 0.15s ease;
+}
+
+.annotation-line-group.selected .annotation-line {
+    stroke-width: 3;
+}
+
+.annotation-line-endpoint {
+    transition: r 0.15s ease;
+}
+
+.annotation-line-group:hover .annotation-line-endpoint {
+    r: 5;
+}
+
+/* ============================================================================
+   Circle Annotation
+   ============================================================================ */
+
+.annotation-circle {
+    transition: stroke-width 0.15s ease, fill-opacity 0.15s ease;
+}
+
+.annotation-circle-group.selected .annotation-circle {
+    stroke-width: 3;
+    fill-opacity: 0.3;
+}
+
+.annotation-circle-group:hover .annotation-circle {
+    fill-opacity: 0.25;
+}
+
+.annotation-circle-center {
+    transition: r 0.15s ease;
+}
+
+.annotation-circle-radius-line {
+    transition: stroke-width 0.15s ease;
+}
+
+.annotation-circle-group.selected .annotation-circle-radius-line {
+    stroke-width: 1.5;
+}
+
+/* ============================================================================
+   Rectangle Annotation
+   ============================================================================ */
+
+.annotation-rectangle {
+    transition: stroke-width 0.15s ease, fill-opacity 0.15s ease;
+}
+
+.annotation-rectangle-group.selected .annotation-rectangle {
+    stroke-width: 3;
+    fill-opacity: 0.3;
+}
+
+.annotation-rectangle-group:hover .annotation-rectangle {
+    fill-opacity: 0.25;
+}
+
+.annotation-rectangle-corner {
+    transition: r 0.15s ease;
+}
+
+.annotation-rectangle-group:hover .annotation-rectangle-corner {
+    r: 4;
+}
+
+/* ============================================================================
+   Angle Annotation
+   ============================================================================ */
+
+.annotation-angle-arm {
+    transition: stroke-width 0.15s ease;
+}
+
+.annotation-angle-group.selected .annotation-angle-arm {
+    stroke-width: 3;
+}
+
+.annotation-angle-arc {
+    transition: stroke-width 0.15s ease;
+}
+
+.annotation-angle-group.selected .annotation-angle-arc {
+    stroke-width: 2.5;
+}
+
+.annotation-angle-vertex {
+    transition: r 0.15s ease;
+}
+
+.annotation-angle-group.selected .annotation-angle-vertex {
+    r: 5;
+}
+
+.annotation-angle-endpoint {
+    transition: r 0.15s ease;
+}
+
+.annotation-angle-group:hover .annotation-angle-endpoint {
+    r: 4;
+}
+
+/* ============================================================================
+   Polygon Annotation
+   ============================================================================ */
+
+.annotation-polygon {
+    transition: stroke-width 0.15s ease, fill-opacity 0.15s ease;
+}
+
+.annotation-polygon-group.selected .annotation-polygon {
+    stroke-width: 3;
+    fill-opacity: 0.3;
+}
+
+.annotation-polygon-group:hover .annotation-polygon {
+    fill-opacity: 0.25;
+}
+
+.annotation-polygon-vertex {
+    transition: r 0.15s ease;
+}
+
+.annotation-polygon-group:hover .annotation-polygon-vertex {
+    r: 4;
+}
+
+/* ============================================================================
+   Freehand Annotation
+   ============================================================================ */
+
+.annotation-freehand {
+    transition: stroke-width 0.15s ease;
+}
+
+.annotation-freehand-group.selected .annotation-freehand {
+    stroke-width: 3;
+}
+
+.annotation-freehand-start,
+.annotation-freehand-end {
+    transition: r 0.15s ease;
+}
+
+.annotation-freehand-group:hover .annotation-freehand-start,
+.annotation-freehand-group:hover .annotation-freehand-end {
+    r: 5;
+}
+
+/* ============================================================================
+   Measurement Labels
+   ============================================================================ */
+
+.annotation-measurement {
+    position: absolute;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 12;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.measurement-length {
+    /* Length measurements */
+}
+
+.measurement-radius {
+    /* Radius measurements */
+}
+
+.measurement-width,
+.measurement-height {
+    /* Dimension measurements */
+}
+
+.measurement-area {
+    /* Area measurements */
+    font-size: 10px;
+}
+
+.measurement-perimeter {
+    /* Perimeter measurements */
+    font-size: 10px;
+}
+
+.measurement-angle {
+    /* Angle measurements */
+    font-weight: 700;
+}
+
+/* Preview measurements (during drawing) */
+.preview-measurement {
+    background: rgba(100, 100, 100, 0.85);
+    color: white !important;
+}
+
+/* ============================================================================
+   Annotation Labels (Name Tags)
+   ============================================================================ */
+
+.annotation-label-tag {
+    position: absolute;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 13;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
+}
+
+/* ============================================================================
+   Preview Styles (In-Progress Drawing)
+   ============================================================================ */
+
+.annotation-preview {
+    opacity: 0.7;
+}
+
+.annotation-preview * {
+    stroke-dasharray: 6, 3 !important;
+}
+
+/* First point indicator for polygon preview */
+.annotation-preview .polygon-start-point {
+    stroke-dasharray: none !important;
+}
+
+/* ============================================================================
+   Selection Highlight
+   ============================================================================ */
+
+/* Selection ring animation */
+@keyframes selection-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.annotation-svg-layer [class*="-group"].selected,
+.annotation-svg-layer .annotation--selected {
+    animation: selection-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================================================
+   Dark Mode Support
+   ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+    .annotation-measurement {
+        background: rgba(30, 30, 30, 0.9);
+        color: #f0f0f0;
+    }
+
+    .preview-measurement {
+        background: rgba(60, 60, 60, 0.9);
+    }
+}
+
+/* Manual dark mode class */
+.dark-mode .annotation-measurement {
+    background: rgba(30, 30, 30, 0.9);
+    color: #f0f0f0;
+}
+
+.dark-mode .preview-measurement {
+    background: rgba(60, 60, 60, 0.9);
+}
+
+/* ============================================================================
+   Responsive Adjustments
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .annotation-measurement {
+        font-size: 10px;
+        padding: 1px 4px;
+    }
+
+    .annotation-label-tag {
+        font-size: 10px;
+        padding: 1px 4px;
+    }
+}
+
+/* ============================================================================
+   Print Styles
+   ============================================================================ */
+
+@media print {
+    .annotation-measurement,
+    .annotation-label-tag {
+        background: white !important;
+        box-shadow: none !important;
+        border: 1px solid currentColor;
+    }
+
+    .annotation-handle {
+        display: none !important;
+    }
+
+    .annotation-preview {
+        display: none !important;
+    }
+}
+
+/* ============================================================================
+   High Contrast Mode
+   ============================================================================ */
+
+@media (prefers-contrast: high) {
+    .annotation-measurement {
+        background: white;
+        border: 2px solid currentColor;
+    }
+
+    .annotation-label-tag {
+        border: 2px solid white;
+    }
+
+    .annotation-svg-layer [class*="-group"] {
+        filter: none;
+    }
+
+    .annotation-svg-layer [class*="-group"].selected {
+        filter: none;
+        stroke-width: 4px !important;
+    }
+}
+
+/* ============================================================================
+   Reduced Motion
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .annotation-svg-layer [class*="-group"].selected {
+        animation: none;
+    }
+
+    .annotation-handle,
+    .annotation-measurement,
+    .annotation-label-tag,
+    .annotation-point-outer,
+    .annotation-line,
+    .annotation-circle,
+    .annotation-rectangle,
+    .annotation-polygon,
+    .annotation-freehand {
+        transition: none;
+    }
+}
+
+/* ============================================================================
+   Editing Mode Styles
+   ============================================================================ */
+
+/* Dragging state - applied to SVG layer during drag operations */
+.annotation-svg-layer.dragging {
+    cursor: grabbing !important;
+}
+
+.annotation-svg-layer.dragging * {
+    cursor: grabbing !important;
+}
+
+/* Annotation being dragged */
+.annotation-svg-layer.dragging [class*="-group"].selected {
+    opacity: 0.85;
+    animation: none;
+}
+
+/* Enable pointer events on interactive elements during editing */
+.annotation-svg-layer [data-annotation] {
+    pointer-events: all !important;
+}
+
+/* Clickable annotation shapes */
+.annotation-svg-layer .annotation-point-outer,
+.annotation-svg-layer .annotation-line,
+.annotation-svg-layer .annotation-circle,
+.annotation-svg-layer .annotation-rectangle,
+.annotation-svg-layer .annotation-polygon,
+.annotation-svg-layer .annotation-freehand,
+.annotation-svg-layer .annotation-angle-arm {
+    pointer-events: stroke;
+    cursor: move;
+}
+
+/* Fill areas are also clickable */
+.annotation-svg-layer .annotation-circle[fill],
+.annotation-svg-layer .annotation-rectangle[fill],
+.annotation-svg-layer .annotation-polygon[fill] {
+    pointer-events: all;
+}
+
+/* Point annotations are fully clickable */
+.annotation-svg-layer .annotation-point-group {
+    pointer-events: all;
+    cursor: move;
+}
+
+/* Resize handles active state */
+.annotation-handle:active,
+.annotation-handle.dragging {
+    r: 8;
+    stroke-width: 3;
+}
+
+/* Visual feedback for selected editable point */
+.annotation-svg-layer [data-point-index].selected-point {
+    r: 7;
+    stroke-width: 3;
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* Keyboard focus indicator */
+.annotation-svg-layer [class*="-group"]:focus-within {
+    outline: 2px dashed currentColor;
+    outline-offset: 4px;
+}
+
+/* Edit mode indicator (subtle border) */
+.annotation-svg-layer.edit-mode {
+    border: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================================================
+   Touch Device Enhancements
+   ============================================================================ */
+
+@media (pointer: coarse) {
+    /* Larger handles for touch */
+    .annotation-handle {
+        r: 12;
+        stroke-width: 3;
+    }
+    
+    .annotation-handle:active {
+        r: 16;
+    }
+    
+    /* Larger hit areas */
+    .annotation-svg-layer .annotation-point-outer {
+        r: 14;
+    }
+    
+    .annotation-svg-layer .annotation-line {
+        stroke-width: 6;
+    }
+    
+    /* Larger vertices for polygon/freehand */
+    .annotation-polygon-vertex,
+    .annotation-angle-vertex,
+    .annotation-angle-endpoint {
+        r: 10;
+    }
+}
+
+/* ============================================================================
+   Drawing Preview Styles (DrawingHandler integration)
+   ============================================================================ */
+
+.drawing-preview-marker {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 20;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.drawing-preview-marker.first {
+    width: 14px;
+    height: 14px;
+    border-width: 3px;
+}
+
+.drawing-preview-line {
+    position: absolute;
+    height: 2px;
+    background-color: currentColor;
+    transform-origin: 0 50%;
+    pointer-events: none;
+    z-index: 15;
+}
+
+.drawing-preview-ghost {
+    opacity: 0.5;
+    background: transparent !important;
+    border: 2px dashed currentColor;
+    height: 0;
+}
+
+.drawing-preview-ghost.drawing-preview-line {
+    height: 0;
+    border-width: 1px;
+}
+
+.drawing-preview-circle {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid;
+    background: transparent;
+    pointer-events: none;
+    z-index: 15;
+}
+
+.drawing-preview-circle.drawing-preview-ghost {
+    border-style: dashed;
+    opacity: 0.6;
+}
+
+.drawing-preview-rectangle {
+    position: absolute;
+    border: 2px solid;
+    background: transparent;
+    pointer-events: none;
+    z-index: 15;
+}
+
+.drawing-preview-rectangle.drawing-preview-ghost {
+    border-style: dashed;
+    opacity: 0.6;
+}
+
+.drawing-preview-polygon,
+.drawing-preview-freehand {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 15;
+}
+
+.drawing-instruction {
+    position: absolute;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    font-size: 12px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 25;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================================================
+   Type Badges for Label List
+   ============================================================================ */
+
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.badge-landmark {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.badge-polygon {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.badge-figure {
+    background: #fff3e0;
+    color: #ef6c00;
+}
+
+.badge-line {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.badge-circle {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.badge-rect {
+    background: #e0f2f1;
+    color: #00695c;
+}
+
+.badge-angle {
+    background: #fff8e1;
+    color: #ff8f00;
+}
+
+.badge-freehand {
+    background: #eceff1;
+    color: #455a64;
+}
+
+/* ============================================================================
+   Legacy DOM-based Annotation Styles (fallback compatibility)
+   ============================================================================ */
+
+.annotation-point {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+    box-shadow: 0 0 0 2px white, 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.annotation-label {
+    position: absolute;
+    padding: 2px 6px 2px 8px;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    transform: translate(8px, -50%);
+    pointer-events: none;
+    z-index: 11;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.polygon-shape {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 8;
+}
+
+.figure-shape {
+    position: absolute;
+    pointer-events: none;
+    z-index: 9;
+}
+
+.figure-shape.interactive {
+    pointer-events: all;
+    cursor: move;
+}
+
+.figure-circle {
+    border-radius: 50%;
+    border: 2px solid;
+}
+
+.figure-rectangle {
+    border: 2px solid;
+}
+
+.figure-line {
+    border: none;
+    background-color: currentColor;
+}
+
+/* Active polygon drawing */
+.polygon-point {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: white;
+    border: 2px solid #7950f2;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 20;
+}
+
+.polygon-point.start-point {
+    background: #7950f2;
+    width: 12px;
+    height: 12px;
+}
+
+.polygon-line {
+    position: absolute;
+    height: 2px;
+    background: #7950f2;
+    transform-origin: 0 50%;
+    pointer-events: none;
+    z-index: 19;
+}
+
+/* Resize handles for figures */
+.resize-handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: white;
+    border: 2px solid #666;
+    border-radius: 2px;
+    pointer-events: all;
+    z-index: 12;
+}
+
+.resize-handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
+.resize-handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
+.resize-handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+.resize-handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
+.resize-handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.resize-handle.s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.resize-handle.w { left: -4px; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+.resize-handle.e { right: -4px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+
+/* Center indicator */
+.center-indicator {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.center-indicator.always-visible,
+.figure-shape:hover .center-indicator {
+    opacity: 1;
+}
+
+/* Line endpoints */
+.line-point {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: white;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: all;
+    cursor: crosshair;
+    z-index: 12;
+}

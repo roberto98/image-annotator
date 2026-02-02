@@ -111,22 +111,66 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 - MIN_SCALE=0.1, MAX_SCALE=50.0 are static class properties
 - Subscribe pattern similar to AnnotationStore for consistent reactivity
 
+### US-006: SVG Annotation Layer ✓ COMPLETE
+**Status:** Complete
+**Started:** 2024-02-03
+**Completed:** 2024-02-03
+
+**Files Created:**
+- `app/static/js/core/AnnotationRenderer.js` - New SVG-based annotation renderer (~1430 lines)
+- `app/static/css/annotations/renderer.css` - SVG annotation styles with dark mode support
+
+**Files Modified:**
+- `app/static/js/rendering.js` - Updated to delegate to SVG renderer
+- `app/static/js/state.js` - Added global COLORS export
+- `app/templates/multi_landmark.html` - Updated script loading order
+
+**Files Backed Up:**
+- `app/static/js/_backup/renderer.js.bak` - Original annotations/renderer.js
+- `app/static/js/_backup/rendering.js.bak` - Original rendering.js
+
+**Key Features Implemented:**
+- SVG overlay positioned over image container with proper z-index
+- Viewport transform synchronization via CSS matrix transform
+- All annotation types rendered: point, line, circle, rectangle, polygon, freehand, angle
+- Selection and hover state management with visual feedback
+- Measurement label overlay showing distances, radii, angles
+- Edit handles for selected annotations (resize/move)
+- Comprehensive CSS with dark mode and accessibility support (prefers-reduced-motion)
+- Singleton pattern: window.annotationRenderer
+
+**Architecture:**
+- Annotations drawn in image coordinates (not screen coordinates)
+- Viewport handles zoom/pan transformation via SVG transform group
+- Single SVG layer with transform group for rendering efficiency
+- Uses mutation-observer pattern to stay in sync with image container
+
+**Notes for next developer:**
+- AnnotationRenderer is exported as `window.annotationRenderer`
+- Call `annotationRenderer.render(annotations)` to update display
+- Subscribe to viewport changes automatically handled
+- Edit handles use `data-handle-type` and `data-point-index` attributes
+- COLORS from state.js used for consistent annotation coloring
+
 ---
 
 ## Summary
 
-### Completed (5/30 user stories)
+### Completed (6/30 user stories)
 - ✅ US-001: Backend API Cleanup
 - ✅ US-002: Image Metadata API
 - ✅ US-003: Annotation History Storage
 - ✅ US-004: Clean State Management
 - ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+
+### Phase 2: Frontend Foundation - COMPLETE
 
 ### In Progress
-- Phase 2: Frontend Foundation (US-006 remaining)
-- Phase 3-10: 25 user stories remaining
+- Phase 3: Basic Annotation Types (US-007 to US-014)
+- Phase 4-10: 24 user stories remaining
 
 ### Next Steps
-Continue with US-006: SVG Annotation Layer.
-After completing Phase 2, implement all 8 annotation types (Phase 3-4).
+Continue with US-007: Point Annotation - first annotation type implementation.
+After completing all basic annotation types, implement Pan Mode (US-015) and Zoom Controls (US-016).
 

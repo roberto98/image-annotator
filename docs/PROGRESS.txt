@@ -248,6 +248,131 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 - Phase 3: Basic Annotation Types (US-009 to US-014 remaining)
 - Phase 4-10: 22 user stories remaining
 
+### US-009: Circle Annotation ✓ COMPLETE
+**Status:** Complete (Verified as already implemented)
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Components Verified:**
+- `DrawingHandler` - Handles 2-click flow (click center → click edge)
+- `AnnotationRenderer.renderCircle()` - SVG circle rendering
+- `Measurements.measureCircle()` - Radius/diameter/area calculation with calibration support
+
+**All Acceptance Criteria Met:**
+- ✅ Select circle tool → click center → click edge point
+- ✅ Live preview circle follows cursor after first click
+- ✅ Circle shows radius/diameter measurement
+- ✅ Label popup appears after second click
+- ✅ Circle stored as { type: 'circle', data: { center: {x,y}, radius } } in image coords
+
+---
+
+### US-010: Rectangle Annotation ✓ COMPLETE
+**Status:** Complete (Verified as already implemented)
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Components Verified:**
+- `DrawingHandler` - Handles 2-click flow (click corner → click opposite corner)
+- `AnnotationRenderer.renderRectangle()` - SVG rectangle rendering with normalized coordinates
+- `Measurements.measureRectangle()` - Width/height/area calculation with calibration support
+
+**All Acceptance Criteria Met:**
+- ✅ Select rectangle tool → click corner → click opposite corner
+- ✅ Live preview rectangle follows cursor after first click
+- ✅ Rectangle shows width × height measurement
+- ✅ Label popup appears after second click
+- ✅ Rectangle stored as { type: 'rectangle', data: { topLeft: {x,y}, bottomRight: {x,y} } } in image coords
+
+---
+
+### US-011: Polygon Annotation ✓ COMPLETE
+**Status:** Complete (Verified as already implemented)
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Components Verified:**
+- `DrawingHandler` - Handles multi-click flow with double-click or Enter to close
+- `AnnotationRenderer.renderPolygon()` - SVG polygon rendering with filled shape
+- `Measurements.measurePolygon()` - Perimeter/area calculation with calibration support
+- Minimum 3 points enforced before closing
+
+**All Acceptance Criteria Met:**
+- ✅ Select polygon tool → click points → double-click to close
+- ✅ Live preview shows partial polygon and line to cursor
+- ✅ Minimum 3 points required to complete
+- ✅ Label popup appears after completion
+- ✅ Polygon stored as { type: 'polygon', data: { points: [{x,y}...], closed: true } } in image coords
+
+---
+
+### US-012: Freehand Annotation ✓ COMPLETE
+**Status:** Complete (Verified as already implemented)
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Components Verified:**
+- `DrawingHandler` - Handles drag-based drawing (press and drag)
+- `AnnotationRenderer.renderFreehand()` - SVG path rendering with smooth curves
+- Ramer-Douglas-Peucker algorithm for path simplification on completion
+
+**All Acceptance Criteria Met:**
+- ✅ Select freehand tool → press and drag to draw
+- ✅ Live trail follows pointer movement
+- ✅ Path simplified on completion (Douglas-Peucker algorithm, reduce point count)
+- ✅ Label popup appears after release
+- ✅ Freehand stored as { type: 'freehand', data: { points: [{x,y}...] } } in image coords
+
+---
+
+### US-013: Angle Annotation ✓ COMPLETE
+**Status:** Complete (Verified as already implemented)
+**Date:** 2024-02-03
+
+**Note:** Feature was already fully implemented, just needed verification.
+
+**Key Components Verified:**
+- `DrawingHandler` - Handles 3-click flow (point1 → vertex → point2)
+- `AnnotationRenderer.renderAngle()` - SVG angle rendering with arc visualization
+- `Measurements.measureAngle()` - Degree calculation displayed at vertex
+
+**All Acceptance Criteria Met:**
+- ✅ Select angle tool → click 3 points (arm1, vertex, arm2)
+- ✅ Live preview shows partial angle construction
+- ✅ Angle arc and degree measurement displayed at vertex
+- ✅ Label popup appears after third click
+- ✅ Angle stored as { type: 'angle', data: { point1: {x,y}, vertex: {x,y}, point2: {x,y} } } in image coords
+
+---
+
+## Summary
+
+### Completed (13/30 user stories)
+- ✅ US-001: Backend API Cleanup
+- ✅ US-002: Image Metadata API
+- ✅ US-003: Annotation History Storage
+- ✅ US-004: Clean State Management
+- ✅ US-005: Viewport Service
+- ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
+- ✅ US-008: Line Annotation
+- ✅ US-009: Circle Annotation
+- ✅ US-010: Rectangle Annotation
+- ✅ US-011: Polygon Annotation
+- ✅ US-012: Freehand Annotation
+- ✅ US-013: Angle Annotation
+
+### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - IN PROGRESS (7/8 complete)
+
+### In Progress
+- Phase 3: Basic Annotation Types (US-014 remaining: Tag Annotation)
+- Phase 4-10: 17 user stories remaining
+
 ### Next Steps
-Continue with US-009: Circle Annotation - implement two-click circle drawing with live preview and radius/diameter measurement.
+Continue with US-014: Tag Annotation - implement text tags (image-level labels) without geometry.
 

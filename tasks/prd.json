@@ -147,8 +147,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Verified: 2-click flow (center→edge), circle rendering with radius measurement, calibration support."
     },
     {
       "id": "US-010",
@@ -164,8 +164,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Verified: 2-click flow (corner→corner), normalized coordinates, width/height/area measurements."
     },
     {
       "id": "US-011",
@@ -181,8 +181,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Verified: Multi-click with double-click/Enter to close, min 3 points, perimeter/area measurements."
     },
     {
       "id": "US-012",
@@ -198,8 +198,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Verified: Drag-based drawing, Ramer-Douglas-Peucker path simplification, smooth curves."
     },
     {
       "id": "US-013",
@@ -215,8 +215,8 @@
         "Verify in browser using dev-browser skill"
       ],
       
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented. Verified: 3-click flow (point→vertex→point), arc visualization, degree measurement."
     },
     {
       "id": "US-014",

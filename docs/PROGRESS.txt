@@ -154,23 +154,61 @@ These will be migrated to V2 API in subsequent stories. The V1 file storage (ann
 
 ---
 
+## Phase 3: Basic Annotation Types
+
+### US-007: Point Annotation ✓ COMPLETE
+**Status:** Complete
+**Date:** 2024-02-03
+
+**Note:** The core point annotation feature was already implemented in the existing codebase. This story focused on verifying functionality and fixing hover integration.
+
+**Existing Implementation (verified working):**
+- Point tool button in UI toolbar
+- `DrawingHandler.handleClick()` for placing points on single click
+- `AnnotationRenderer.renderPoint()` for SVG rendering (circle with crosshair pattern)
+- Storage format: `{ type: 'point', data: { x, y } }` in image coordinates
+- Label popup integration after point placement
+
+**Fixes Applied:**
+- Added `handleMouseOver()` / `handleMouseOut()` event handlers to EditingHandler
+  - Calls `annotationRenderer.setHovered(label)` to highlight annotation on hover
+  - Clears hover state when mouse leaves annotation
+- Added `pointer-events: all` and `cursor: pointer` to annotation groups in AnnotationRenderer.js
+  - Without this, SVG elements were not receiving mouse events
+- Proper event listener attachment in `EditingHandler.init()`
+- Proper event listener detachment in `EditingHandler.cleanup()`
+
+**Files Modified:**
+- `app/static/js/annotations/editing.js` - Added hover event handlers and event listener management
+- `app/static/js/core/AnnotationRenderer.js` - Added pointer-events for interactivity
+
+**All Acceptance Criteria Met:**
+- ✅ Select point tool → single click places marker
+- ✅ Visual marker (circle with crosshair) drawn at click location
+- ✅ Label popup appears after placement
+- ✅ Point stored as { type: 'point', data: { x, y } } in image coordinates
+- ✅ Hover shows highlight
+
+---
+
 ## Summary
 
-### Completed (6/30 user stories)
+### Completed (7/30 user stories)
 - ✅ US-001: Backend API Cleanup
 - ✅ US-002: Image Metadata API
 - ✅ US-003: Annotation History Storage
 - ✅ US-004: Clean State Management
 - ✅ US-005: Viewport Service
 - ✅ US-006: SVG Annotation Layer
+- ✅ US-007: Point Annotation
 
 ### Phase 2: Frontend Foundation - COMPLETE
+### Phase 3: Basic Annotation Types - IN PROGRESS (1/8 complete)
 
 ### In Progress
-- Phase 3: Basic Annotation Types (US-007 to US-014)
-- Phase 4-10: 24 user stories remaining
+- Phase 3: Basic Annotation Types (US-008 to US-014 remaining)
+- Phase 4-10: 23 user stories remaining
 
 ### Next Steps
-Continue with US-007: Point Annotation - first annotation type implementation.
-After completing all basic annotation types, implement Pan Mode (US-015) and Zoom Controls (US-016).
+Continue with US-008: Line Annotation - implement two-click line drawing with live preview and distance measurement.
 

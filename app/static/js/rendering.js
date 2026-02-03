@@ -1019,6 +1019,7 @@ function renderDrawingInstruction(tool, pointCount, previewPoint) {
 // ============================================================================
 
 // These functions need to be available globally for other modules
+window.RENDER_STATE = RENDER_STATE;
 window.scheduleRender = scheduleRender;
 window.forceRender = forceRender;
 window.setupReactiveRendering = setupReactiveRendering;

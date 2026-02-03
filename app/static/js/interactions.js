@@ -408,7 +408,6 @@ function handleTouchEnd(e) {
  */
 function handleKeyDown(e) {
     // Skip if typing in input
-    if (e.target === DOM.labelInput) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
     // Arrow keys for Pan/Zoom or other interaction could go here

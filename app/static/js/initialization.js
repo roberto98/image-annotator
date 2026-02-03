@@ -149,15 +149,6 @@ function setupEventListeners() {
         });
     });
 
-    // Label creation
-    DOM.createLabelBtn.addEventListener('click', createNewLabel);
-    DOM.labelInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            createNewLabel();
-        }
-    });
-
     // Zoom controls
     DOM.zoomIn.addEventListener('click', zoomIn);
     DOM.zoomOut.addEventListener('click', zoomOut);
@@ -167,6 +158,31 @@ function setupEventListeners() {
     document.getElementById('undoBtn').addEventListener('click', undo);
     document.getElementById('redoBtn').addEventListener('click', redo);
     document.getElementById('nextUnannotatedBtn').addEventListener('click', nextUnannotatedImage);
+
+    // Actions dropdown toggle
+    const actionsDropdown = document.getElementById('actionsDropdown');
+    if (actionsDropdown) {
+        const trigger = actionsDropdown.querySelector('.actions-dropdown-trigger');
+        if (trigger) {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                actionsDropdown.classList.toggle('open');
+            });
+        }
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!actionsDropdown.contains(e.target)) {
+                actionsDropdown.classList.remove('open');
+            }
+        });
+        // Close dropdown when clicking a menu item
+        const menuItems = actionsDropdown.querySelectorAll('.actions-dropdown-item');
+        menuItems.forEach(item => {
+            item.addEventListener('click', () => {
+                actionsDropdown.classList.remove('open');
+            });
+        });
+    }
 
     // Image adjustments
     document.getElementById('brightnessSlider').addEventListener('input', (e) => {

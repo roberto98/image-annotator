@@ -34,10 +34,26 @@ const LabelSelector = {
     _boundSearchInputHandler: null,
     _boundSearchKeyDownHandler: null,
     _boundClearBtnHandler: null,
-    _boundCancelBtnHandler: null,
     _boundCategoriesClickHandler: null,
     _boundElementMouseDownHandler: null,
     _boundElementTouchStartHandler: null,
+
+    /**
+     * Escape HTML special characters to prevent XSS
+     * @param {string} str - String to escape
+     * @returns {string} Escaped string
+     */
+    _escapeHtml(str) {
+        if (typeof str !== 'string') return '';
+        const escapeMap = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        };
+        return str.replace(/[&<>"']/g, c => escapeMap[c]);
+    },
 
     /**
      * Default color palette for labels without assigned colors
@@ -151,9 +167,6 @@ const LabelSelector = {
                     <span class="hint-key">Enter</span> Select
                     <span class="hint-key">Esc</span> Cancel
                 </div>
-                <div class="label-selector-actions">
-                    <button class="label-selector-cancel" data-action="cancel">Cancel</button>
-                </div>
             </div>
         `;
         this.element.style.display = 'none';
@@ -179,11 +192,6 @@ const LabelSelector = {
             searchInput.focus();
         };
         clearBtn.addEventListener('click', this._boundClearBtnHandler);
-
-        // Cancel button
-        const cancelBtn = this.element.querySelector('.label-selector-cancel');
-        this._boundCancelBtnHandler = () => this.cancel();
-        cancelBtn.addEventListener('click', this._boundCancelBtnHandler);
 
         // Category header clicks (delegation)
         const categoriesContainer = this.element.querySelector('.label-selector-categories');
@@ -257,7 +265,6 @@ const LabelSelector = {
         if (this.element) {
             const searchInput = this.element.querySelector('.label-selector-search');
             const clearBtn = this.element.querySelector('.label-selector-clear');
-            const cancelBtn = this.element.querySelector('.label-selector-cancel');
             const categoriesContainer = this.element.querySelector('.label-selector-categories');
 
             if (searchInput && this._boundSearchInputHandler) {
@@ -268,9 +275,6 @@ const LabelSelector = {
             }
             if (clearBtn && this._boundClearBtnHandler) {
                 clearBtn.removeEventListener('click', this._boundClearBtnHandler);
-            }
-            if (cancelBtn && this._boundCancelBtnHandler) {
-                cancelBtn.removeEventListener('click', this._boundCancelBtnHandler);
             }
             if (categoriesContainer && this._boundCategoriesClickHandler) {
                 categoriesContainer.removeEventListener('click', this._boundCategoriesClickHandler);
@@ -290,7 +294,6 @@ const LabelSelector = {
         this._boundSearchInputHandler = null;
         this._boundSearchKeyDownHandler = null;
         this._boundClearBtnHandler = null;
-        this._boundCancelBtnHandler = null;
         this._boundCategoriesClickHandler = null;
         this._boundElementMouseDownHandler = null;
         this._boundElementTouchStartHandler = null;
@@ -551,16 +554,31 @@ const LabelSelector = {
             container.appendChild(categoryEl);
         });
 
-        // Show "no results" if empty
-        if (this.filteredLabels.length === 0) {
+        // Show "create new" option if no results and there's a search query
+        if (this.filteredLabels.length === 0 && query) {
+            const createEl = document.createElement('div');
+            createEl.className = 'label-selector-create-new';
+            createEl.innerHTML = `
+                <p>Label "<strong>${this._escapeHtml(query)}</strong>" not found</p>
+                <button class="create-new-btn" data-action="create-new" data-label="${this._escapeHtml(query)}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Create "${this._escapeHtml(query)}"
+                </button>
+            `;
+            container.appendChild(createEl);
+
+            // Add click handler for create button
+            const createBtn = createEl.querySelector('.create-new-btn');
+            createBtn.addEventListener('click', () => {
+                this.selectLabel(query);
+            });
+        } else if (this.filteredLabels.length === 0) {
             container.innerHTML = `
                 <div class="label-selector-empty">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="m21 21-4.35-4.35"/>
-                    </svg>
-                    <p>No labels found</p>
-                    <span>Try a different search term</span>
+                    <p>Type a label name to search or create</p>
                 </div>
             `;
         }
@@ -710,6 +728,9 @@ const LabelSelector = {
                 if (this.filteredLabels.length > 0) {
                     const safeIndex = Math.max(0, Math.min(this.highlightedIndex, maxIndex));
                     this.selectLabel(this.filteredLabels[safeIndex].name);
+                } else if (this.searchQuery.trim()) {
+                    // No matches but there's a search query - create new label
+                    this.selectLabel(this.searchQuery.trim());
                 }
                 break;
 

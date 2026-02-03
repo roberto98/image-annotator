@@ -746,6 +746,17 @@ const DrawingHandler = {
                             timestamp: new Date().toISOString()
                         }
                     };
+
+                    // Ensure the label exists in STATE.allLabels for sidebar display
+                    if (window.STATE.allLabels) {
+                        const labelExists = window.STATE.allLabels.some(l => l.name === label);
+                        if (!labelExists) {
+                            window.STATE.allLabels = [
+                                ...window.STATE.allLabels,
+                                { name: label, type: tool, in_use: true }
+                            ].sort((a, b) => a.name.localeCompare(b.name));
+                        }
+                    }
                 }
 
                 const typeName = window.getTypeDisplayName?.(tool) || tool;
@@ -763,8 +774,17 @@ const DrawingHandler = {
         state.selectedLabel = null;
         this.previewPoint = null;
 
-        // Re-render
+        // Re-render canvas
         this._triggerRender();
+
+        // Explicitly update sidebar to show new annotation
+        if (typeof window.renderLabelList === 'function') {
+            // Reset the hash to force re-render
+            if (window.RENDER_STATE) {
+                window.RENDER_STATE.labelListHash = '';
+            }
+            window.renderLabelList();
+        }
     },
 
     /**

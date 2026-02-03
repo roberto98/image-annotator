@@ -67,58 +67,40 @@
         </div>
 
         <div class="toolbar-right">
-            <!-- Undo/Redo Buttons -->
+            <!-- Undo/Redo Buttons (always visible) -->
             <button class="nav-btn" id="undoBtn" title="Undo (Ctrl+Z / ⌘Z)" disabled>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 7v6h6" />
                     <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.36 2.64L3 13" />
                 </svg>
-                Undo
+                <span>Undo</span>
             </button>
             <button class="nav-btn" id="redoBtn" title="Redo (Ctrl+Y / ⌘⇧Z)" disabled>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 7v6h-6" />
                     <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.36 2.64L21 13" />
                 </svg>
-                Redo
+                <span>Redo</span>
             </button>
 
-            <!-- Next Unannotated Button -->
-            <button class="nav-btn" id="nextUnannotatedBtn" title="Jump to next unannotated image">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="13 19 22 12 13 5 13 19" />
-                    <polygon points="2 19 11 12 2 5 2 19" />
-                </svg>
-                Next Empty
-            </button>
-
-            <!-- Propagate Annotations Button -->
-            <button class="nav-btn" id="propagateBtn" onclick="propagateAnnotations()"
-                title="Copy current annotations to next unannotated image">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                Propagate
-            </button>
-
+            <!-- Navigation buttons (always visible) -->
             {% if prev_img %}
             <a href="{{ url_for('views.annotate_image', patient=prev_img.patient, image=prev_img.filename) }}"
                 class="nav-btn-link">
-                <button class="nav-btn">
+                <button class="nav-btn" title="Previous image">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M19 12H5" />
                         <polyline points="12 19 5 12 12 5" />
                     </svg>
-                    Previous
+                    <span>Prev</span>
                 </button>
             </a>
             {% endif %}
             {% if next_img %}
             <a href="{{ url_for('views.annotate_image', patient=next_img.patient, image=next_img.filename) }}"
                 class="nav-btn-link">
-                <button class="nav-btn">
-                    Next
+                <button class="nav-btn" title="Next image">
+                    <span>Next</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M5 12h14" />
                         <polyline points="12 5 19 12 12 19" />
@@ -126,15 +108,42 @@
                 </button>
             </a>
             {% endif %}
-            <a href="{{ url_for('views.main_menu') }}" class="nav-btn-link">
-                <button class="nav-btn">
+
+            <!-- More actions dropdown -->
+            <div class="actions-dropdown" id="actionsDropdown">
+                <button class="actions-dropdown-trigger" title="More actions">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
+                        <circle cx="12" cy="12" r="1" />
+                        <circle cx="12" cy="5" r="1" />
+                        <circle cx="12" cy="19" r="1" />
                     </svg>
-                    Menu
                 </button>
-            </a>
+                <div class="actions-dropdown-menu">
+                    <button class="actions-dropdown-item" id="nextUnannotatedBtn" title="Jump to next unannotated image">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 19 22 12 13 5 13 19" />
+                            <polygon points="2 19 11 12 2 5 2 19" />
+                        </svg>
+                        Next Empty
+                    </button>
+                    <button class="actions-dropdown-item" id="propagateBtn" onclick="propagateAnnotations()"
+                        title="Copy current annotations to next unannotated image">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        Propagate Annotations
+                    </button>
+                    <div class="actions-dropdown-divider"></div>
+                    <a href="{{ url_for('views.main_menu') }}" class="actions-dropdown-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                        Back to Menu
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -318,15 +327,6 @@
             </div>
 
             <div class="sidebar-content">
-                <!-- Label Creation -->
-                <div class="label-create-section">
-                    <div class="label-create-title">Create New Label</div>
-                    <div class="label-input-group">
-                        <input type="text" class="label-input" id="labelInput" placeholder="Enter label name...">
-                        <button class="create-btn" id="createLabelBtn">Add</button>
-                    </div>
-                </div>
-
                 <!-- Label List -->
                 <div class="label-list" id="labelList">
                     <!-- Labels will be dynamically inserted here -->

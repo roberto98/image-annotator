@@ -38,12 +38,6 @@ const DrawingHandler = {
     isActive: false,
 
     /**
-     * Whether currently in freehand drawing mode
-     * @type {boolean}
-     */
-    isFreehandDrawing: false,
-
-    /**
      * Preview point for real-time feedback during drawing
      * @type {{x: number, y: number}|null}
      */
@@ -96,21 +90,6 @@ const DrawingHandler = {
     /** Get double-click distance */
     get DOUBLE_CLICK_DISTANCE() {
         return window.DrawingConstants?.DOUBLE_CLICK_DISTANCE ?? 10;
-    },
-
-    /** Get minimum freehand points */
-    get MIN_FREEHAND_POINTS() {
-        return window.DrawingConstants?.MIN_FREEHAND_POINTS ?? 2;
-    },
-
-    /** Get freehand point spacing */
-    get FREEHAND_POINT_SPACING() {
-        return window.DrawingConstants?.FREEHAND_POINT_SPACING ?? 2;
-    },
-
-    /** Get freehand simplify tolerance */
-    get FREEHAND_SIMPLIFY_TOLERANCE() {
-        return window.DrawingConstants?.FREEHAND_SIMPLIFY_TOLERANCE ?? 2.0;
     },
 
     /**
@@ -172,39 +151,6 @@ const DrawingHandler = {
         this.updateCursor();
 
         window.Debug?.log('DrawingHandler', `Activated with tool: ${normalizedTool}`);
-
-        // Special handling for tag tool - show label popup immediately
-        // Tags require 0 clicks, so we show the label popup right away
-        if (normalizedTool === this._types.TAG) {
-            this._initiateTagCreation();
-        }
-    },
-
-    /**
-     * Initiate tag creation by showing label popup immediately
-     * Tags have no geometry, so we skip click collection entirely
-     * @private
-     */
-    _initiateTagCreation() {
-        const state = window.AnnotationState;
-        if (!state) return;
-
-        // Set pending type to tag
-        state.pendingType = this._types.TAG;
-
-        // Calculate popup position - center of viewport or image container
-        let screenX = window.innerWidth / 2;
-        let screenY = window.innerHeight / 2;
-
-        const container = window.DOM?.imageContainer;
-        if (container) {
-            const rect = container.getBoundingClientRect();
-            screenX = rect.left + rect.width / 2;
-            screenY = rect.top + rect.height / 2;
-        }
-
-        // Show label popup - pass null for coords since tags have no geometry
-        this.promptForLabel(screenX, screenY, null);
     },
 
     /**
@@ -214,7 +160,6 @@ const DrawingHandler = {
         if (!this.isActive) return;
 
         this.isActive = false;
-        this.isFreehandDrawing = false;
         this.previewPoint = null;
         this.lastClickTime = 0;
         this.lastClickCoords = null;
@@ -347,14 +292,19 @@ const DrawingHandler = {
         }
         */
 
+        // Ensure pendingType is set when first point is added
+        if (!state.pendingType) {
+            state.pendingType = state.currentTool;
+        }
+
         // Add point to pending
         state.addPendingPoint(coords.x, coords.y);
         window.Debug?.log('DrawingHandler', `Point added at ${coords.x},${coords.y}. Total: ${state.pendingPoints.length}`);
 
         // Check if annotation can be completed
         if (state.canComplete()) {
-            // For variable-length types (polygon, freehand), don't auto-complete
-            if (tool === this._types.POLYGON || tool === this._types.FREEHAND) {
+            // For variable-length types (polygon), don't auto-complete
+            if (tool === this._types.POLYGON) {
                 // Just render and wait for completion signal
                 this._triggerRender();
             } else {
@@ -411,12 +361,6 @@ const DrawingHandler = {
         const state = window.AnnotationState;
         if (!state) return;
 
-        // Handle freehand drawing
-        if (this.isFreehandDrawing && state.currentTool === this._types.FREEHAND) {
-            this._handleFreehandMove(e);
-            return;
-        }
-
         // Only show preview if we have pending points
         if (state.pendingPoints.length === 0) return;
 
@@ -429,149 +373,19 @@ const DrawingHandler = {
     },
 
     /**
-     * Handle mouse down for freehand drawing
+     * Handle mouse down
      * @param {MouseEvent} e - Mouse event
      */
     handleMouseDown(e) {
-        if (!this.isActive) return;
-
-        const state = window.AnnotationState;
-        if (!state || state.currentTool !== this._types.FREEHAND) return;
-
-        // If no label selected, don't start freehand yet
-        if (!state.selectedLabel) return;
-
-        // Start freehand drawing
-        const coords = window.viewport?.eventToImage(e);
-        if (!coords || !window.viewport?.isWithinBounds(coords.x, coords.y)) return;
-
-        this.isFreehandDrawing = true;
-        state.addPendingPoint(coords.x, coords.y);
-
-        e.preventDefault();
+        // No special handling needed without freehand
     },
 
     /**
-     * Handle mouse up to complete freehand drawing
+     * Handle mouse up
      * @param {MouseEvent} e - Mouse event
      */
     handleMouseUp(e) {
-        if (!this.isActive) return;
-
-        const state = window.AnnotationState;
-        if (!state) return;
-
-        // Complete freehand drawing on mouse up
-        if (this.isFreehandDrawing && state.currentTool === this._types.FREEHAND) {
-            this.isFreehandDrawing = false;
-
-            if (state.pendingPoints.length >= this.MIN_FREEHAND_POINTS) {
-                // Simplify the path before saving
-                this._simplifyFreehandPath();
-                this.completeAnnotation();
-            } else {
-                // Not enough points, cancel
-                state.clearPending();
-                this._triggerRender();
-            }
-        }
-    },
-
-    /**
-     * Handle freehand drawing movement
-     * @private
-     * @param {MouseEvent} e - Mouse event
-     */
-    _handleFreehandMove(e) {
-        const coords = window.viewport?.eventToImage(e);
-        if (!coords) return;
-
-        const state = window.AnnotationState;
-        if (!state) return;
-
-        // Add point if it's far enough from the last point
-        const lastPoint = state.pendingPoints[state.pendingPoints.length - 1];
-        if (lastPoint) {
-            const dist = this._distance(coords, lastPoint);
-            // Only add point if it's at least FREEHAND_POINT_SPACING pixels away (in image space)
-            if (dist >= this.FREEHAND_POINT_SPACING) {
-                state.addPendingPoint(coords.x, coords.y);
-                this._triggerRender();
-            }
-        }
-    },
-
-    /**
-     * Simplify freehand path using Ramer-Douglas-Peucker algorithm
-     * @private
-     */
-    _simplifyFreehandPath() {
-        const state = window.AnnotationState;
-        if (!state || state.pendingPoints.length < 3) return;
-
-        const epsilon = this.FREEHAND_SIMPLIFY_TOLERANCE;
-        const simplified = this._rdpSimplify(state.pendingPoints, epsilon);
-
-        // Replace pending points with simplified version
-        state.pendingPoints = simplified;
-    },
-
-    /**
-     * Ramer-Douglas-Peucker line simplification algorithm
-     * @private
-     * @param {Array<{x: number, y: number}>} points - Points to simplify
-     * @param {number} epsilon - Tolerance
-     * @returns {Array<{x: number, y: number}>} Simplified points
-     */
-    _rdpSimplify(points, epsilon) {
-        if (points.length <= 2) return points;
-
-        // Find the point with the maximum distance from the line
-        let maxDist = 0;
-        let maxIndex = 0;
-        const start = points[0];
-        const end = points[points.length - 1];
-
-        for (let i = 1; i < points.length - 1; i++) {
-            const dist = this._perpendicularDistance(points[i], start, end);
-            if (dist > maxDist) {
-                maxDist = dist;
-                maxIndex = i;
-            }
-        }
-
-        // If max distance is greater than epsilon, recursively simplify
-        if (maxDist > epsilon) {
-            const left = this._rdpSimplify(points.slice(0, maxIndex + 1), epsilon);
-            const right = this._rdpSimplify(points.slice(maxIndex), epsilon);
-
-            // Combine results (remove duplicate point)
-            return [...left.slice(0, -1), ...right];
-        } else {
-            // Return only the endpoints
-            return [start, end];
-        }
-    },
-
-    /**
-     * Calculate perpendicular distance from point to line
-     * @private
-     */
-    _perpendicularDistance(point, lineStart, lineEnd) {
-        const dx = lineEnd.x - lineStart.x;
-        const dy = lineEnd.y - lineStart.y;
-        const lineLengthSquared = dx * dx + dy * dy;
-
-        if (lineLengthSquared === 0) {
-            return this._distance(point, lineStart);
-        }
-
-        const t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / lineLengthSquared;
-
-        return this._distance(point, {
-            x: lineStart.x + t * dx,
-            y: lineStart.y + t * dy
-        });
+        // No special handling needed without freehand
     },
 
     // ========================================================================
@@ -635,18 +449,6 @@ const DrawingHandler = {
 
         if (!coords) return;
 
-        // Handle freehand drawing
-        if (this.isFreehandDrawing && state.currentTool === this._types.FREEHAND) {
-            e.preventDefault();
-
-            const lastPoint = state.pendingPoints[state.pendingPoints.length - 1];
-            if (lastPoint && this._distance(coords, lastPoint) >= this.FREEHAND_POINT_SPACING) {
-                state.addPendingPoint(coords.x, coords.y);
-                this._triggerRender();
-            }
-            return;
-        }
-
         // Update preview point
         if (state.pendingPoints.length > 0) {
             this.previewPoint = coords;
@@ -663,20 +465,6 @@ const DrawingHandler = {
 
         const state = window.AnnotationState;
         if (!state) return;
-
-        // Complete freehand drawing
-        if (this.isFreehandDrawing && state.currentTool === this._types.FREEHAND) {
-            this.isFreehandDrawing = false;
-
-            if (state.pendingPoints.length >= this.MIN_FREEHAND_POINTS) {
-                this._simplifyFreehandPath();
-                this.completeAnnotation();
-            } else {
-                state.clearPending();
-                this._triggerRender();
-            }
-            return;
-        }
 
         // For click-based tools on touch, we use touchend to trigger the click logic
         if (e.changedTouches.length === 1 && state.pendingPoints.length === 0) {
@@ -696,7 +484,7 @@ const DrawingHandler = {
                 state.addPendingPoint(coords.x, coords.y);
 
                 // Check if we can complete
-                if (state.canComplete() && state.currentTool !== this._types.POLYGON && state.currentTool !== this._types.FREEHAND) {
+                if (state.canComplete() && state.currentTool !== this._types.POLYGON) {
                     this.completeAnnotation();
                 } else {
                     this._triggerRender();
@@ -841,9 +629,7 @@ const DrawingHandler = {
         this._triggerRender();
 
         // Log what was cancelled
-        if (state.currentTool === this._types.TAG) {
-            window.Debug?.log('DrawingHandler', 'Tag creation cancelled');
-        } else if (hadPendingPoints || hadPendingType) {
+        if (hadPendingPoints || hadPendingType) {
             window.Debug?.log('DrawingHandler', 'Annotation creation cancelled - pending annotation deleted');
             window.showMessage?.('Annotation cancelled', 'info');
         }
@@ -867,9 +653,9 @@ const DrawingHandler = {
 
         // Check if points are required for this tool type
         const required = window.ClicksRequired?.[tool] ?? -1;
-        
-        // Tags (required === 0) don't need points, all other types need at least one
-        if (required !== 0 && points.length === 0) {
+
+        // All types need at least one point
+        if (points.length === 0) {
             window.showMessage?.('No points recorded', 'error');
             return;
         }
@@ -891,11 +677,6 @@ const DrawingHandler = {
                     screenX = rect.left + display.x;
                     screenY = rect.top + display.y;
                 }
-            } else if (window.DOM?.imageContainer) {
-                // For tags (no points), center of container
-                const rect = window.DOM.imageContainer.getBoundingClientRect();
-                screenX = rect.left + rect.width / 2;
-                screenY = rect.top + rect.height / 2;
             }
 
             // Show popup - Pass NULL for coords to indicate we aren't adding a new point
@@ -912,7 +693,7 @@ const DrawingHandler = {
         }
 
         // Build annotation data based on type
-        const data = this.buildAnnotationData(tool, points);
+        const data = this.buildAnnotationData(tool, points, label);
 
         // Validate the data
         const validation = window.validateAnnotationData?.(tool, data);
@@ -998,7 +779,6 @@ const DrawingHandler = {
         state.clearPending();
         state.selectedLabel = null;
         this.previewPoint = null;
-        this.isFreehandDrawing = false;
         this.lastClickTime = 0;
         this.lastClickCoords = null;
 
@@ -1017,9 +797,10 @@ const DrawingHandler = {
      * Build annotation data from collected points
      * @param {string} type - Annotation type
      * @param {Array<{x: number, y: number}>} points - Collected points
+     * @param {string} [label] - Label name (used for tag value)
      * @returns {Object} Annotation data object
      */
-    buildAnnotationData(type, points) {
+    buildAnnotationData(type, points, label) {
         switch (type) {
             case 'point':
                 return {
@@ -1065,16 +846,6 @@ const DrawingHandler = {
                     points: points.map(p => ({ x: p.x, y: p.y })),
                     closed: true
                 };
-
-            case 'freehand':
-                return {
-                    points: points.map(p => ({ x: p.x, y: p.y })),
-                    closed: false
-                };
-
-            case 'tag':
-                // Tag has no geometric data
-                return {};
 
             default:
                 window.Debug?.warn('DrawingHandler', `Unknown type: ${type}`);
@@ -1151,6 +922,21 @@ const DrawingHandler = {
             const annotations = window.AnnotationState?.annotations || window.STATE?.annotations || {};
             const calibration = window.AnnotationState?.calibration?.pixelsPerMm || null;
             window.annotationRenderer.render(annotations, calibration);
+
+            // Render preview of in-progress annotation
+            const state = window.AnnotationState;
+            if (state && state.pendingPoints.length > 0) {
+                const tool = state.pendingType || state.currentTool;
+                const color = state.selectedLabel
+                    ? this.getColorForLabel(state.selectedLabel)
+                    : '#666666';
+                window.annotationRenderer.renderPreview(
+                    tool,
+                    state.pendingPoints,
+                    this.previewPoint,
+                    color
+                );
+            }
         } else if (typeof window.scheduleRender === 'function') {
             window.scheduleRender();
         } else if (typeof window.renderAnnotations === 'function') {
@@ -1178,8 +964,7 @@ const DrawingHandler = {
      */
     isDrawingInProgress() {
         const state = window.AnnotationState;
-        return this.isActive && state &&
-            (state.pendingPoints.length > 0 || this.isFreehandDrawing);
+        return this.isActive && state && state.pendingPoints.length > 0;
     }
 };
 

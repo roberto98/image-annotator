@@ -20,7 +20,6 @@ const DOM = {
     zoomIn: document.getElementById('zoomIn'),
     zoomOut: document.getElementById('zoomOut'),
     resetView: document.getElementById('resetView'),
-    toggleCenters: document.getElementById('toggleCenters'),
     
     // Status indicators
     modeIndicator: document.getElementById('modeIndicator'),
@@ -33,7 +32,6 @@ const DOM = {
     circleToolBtn: document.getElementById('circleToolBtn'),
     rectangleToolBtn: document.getElementById('rectangleToolBtn'),
     angleToolBtn: document.getElementById('angleToolBtn'),
-    freehandToolBtn: document.getElementById('freehandToolBtn'),
     
     // Legacy figure tool button (may not exist in new UI)
     figureToolBtn: document.getElementById('figureToolBtn'),

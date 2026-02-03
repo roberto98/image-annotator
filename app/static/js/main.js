@@ -309,15 +309,12 @@ const App = {
                     '4': 'rectangle',
                     '5': 'angle',
                     '6': 'polygon',
-                    '7': 'freehand',
-                    't': 'tag',
                     'p': 'point',
                     'l': 'line',
                     'c': 'circle',
                     'r': 'rectangle',
                     'a': 'angle',
-                    'g': 'polygon',
-                    'f': 'freehand'
+                    'g': 'polygon'
                 };
 
                 const tool = shortcuts[e.key.toLowerCase()];
@@ -402,6 +399,13 @@ const App = {
         // Update legacy STATE for compatibility
         if (window.STATE) {
             window.STATE.isAnnotationMode = !window.STATE.isAnnotationMode;
+        }
+
+        // Deactivate DrawingHandler when switching to Navigation mode
+        const isAnnotationMode = window.AnnotationState?.isAnnotationMode ??
+            window.STATE?.isAnnotationMode ?? true;
+        if (!isAnnotationMode) {
+            window.DrawingHandler?.deactivate?.();
         }
 
         // Update mode indicator UI

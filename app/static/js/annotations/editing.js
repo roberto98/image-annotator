@@ -214,13 +214,9 @@ const EditingHandler = {
      * Save current state to history
      */
     _saveToHistory() {
-        const state = this._getState();
-        if (state.saveToHistory) {
-            state.saveToHistory();
-        } else if (typeof window.saveToHistory === 'function') {
+        // Delegate to global saveToHistory which handles AnnotationState/AppStore priority
+        if (typeof window.saveToHistory === 'function') {
             window.saveToHistory();
-        } else if (window.AppStore?.saveToHistory) {
-            window.AppStore.saveToHistory();
         }
     },
     
@@ -1165,50 +1161,28 @@ const EditingHandler = {
      * Undo last change
      */
     undo() {
-        const state = this._getState();
-        
-        // Try AnnotationState's undo first
-        if (state.undo && state.undo()) {
-            this._render();
-            window.showMessage?.('Undo successful', 'success');
-            
-            // Sync with server
-            this._syncAfterUndo();
-            return;
-        }
-        
-        // Fall back to legacy history if available
+        // Delegate to global undo function which handles AnnotationState/AppStore priority
         if (typeof window.undo === 'function') {
             window.undo();
-            return;
+            // Sync with server after undo
+            this._syncAfterUndo();
+        } else {
+            window.showMessage?.('Nothing to undo', 'info');
         }
-        
-        window.showMessage?.('Nothing to undo', 'info');
     },
-    
+
     /**
      * Redo last undone change
      */
     redo() {
-        const state = this._getState();
-        
-        // Try AnnotationState's redo first
-        if (state.redo && state.redo()) {
-            this._render();
-            window.showMessage?.('Redo successful', 'success');
-            
-            // Sync with server
-            this._syncAfterUndo();
-            return;
-        }
-        
-        // Fall back to legacy redo if available
+        // Delegate to global redo function which handles AnnotationState/AppStore priority
         if (typeof window.redo === 'function') {
             window.redo();
-            return;
+            // Sync with server after redo
+            this._syncAfterUndo();
+        } else {
+            window.showMessage?.('Nothing to redo', 'info');
         }
-        
-        window.showMessage?.('Nothing to redo', 'info');
     },
     
     /**

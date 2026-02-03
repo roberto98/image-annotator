@@ -143,23 +143,46 @@ function showMessage(text, type = 'info', duration = 3000) {
 }
 
 function saveToHistory() {
-    window.AppStore.saveToHistory();
+    // Use AnnotationState if available, fall back to AppStore for legacy compatibility
+    if (window.AnnotationState?.saveToHistory) {
+        window.AnnotationState.saveToHistory();
+    } else if (window.AppStore?.saveToHistory) {
+        window.AppStore.saveToHistory();
+    }
     updateUndoRedoButtons();
 }
 
 function undo() {
-    if (window.AppStore.undo()) {
-        forceRender();
-        updateUndoRedoButtons();
-        showMessage('Undo successful', 'success');
+    // Use AnnotationState if available, fall back to AppStore for legacy compatibility
+    if (window.AnnotationState?.undo) {
+        if (window.AnnotationState.undo()) {
+            forceRender();
+            updateUndoRedoButtons();
+            showMessage('Undo successful', 'success');
+        }
+    } else if (window.AppStore?.undo) {
+        if (window.AppStore.undo()) {
+            forceRender();
+            updateUndoRedoButtons();
+            showMessage('Undo successful', 'success');
+        }
     }
 }
 
 function redo() {
-    if (window.AppStore.redo()) {
-        forceRender();
-        updateUndoRedoButtons();
-        showMessage('Redo successful', 'success');
+    // Use AnnotationState if available, fall back to AppStore for legacy compatibility
+    if (window.AnnotationState?.redo) {
+        if (window.AnnotationState.redo()) {
+            forceRender();
+            updateUndoRedoButtons();
+            showMessage('Redo successful', 'success');
+        }
+    } else if (window.AppStore?.redo) {
+        if (window.AppStore.redo()) {
+            forceRender();
+            updateUndoRedoButtons();
+            showMessage('Redo successful', 'success');
+        }
     }
 }
 
@@ -168,8 +191,16 @@ function updateUndoRedoButtons() {
     const redoBtn = document.getElementById('redoBtn');
 
     if (undoBtn && redoBtn) {
-        undoBtn.disabled = !window.AppStore.canUndo();
-        redoBtn.disabled = !window.AppStore.canRedo();
+        // Use AnnotationState if available, fall back to AppStore
+        const canUndo = window.AnnotationState?.canUndo
+            ? window.AnnotationState.canUndo()
+            : (window.AppStore?.canUndo() ?? false);
+        const canRedo = window.AnnotationState?.canRedo
+            ? window.AnnotationState.canRedo()
+            : (window.AppStore?.canRedo() ?? false);
+
+        undoBtn.disabled = !canUndo;
+        redoBtn.disabled = !canRedo;
     }
 }
 
@@ -197,14 +228,19 @@ function toggleMode() {
         showMessage('Cannot switch modes while drawing', 'warning');
         return;
     }
-    
+
     STATE.isAnnotationMode = !STATE.isAnnotationMode;
-    
+
+    // Deactivate DrawingHandler when switching to Navigation mode
+    if (!STATE.isAnnotationMode) {
+        window.DrawingHandler?.deactivate?.();
+    }
+
     // Also sync to AnnotationState if it exists
     if (window.AnnotationState) {
         window.AnnotationState.isAnnotationMode = STATE.isAnnotationMode;
     }
-    
+
     updateModeDisplay();
     
     // Update figure interactivity when mode changes
@@ -227,15 +263,3 @@ function updateModeDisplay() {
     DOM.modeIndicator.setAttribute('data-mode', STATE.isAnnotationMode ? 'annotation' : 'panning');
 }
 
-function toggleCenterIndicators() {
-    STATE.showCenterIndicators = !STATE.showCenterIndicators;
-
-    document.querySelectorAll('.center-indicator').forEach(indicator => {
-        indicator.classList.toggle('always-visible', STATE.showCenterIndicators);
-    });
-
-    DOM.toggleCenters.style.background = STATE.showCenterIndicators ? '#5a3db8' : '#667eea';
-    DOM.toggleCenters.style.opacity = STATE.showCenterIndicators ? '1' : '0.7';
-
-    showMessage(`Center indicators ${STATE.showCenterIndicators ? 'enabled' : 'disabled'}`, 'info', 1000);
-}

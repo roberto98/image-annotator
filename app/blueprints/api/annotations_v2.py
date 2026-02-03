@@ -8,8 +8,6 @@ Supported annotation types:
 - Circle: Center point and radius
 - Rectangle: Two corner points (topLeft, bottomRight)
 - Angle: Three points (point1, vertex, point2) with angle in degrees
-- Tag: Classification tag without coordinates
-- Freehand: Array of points for freehand drawing
 """
 
 from datetime import datetime, timezone
@@ -38,8 +36,6 @@ VALID_ANNOTATION_TYPES = {
     "circle",
     "rectangle",
     "angle",
-    "tag",
-    "freehand",
 }
 DEFAULT_CATEGORIES = ["anatomy", "pathology", "measurement", "other"]
 
@@ -179,8 +175,6 @@ def _validate_annotation_data(
         "circle": _validate_circle_data,
         "rectangle": _validate_rectangle_data,
         "angle": _validate_angle_data,
-        "tag": _validate_tag_data,
-        "freehand": _validate_freehand_data,
     }
 
     validator = validators.get(annotation_type)
@@ -296,22 +290,6 @@ def _validate_angle_data(data: Dict[str, Any]) -> Tuple[bool, str]:
             return False, error
 
     return True, ""
-
-
-def _validate_tag_data(data: Dict[str, Any]) -> Tuple[bool, str]:
-    """Validate Tag annotation data: { value: string }"""
-    if "value" not in data:
-        return False, "tag data must have 'value' property"
-    if not isinstance(data["value"], str):
-        return False, "tag value must be a string"
-    return True, ""
-
-
-def _validate_freehand_data(data: Dict[str, Any]) -> Tuple[bool, str]:
-    """Validate Freehand annotation data: { points: [{x, y}, ...] }"""
-    if "points" not in data:
-        return False, "freehand data must have 'points' property"
-    return _validate_points_array(data["points"], "points", min_count=2)
 
 
 def _calculate_line_length(

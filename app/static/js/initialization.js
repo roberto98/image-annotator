@@ -162,7 +162,6 @@ function setupEventListeners() {
     DOM.zoomIn.addEventListener('click', zoomIn);
     DOM.zoomOut.addEventListener('click', zoomOut);
     DOM.resetView.addEventListener('click', resetView);
-    DOM.toggleCenters.addEventListener('click', toggleCenterIndicators);
 
     // Undo/Redo
     document.getElementById('undoBtn').addEventListener('click', undo);
@@ -295,14 +294,30 @@ function setupEventListeners() {
 function initializeApp() {
     try {
         console.log('[Initialization] Starting initialization...');
-        
+
+        // Log available globals for debugging
+        console.log('[Initialization] Globals check:', {
+            viewport: typeof window.viewport,
+            AnnotationStore: typeof window.AnnotationStore,
+            AnnotationState: typeof window.AnnotationState,
+            AppStore: typeof window.AppStore,
+            STATE: typeof window.STATE,
+            Store: typeof window.Store,
+            DOM: typeof window.DOM,
+            annotationRenderer: typeof window.annotationRenderer,
+            DrawingHandler: typeof window.DrawingHandler,
+            EditingHandler: typeof window.EditingHandler,
+            LabelSelector: typeof window.LabelSelector,
+        });
+
         // Verify viewport exists and is properly linked
         if (typeof viewport === 'undefined' || !viewport) {
             console.error('[Initialization] viewport is not defined!');
             throw new Error('viewport is not defined');
         }
         console.log('[Initialization] viewport object:', viewport);
-        
+
+        // Parse template data
         const templateDataElement = document.getElementById('template-data');
         if (templateDataElement) {
             try {
@@ -313,51 +328,80 @@ function initializeApp() {
                 window.figuresData = templateData.figuresData;
                 window.patientId = templateData.patientId;
                 window.imageName = templateData.imageName;
-                console.log('[Initialization] Template data loaded');
+                console.log('[Initialization] Template data loaded:', {
+                    annotationCount: Object.keys(templateData.currentAnnotations || {}).length,
+                    landmarksCount: (templateData.landmarksData || []).length,
+                    patientId: templateData.patientId,
+                    imageName: templateData.imageName
+                });
             } catch (e) {
                 console.error('[Initialization] Error parsing template data:', e);
             }
+        } else {
+            console.warn('[Initialization] No template-data element found');
         }
 
-        // Link viewport to globals after STATE and DOM are ready
+        // Link viewport to globals (deprecated but kept for compatibility)
         if (typeof linkViewportToGlobals === 'function') {
+            console.log('[Initialization] Calling linkViewportToGlobals...');
             linkViewportToGlobals();
         }
-        
+
+        // Setup reactive rendering (subscribes to AppStore state changes)
         if (typeof setupReactiveRendering === 'function') {
+            console.log('[Initialization] Setting up reactive rendering...');
             setupReactiveRendering();
+            console.log('[Initialization] Reactive rendering setup complete');
+        } else {
+            console.warn('[Initialization] setupReactiveRendering not available');
         }
-        
-        // Only setup figure event delegation if the legacy handlers exist
+
+        // Setup figure event delegation if available
         if (typeof setupFigureEventDelegation === 'function') {
+            console.log('[Initialization] Setting up figure event delegation...');
             setupFigureEventDelegation();
         }
-        
+
         if (typeof setupLabelListEventDelegation === 'function') {
+            console.log('[Initialization] Setting up label list event delegation...');
             setupLabelListEventDelegation();
         }
 
+        // Load annotations into state
         if (STATE) {
             STATE.annotations = window.currentAnnotations || {};
+            console.log('[Initialization] Loaded', Object.keys(STATE.annotations).length, 'annotations into STATE');
+        } else {
+            console.error('[Initialization] STATE is not available!');
         }
+
         loadFigureLabelsFromAnnotations();
+        console.log('[Initialization] Labels loaded:', STATE?.allLabels?.length || 0, 'labels');
+
         initializeVisibilityToggles();
+        console.log('[Initialization] Visibility toggles initialized');
+
         setupEventListeners();
+        console.log('[Initialization] Event listeners attached');
+
         if (typeof saveToHistory === 'function') {
             saveToHistory();
+            console.log('[Initialization] Initial state saved to history');
         }
 
         // Initialize new annotation system modules
+        console.log('[Initialization] Initializing new annotation system...');
         initializeNewAnnotationSystem();
 
         // Initialize LabelPopup (legacy fallback)
         if (typeof LabelPopup !== 'undefined') {
             LabelPopup.init();
+            console.log('[Initialization] LabelPopup initialized');
         }
 
         // Handle image loading
         if (DOM.img && DOM.img.complete) {
-            console.log('[Initialization] Image already loaded');
+            console.log('[Initialization] Image already loaded, dimensions:', DOM.img.naturalWidth, 'x', DOM.img.naturalHeight);
             handleImageLoad();
         } else if (DOM.img) {
             console.log('[Initialization] Waiting for image to load...');
@@ -377,23 +421,26 @@ function initializeApp() {
         // Set initial mode display
         if (typeof updateModeDisplay === 'function') {
             updateModeDisplay();
+            console.log('[Initialization] Mode display updated');
         }
-        
+
         // Set initial tool to point
         const initialTool = 'point';
         if (window.DrawingHandler) {
             setTimeout(() => {
                 try {
+                    console.log('[Initialization] Setting initial tool to:', initialTool);
                     handleToolButtonClick(initialTool);
                 } catch (e) {
                     console.error('[Initialization] Error setting initial tool:', e);
                 }
             }, 100);
         }
-        
-        console.log('[Initialization] Complete');
+
+        console.log('[Initialization] Complete - application ready');
     } catch (error) {
         console.error('[Initialization] Fatal error:', error);
+        console.error('[Initialization] Error stack:', error.stack);
         if (DOM.loadingOverlay) {
             DOM.loadingOverlay.style.display = 'none';
         }

@@ -20,9 +20,7 @@ const AnnotationType = Object.freeze({
     LINE: 'line',
     CIRCLE: 'circle',
     RECTANGLE: 'rectangle',
-    ANGLE: 'angle',
-    TAG: 'tag',
-    FREEHAND: 'freehand'
+    ANGLE: 'angle'
 });
 
 /**
@@ -36,9 +34,7 @@ const ClicksRequired = Object.freeze({
     [AnnotationType.LINE]: 2,          // Start point, end point
     [AnnotationType.CIRCLE]: 2,        // Center, then edge point
     [AnnotationType.RECTANGLE]: 2,     // Two corners (or center + corner)
-    [AnnotationType.ANGLE]: 3,         // Point1, vertex, point2
-    [AnnotationType.TAG]: 0,           // No clicks needed, metadata only
-    [AnnotationType.FREEHAND]: -1      // Variable, drag-based
+    [AnnotationType.ANGLE]: 3          // Point1, vertex, point2
 });
 
 /**
@@ -51,9 +47,7 @@ const TypeDisplayNames = Object.freeze({
     [AnnotationType.LINE]: 'Line',
     [AnnotationType.CIRCLE]: 'Circle',
     [AnnotationType.RECTANGLE]: 'Rectangle',
-    [AnnotationType.ANGLE]: 'Angle',
-    [AnnotationType.TAG]: 'Tag',
-    [AnnotationType.FREEHAND]: 'Freehand'
+    [AnnotationType.ANGLE]: 'Angle'
 });
 
 /**
@@ -66,9 +60,7 @@ const TypeDefaultColors = Object.freeze({
     [AnnotationType.LINE]: '#0000ff',
     [AnnotationType.CIRCLE]: '#ffff00',
     [AnnotationType.RECTANGLE]: '#ff00ff',
-    [AnnotationType.ANGLE]: '#00ffff',
-    [AnnotationType.TAG]: '#808080',
-    [AnnotationType.FREEHAND]: '#ff8000'
+    [AnnotationType.ANGLE]: '#00ffff'
 });
 
 // ============================================================================
@@ -277,25 +269,6 @@ function validateAnnotationData(type, data) {
             break;
         }
         
-        case AnnotationType.FREEHAND: {
-            // Freehand requires: { points: [{x, y}, ...] } with at least 2 points
-            if (!data.points) {
-                return { valid: false, error: 'Freehand requires points array' };
-            }
-            
-            const pointsResult = validatePointsArray(data.points, 2);
-            if (!pointsResult.valid) {
-                return { valid: false, error: pointsResult.error };
-            }
-            break;
-        }
-        
-        case AnnotationType.TAG: {
-            // Tag has no geometric data requirements
-            // It's metadata-only (label, optional description)
-            break;
-        }
-        
         default:
             return { valid: false, error: `Unknown annotation type: ${type}` };
     }
@@ -364,8 +337,7 @@ function isAreaType(type) {
  */
 function isMultiPointType(type) {
     return [
-        AnnotationType.POLYGON,
-        AnnotationType.FREEHAND
+        AnnotationType.POLYGON
     ].includes(type);
 }
 

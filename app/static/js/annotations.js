@@ -61,6 +61,7 @@ function validateLabelName(name) {
  * @param {boolean} showPopup - Whether to show the label popup (default: true)
  */
 function switchTool(tool, showPopup = true) {
+    console.log('[annotations.js] switchTool:', tool);
     STATE.currentTool = tool;
 
     // Update tool button active states
@@ -69,31 +70,28 @@ function switchTool(tool, showPopup = true) {
     });
 
     // Update sidebar title
-    const modeNames = { landmark: 'Point', polygon: 'Polygon', figure: 'Figure' };
-    DOM.sidebarTitle.textContent = `Labels (${modeNames[tool]} Mode)`;
+    const modeNames = {
+        point: 'Point', landmark: 'Point', polygon: 'Polygon',
+        line: 'Line', circle: 'Circle', rectangle: 'Rectangle',
+        angle: 'Angle'
+    };
+    if (DOM.sidebarTitle) {
+        DOM.sidebarTitle.textContent = `Labels (${modeNames[tool] || tool} Mode)`;
+    }
 
     // Show/hide tool-specific panels
-    DOM.figureConfig.classList.toggle('active', tool === 'figure');
-    DOM.polygonTools.classList.toggle('active', tool === 'polygon');
-
-    // Clear polygon state when switching away from polygon tool
-    if (tool !== 'polygon') {
-        clearPolygonElements();
-        STATE.activePolygonPoints = [];
-    }
+    if (DOM.figureConfig) DOM.figureConfig.classList.toggle('active', false);
+    if (DOM.polygonTools) DOM.polygonTools.classList.toggle('active', tool === 'polygon');
 
     // Ensure we're in annotation mode when switching tools
     if (!STATE.isAnnotationMode) {
         STATE.isAnnotationMode = true;
-        updateModeDisplay();
+        if (typeof updateModeDisplay === 'function') updateModeDisplay();
     }
 
-    // Update figure interactivity based on new tool
-    updateFigureInteractivity();
-
-    // Show label popup centered on screen if requested and no label selected
-    if (showPopup && !STATE.selectedLabel && typeof LabelPopup !== 'undefined') {
-        LabelPopup.showCentered();
+    // Activate the new DrawingHandler if available
+    if (window.DrawingHandler) {
+        window.DrawingHandler.activate(tool);
     }
 
     showMessage(`Switched to ${tool} mode`);
@@ -152,24 +150,20 @@ async function createNewLabel() {
  * @param {string} name - The label name to select
  */
 function selectLabel(name) {
+    console.log('[annotations.js] selectLabel:', name);
     STATE.selectedLabel = name;
-    updateFigureInteractivity();
 
-    // Load existing polygon points if editing a polygon annotation
-    const annotation = STATE.annotations[name];
-    if (annotation && STATE.currentTool === 'polygon' && annotation.type === 'polygon' && annotation.points) {
-        STATE.activePolygonPoints = JSON.parse(JSON.stringify(annotation.points));
-        renderActivePolygon();
-        DOM.completePolyBtn.disabled = false;
-        setPolygonTool('edit');
+    // Sync with new AnnotationState if available
+    if (window.AnnotationState) {
+        window.AnnotationState.selectedAnnotation = name;
     }
 
     // Ensure annotation mode is active
     if (!STATE.isAnnotationMode) {
         STATE.isAnnotationMode = true;
-        updateModeDisplay();
+        if (typeof updateModeDisplay === 'function') updateModeDisplay();
     }
-    
+
     showMessage(`Selected: ${name} (${STATE.currentTool} mode)`);
 }
 
@@ -178,7 +172,9 @@ function selectLabel(name) {
  */
 function deselectLabel() {
     STATE.selectedLabel = null;
-    updateFigureInteractivity();
+    if (window.AnnotationState) {
+        window.AnnotationState.selectedAnnotation = null;
+    }
 }
 
 function toggleVisibility(name) {
@@ -229,20 +225,6 @@ async function markOccluded(name) {
     }
 }
 
-/**
- * Get the API endpoint for an annotation based on its type
- * @param {string} name - The annotation label name
- * @param {Object} annotation - The annotation data object
- * @returns {string} API endpoint path
- */
-function getAnnotationEndpoint(name, annotation) {
-    const typeEndpoints = {
-        polygon: '/api/segments',
-        figure: '/api/figures'
-    };
-    const base = typeEndpoints[annotation?.type] || '/api/landmarks';
-    return `${base}/${window.patientId}/${window.imageName}/${name}`;
-}
 
 /**
  * Delete an annotation after user confirmation
@@ -267,24 +249,31 @@ async function deleteAnnotation(name) {
 
     _isSaving = true;
     try {
-        const endpoint = getAnnotationEndpoint(name, STATE.annotations[name]);
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'remove' })
-        });
-
-        const data = await response.json();
-        if (data.status === 'success') {
-            const { [name]: _, ...rest } = STATE.annotations;
-            STATE.annotations = rest;
-            if (STATE.selectedLabel === name) {
-                STATE.selectedLabel = null;
-                updateFigureInteractivity();
-            }
-            saveToHistory();
-            showMessage(formatSuccessMessage('Deleted', `annotation for ${name}`), 'success');
+        // Use v2 API for deletion
+        if (window.AnnotationAPI?.deleteAnnotation) {
+            await window.AnnotationAPI.deleteAnnotation(
+                window.patientId,
+                window.imageName,
+                name
+            );
+        } else {
+            throw new Error('AnnotationAPI not available');
         }
+
+        // Update both state systems
+        const { [name]: _, ...rest } = STATE.annotations;
+        STATE.annotations = rest;
+        if (STATE.selectedLabel === name) {
+            STATE.selectedLabel = null;
+        }
+
+        // Sync with AnnotationState
+        if (window.AnnotationState?.removeAnnotation) {
+            window.AnnotationState.removeAnnotation(name);
+        }
+
+        saveToHistory();
+        showMessage(formatSuccessMessage('Deleted', `annotation for ${name}`), 'success');
     } catch (error) {
         console.error('Error:', error);
         showMessage(formatErrorMessage('delete', 'annotation', error), 'error');

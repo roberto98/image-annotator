@@ -129,4 +129,8 @@ if (typeof window !== 'undefined') {
     window.resetView = resetView;
     window.applyZoom = applyZoom;
     window.handleWheel = handleWheel;
+    window.MIN_ZOOM = MIN_ZOOM;
+    window.MAX_ZOOM = MAX_ZOOM;
 }
+
+console.log('[zoom.js] Zoom module loaded - ZOOM_FACTOR:', ZOOM_FACTOR, 'MIN_ZOOM:', MIN_ZOOM, 'MAX_ZOOM:', MAX_ZOOM);

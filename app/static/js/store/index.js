@@ -350,13 +350,22 @@ function createStateProxy(storeInstance) {
     });
 }
 
-const store = new Store(INITIAL_STATE);
+// Create legacy Store instance for backward compatibility with STATE proxy
+// NOTE: AnnotationStore.js already declares a `const store` in global scope,
+// so we use a different variable name here to avoid redeclaration errors.
+const _legacyStore = (typeof window !== 'undefined' && window._legacyStore)
+    ? window._legacyStore
+    : new Store(INITIAL_STATE);
+
+console.log('[store/index.js] Legacy store initialized');
 
 if (typeof window !== 'undefined') {
-    window.AppStore = store;
-    window.Store = Store;
+    window._legacyStore = _legacyStore;
+    if (!window.AppStore) window.AppStore = _legacyStore;
+    if (!window.Store) window.Store = Store;
     /** STATE - Single access point for all application state, backed by Store */
-    window.STATE = createStateProxy(store);
-    window.createStateProxy = createStateProxy;
-    window.setStoreDebugMode = setDebugMode;
+    if (!window.STATE) window.STATE = createStateProxy(_legacyStore);
+    if (!window.createStateProxy) window.createStateProxy = createStateProxy;
+    if (!window.setStoreDebugMode) window.setStoreDebugMode = setDebugMode;
+    console.log('[store/index.js] Globals set: AppStore, Store, STATE, createStateProxy, setStoreDebugMode');
 }

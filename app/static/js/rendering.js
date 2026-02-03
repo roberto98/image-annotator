@@ -120,11 +120,11 @@ function renderAnnotations(force = false) {
     if (window.annotationRenderer && window.annotationRenderer._svg) {
         // Build annotations object with visibility filtering
         const visibleAnnotations = {};
-        Object.entries(STATE.annotations).forEach(([name, data], index) => {
+        Object.entries(STATE.annotations).forEach(([name, data]) => {
             if (STATE.visibilityToggles[name] === false) return;
-            
-            // Add color from COLORS array
-            const color = window.COLORS?.[index % (window.COLORS?.length || 1)] || '#ff0000';
+
+            // Get stable color for this label
+            const color = window.getColorForLabel?.(name) || '#ff0000';
             visibleAnnotations[name] = {
                 ...data,
                 color: color
@@ -151,9 +151,10 @@ function renderAnnotations(force = false) {
     // Fallback to legacy DOM-based rendering if SVG renderer not available
     document.querySelectorAll('.annotation-point, .annotation-label, .polygon-shape, .figure-shape').forEach(el => el.remove());
 
-    Object.entries(STATE.annotations).forEach(([name, data], index) => {
+    Object.entries(STATE.annotations).forEach(([name, data]) => {
         if (STATE.visibilityToggles[name] === false) return;
-        renderSingleAnnotationLegacy(name, data, COLORS[index % COLORS.length]);
+        const color = window.getColorForLabel?.(name) || '#ff0000';
+        renderSingleAnnotationLegacy(name, data, color);
     });
 
     if (STATE.currentTool === 'polygon' && STATE.activePolygonPoints?.length > 0) {

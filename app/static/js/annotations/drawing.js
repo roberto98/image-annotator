@@ -877,24 +877,16 @@ const DrawingHandler = {
      */
     getColorForLabel(labelName) {
         // Try to find label in state
+        // Use stable color assignment based on label name
+        if (window.getColorForLabel && labelName) {
+            return window.getColorForLabel(labelName);
+        }
+
+        // Check if label has a specific color assigned
         const state = window.AnnotationState;
         if (state?.labels) {
             const label = state.labels.find(l => l.name === labelName);
             if (label?.color) return label.color;
-        }
-
-        // Try main STATE
-        if (window.STATE?.allLabels) {
-            const index = window.STATE.allLabels.findIndex(l => l.name === labelName);
-            if (index >= 0 && window.COLORS) {
-                return window.COLORS[index % window.COLORS.length];
-            }
-        }
-
-        // Get type default color
-        const tool = state?.currentTool;
-        if (tool && window.getTypeDefaultColor) {
-            return window.getTypeDefaultColor(tool);
         }
 
         // Fallback
@@ -914,31 +906,16 @@ const DrawingHandler = {
 
     /**
      * Trigger a render of the annotations
+     * Uses the central rendering pipeline to ensure visibility filters and
+     * consistent colors are applied
      * @private
      */
     _triggerRender() {
-        // Try new renderer singleton first
-        if (window.annotationRenderer?.render) {
-            const annotations = window.AnnotationState?.annotations || window.STATE?.annotations || {};
-            const calibration = window.AnnotationState?.calibration?.pixelsPerMm || null;
-            window.annotationRenderer.render(annotations, calibration);
-
-            // Render preview of in-progress annotation
-            const state = window.AnnotationState;
-            if (state && state.pendingPoints.length > 0) {
-                const tool = state.pendingType || state.currentTool;
-                const color = state.selectedLabel
-                    ? this.getColorForLabel(state.selectedLabel)
-                    : '#666666';
-                window.annotationRenderer.renderPreview(
-                    tool,
-                    state.pendingPoints,
-                    this.previewPoint,
-                    color
-                );
-            }
+        // Use the central render pipeline to ensure visibility filtering and colors
+        if (typeof window.forceRender === 'function') {
+            window.forceRender();
         } else if (typeof window.scheduleRender === 'function') {
-            window.scheduleRender();
+            window.scheduleRender(true);
         } else if (typeof window.renderAnnotations === 'function') {
             window.renderAnnotations(true);
         }

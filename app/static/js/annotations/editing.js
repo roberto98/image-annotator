@@ -222,17 +222,17 @@ const EditingHandler = {
     
     /**
      * Trigger a render update
+     * Uses the central rendering pipeline to ensure visibility filters and
+     * consistent colors are applied
      */
     _render() {
-        // Use new renderer singleton first
-        if (window.annotationRenderer?.render) {
-            const annotations = window.AnnotationState?.annotations || window.STATE?.annotations || {};
-            const calibration = window.AnnotationState?.calibration?.pixelsPerMm || null;
-            window.annotationRenderer.render(annotations, calibration);
-        } else if (typeof window.renderAnnotations === 'function') {
-            window.renderAnnotations();
+        // Use the central render pipeline to ensure visibility filtering and colors
+        if (typeof window.forceRender === 'function') {
+            window.forceRender();
         } else if (typeof window.scheduleRender === 'function') {
-            window.scheduleRender();
+            window.scheduleRender(true);
+        } else if (typeof window.renderAnnotations === 'function') {
+            window.renderAnnotations(true);
         }
     },
     

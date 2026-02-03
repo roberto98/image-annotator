@@ -35,7 +35,6 @@ const LabelSelector = {
     _boundSearchKeyDownHandler: null,
     _boundClearBtnHandler: null,
     _boundCancelBtnHandler: null,
-    _boundCreateBtnHandler: null,
     _boundCategoriesClickHandler: null,
     _boundElementMouseDownHandler: null,
     _boundElementTouchStartHandler: null,
@@ -153,13 +152,6 @@ const LabelSelector = {
                     <span class="hint-key">Esc</span> Cancel
                 </div>
                 <div class="label-selector-actions">
-                    <button class="label-selector-create" data-action="create">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                        Create New
-                    </button>
                     <button class="label-selector-cancel" data-action="cancel">Cancel</button>
                 </div>
             </div>
@@ -192,11 +184,6 @@ const LabelSelector = {
         const cancelBtn = this.element.querySelector('.label-selector-cancel');
         this._boundCancelBtnHandler = () => this.cancel();
         cancelBtn.addEventListener('click', this._boundCancelBtnHandler);
-
-        // Create New button
-        const createBtn = this.element.querySelector('.label-selector-create');
-        this._boundCreateBtnHandler = () => this.showCreateNewLabel();
-        createBtn.addEventListener('click', this._boundCreateBtnHandler);
 
         // Category header clicks (delegation)
         const categoriesContainer = this.element.querySelector('.label-selector-categories');
@@ -271,7 +258,6 @@ const LabelSelector = {
             const searchInput = this.element.querySelector('.label-selector-search');
             const clearBtn = this.element.querySelector('.label-selector-clear');
             const cancelBtn = this.element.querySelector('.label-selector-cancel');
-            const createBtn = this.element.querySelector('.label-selector-create');
             const categoriesContainer = this.element.querySelector('.label-selector-categories');
 
             if (searchInput && this._boundSearchInputHandler) {
@@ -285,9 +271,6 @@ const LabelSelector = {
             }
             if (cancelBtn && this._boundCancelBtnHandler) {
                 cancelBtn.removeEventListener('click', this._boundCancelBtnHandler);
-            }
-            if (createBtn && this._boundCreateBtnHandler) {
-                createBtn.removeEventListener('click', this._boundCreateBtnHandler);
             }
             if (categoriesContainer && this._boundCategoriesClickHandler) {
                 categoriesContainer.removeEventListener('click', this._boundCategoriesClickHandler);
@@ -308,7 +291,6 @@ const LabelSelector = {
         this._boundSearchKeyDownHandler = null;
         this._boundClearBtnHandler = null;
         this._boundCancelBtnHandler = null;
-        this._boundCreateBtnHandler = null;
         this._boundCategoriesClickHandler = null;
         this._boundElementMouseDownHandler = null;
         this._boundElementTouchStartHandler = null;
@@ -419,72 +401,6 @@ const LabelSelector = {
         this.hide();
         if (typeof callback === 'function') {
             callback();
-        }
-    },
-
-    /**
-     * Show create new label prompt
-     */
-    async showCreateNewLabel() {
-        const searchInput = this.element.querySelector('.label-selector-search');
-        const currentQuery = searchInput.value.trim();
-
-        // Prompt user for label name (with search query as default)
-        const labelName = prompt('Enter new label name:', currentQuery || '');
-
-        if (!labelName || !labelName.trim()) {
-            // User cancelled or entered empty name
-            searchInput.focus();
-            return;
-        }
-
-        const trimmedName = labelName.trim();
-
-        // Check if label already exists
-        const labels = window.AnnotationState?.labels || window.STATE?.allLabels || [];
-        if (labels.some(l => l.name === trimmedName)) {
-            window.showMessage?.(`Label "${trimmedName}" already exists`, 'warning');
-            searchInput.focus();
-            return;
-        }
-
-        try {
-            // Create the label via API
-            const response = await fetch('/api/landmarks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ landmark_name: trimmedName })
-            });
-
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                // Update state
-                if (window.AnnotationState) {
-                    window.AnnotationState.labels = [
-                        ...window.AnnotationState.labels,
-                        { name: trimmedName, in_use: false, annotated_count: 0, total_count: 0, type: 'generic' }
-                    ].sort((a, b) => a.name.localeCompare(b.name));
-                }
-
-                if (window.STATE) {
-                    window.STATE.allLabels = [
-                        ...window.STATE.allLabels,
-                        { name: trimmedName, in_use: false, annotated_count: 0, total_count: 0, type: 'generic' }
-                    ].sort((a, b) => a.name.localeCompare(b.name));
-                }
-
-                window.showMessage?.(`Created label "${trimmedName}"`, 'success');
-
-                // Immediately select the newly created label
-                this.selectLabel(trimmedName);
-            } else {
-                throw new Error(data.message || 'Failed to create label');
-            }
-        } catch (error) {
-            console.error('Error creating label:', error);
-            window.showMessage?.(`Failed to create label: ${error.message}`, 'error');
-            searchInput.focus();
         }
     },
 

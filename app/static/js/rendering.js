@@ -49,13 +49,32 @@ function forceRender() {
  * renderAnnotations() or renderLabelList() calls are needed.
  */
 function setupReactiveRendering() {
+    console.log('[rendering.js] setupReactiveRendering called');
+
     // Clean up existing subscription if present (prevents memory leak on re-init)
     if (_renderingUnsubscribe) {
+        console.log('[rendering.js] Cleaning up existing rendering subscription');
         _renderingUnsubscribe();
     }
+
+    if (!window.AppStore) {
+        console.error('[rendering.js] window.AppStore is undefined! Cannot set up reactive rendering.');
+        console.error('[rendering.js] Available globals: AppStore=', typeof window.AppStore,
+            'AnnotationStore=', typeof window.AnnotationStore,
+            'Store=', typeof window.Store,
+            'STATE=', typeof window.STATE);
+        return;
+    }
+
+    if (typeof window.AppStore.subscribe !== 'function') {
+        console.error('[rendering.js] window.AppStore.subscribe is not a function! AppStore type:', typeof window.AppStore);
+        return;
+    }
+
     _renderingUnsubscribe = window.AppStore.subscribe(() => {
         scheduleRender();
     });
+    console.log('[rendering.js] Reactive rendering subscription active');
 }
 
 /**
@@ -266,7 +285,6 @@ function renderFigureLegacy(data, color, name) {
     }
 
     figure.classList.add(isInteractive ? 'interactive' : 'non-interactive');
-    addCenterIndicatorLegacy(figure);
 
     DOM.imageContainer.appendChild(figure);
 
@@ -315,15 +333,6 @@ function addResizeHandlesLegacy(figure, isInteractive) {
     });
 }
 
-function addCenterIndicatorLegacy(figure) {
-    const centerIndicator = document.createElement('div');
-    centerIndicator.className = 'center-indicator';
-    centerIndicator.style.cssText = 'left: 50%; top: 50%; transform: translate(-50%, -50%)';
-    if (STATE.showCenterIndicators) {
-        centerIndicator.classList.add('always-visible');
-    }
-    figure.appendChild(centerIndicator);
-}
 
 // ============================================================================
 // Label List Rendering (unchanged - not part of SVG layer)
@@ -354,9 +363,7 @@ function getTypeBadgeHtml(type) {
         line: '<span class="type-badge badge-line">Line</span>',
         circle: '<span class="type-badge badge-circle">Circle</span>',
         rectangle: '<span class="type-badge badge-rect">Rectangle</span>',
-        angle: '<span class="type-badge badge-angle">Angle</span>',
-        freehand: '<span class="type-badge badge-freehand">Freehand</span>',
-        tag: '<span class="type-badge badge-tag">Tag</span>'
+        angle: '<span class="type-badge badge-angle">Angle</span>'
     };
     return badges[type] || '<span class="type-badge badge-landmark">Point</span>';
 }
@@ -398,10 +405,6 @@ function getAnnotationInfoText(annotation) {
             return m.formatted?.angle || '';
         }
     }
-    if (annotation.type === 'tag') {
-        // Tags have no geometric data, just show "Image label"
-        return 'Image label';
-    }
     return '';
 }
 
@@ -411,6 +414,23 @@ function renderLabelList() {
     RENDER_STATE.labelListHash = currentHash;
 
     const fragment = document.createDocumentFragment();
+
+    // Add annotation count summary at the top
+    const annotatedCount = Object.keys(STATE.annotations).length;
+    const totalLabels = STATE.allLabels.length;
+
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'annotation-summary';
+    summaryDiv.innerHTML = `
+        <div class="summary-text">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4"/>
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+            </svg>
+            <span><strong>${annotatedCount}</strong> of <strong>${totalLabels}</strong> labels annotated</span>
+        </div>
+    `;
+    fragment.appendChild(summaryDiv);
 
     STATE.allLabels.forEach((label) => {
         const annotation = STATE.annotations[label.name];
@@ -442,8 +462,6 @@ function renderLabelList() {
             ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
             : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 
-        const showOccludedBtn = !annotation || !annotation.type || (annotation.type !== 'polygon' && annotation.type !== 'figure');
-
         // Use data attributes instead of inline onclick handlers (XSS prevention)
         // Event delegation handles clicks on the label list container
         labelDiv.dataset.label = label.name;
@@ -470,8 +488,6 @@ function renderLabelList() {
             </div>
             ${safeInfoText ? `<div class="label-info">${safeInfoText}</div>` : ''}
             <div class="label-actions">
-                <button class="action-btn btn-annotate" data-action="select" data-label="${safeName}">Select</button>
-                ${showOccludedBtn ? `<button class="action-btn btn-occluded" data-action="occluded" data-label="${safeName}">Occluded</button>` : ''}
                 <button class="action-btn btn-delete" data-action="delete" data-label="${safeName}">Delete</button>
             </div>
         `;
@@ -508,14 +524,8 @@ function setupLabelListEventDelegation() {
         if (!label) return;
 
         switch (action) {
-            case 'select':
-                selectLabel(label);
-                break;
             case 'toggle-visibility':
                 toggleVisibility(label);
-                break;
-            case 'occluded':
-                markOccluded(label);
                 break;
             case 'delete':
                 deleteAnnotation(label);
@@ -692,9 +702,6 @@ function renderDrawingPreview() {
             break;
         case 'polygon':
             renderPolygonPreview(points, previewPoint, color);
-            break;
-        case 'freehand':
-            renderFreehandPreview(points, color);
             break;
     }
     
@@ -972,43 +979,6 @@ function renderPolygonPreview(points, previewPoint, color) {
 }
 
 /**
- * Render freehand annotation preview
- */
-function renderFreehandPreview(points, color) {
-    if (points.length < 2) return;
-    
-    // Create SVG for freehand path
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'drawing-preview-freehand');
-    svg.style.position = 'absolute';
-    svg.style.top = '0';
-    svg.style.left = '0';
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    svg.style.pointerEvents = 'none';
-    svg.style.zIndex = '15';
-    
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    
-    // Build path data
-    const displayPoints = points.map(p => viewport.imageToDisplay(p.x, p.y));
-    let d = `M ${displayPoints[0].x} ${displayPoints[0].y}`;
-    for (let i = 1; i < displayPoints.length; i++) {
-        d += ` L ${displayPoints[i].x} ${displayPoints[i].y}`;
-    }
-    
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', color);
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('stroke-linejoin', 'round');
-    
-    svg.appendChild(path);
-    DOM.imageContainer.appendChild(svg);
-}
-
-/**
  * Render instruction tooltip for drawing
  */
 function renderDrawingInstruction(tool, pointCount, previewPoint) {
@@ -1018,8 +988,7 @@ function renderDrawingInstruction(tool, pointCount, previewPoint) {
         circle: ['Click to set center', 'Click to set radius'],
         rectangle: ['Click first corner', 'Click opposite corner'],
         angle: ['Click first point', 'Click vertex point', 'Click second point'],
-        polygon: ['Click to add points', 'Click to add points (3+ needed)', 'Double-click or Enter to complete'],
-        freehand: ['Click and drag to draw']
+        polygon: ['Click to add points', 'Click to add points (3+ needed)', 'Double-click or Enter to complete']
     };
     
     const toolInstructions = instructions[tool] || ['Click to continue'];

@@ -78,18 +78,9 @@ const Debug = {
 const DrawingConstants = {
     /** Double-click time threshold in milliseconds */
     DOUBLE_CLICK_THRESHOLD: 300,
-    
+
     /** Double-click distance threshold in pixels */
-    DOUBLE_CLICK_DISTANCE: 10,
-    
-    /** Minimum points required for freehand simplification */
-    MIN_FREEHAND_POINTS: 2,
-    
-    /** Minimum distance between freehand points in pixels */
-    FREEHAND_POINT_SPACING: 2,
-    
-    /** Tolerance for freehand path simplification (RDP algorithm) */
-    FREEHAND_SIMPLIFY_TOLERANCE: 2.0
+    DOUBLE_CLICK_DISTANCE: 10
 };
 
 // ============================================================================
@@ -170,10 +161,7 @@ const RendererConstants = {
     ANGLE_ENDPOINT_RADIUS: 3,
     
     /** Vertex marker radius for polygons */
-    POLYGON_VERTEX_RADIUS: 3,
-    
-    /** Start/end marker radius for freehand */
-    FREEHAND_MARKER_RADIUS: 4
+    POLYGON_VERTEX_RADIUS: 3
 };
 
 // ============================================================================
@@ -190,7 +178,6 @@ const DefaultColors = {
     rectangle: '#9933ff',
     angle: '#00cccc',
     polygon: '#00cc66',
-    freehand: '#ff6600',
     preview: '#666666',
     fallback: '#ff0000'
 };

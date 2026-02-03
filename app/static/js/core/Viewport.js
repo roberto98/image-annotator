@@ -778,8 +778,9 @@ if (typeof window !== 'undefined') {
     };
 }
 
-// Also export for ES module usage
-export { Viewport, viewport };
-export default viewport;
+// Also export for ES module usage (if using type="module")
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { Viewport, viewport };
+}
 
 console.log('[Viewport] Core viewport service initialized');

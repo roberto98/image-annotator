@@ -392,9 +392,7 @@ class AnnotationRenderer {
             'circle': () => this.renderCircle(id, data, color, isSelected, isHovered, calibration),
             'rectangle': () => this.renderRectangle(id, data, color, isSelected, isHovered, calibration),
             'polygon': () => this.renderPolygon(id, data, color, isSelected, isHovered, calibration),
-            'freehand': () => this.renderFreehand(id, data, color, isSelected, isHovered),
-            'angle': () => this.renderAngle(id, data, color, isSelected, isHovered),
-            'tag': () => this.renderTag(id, data, color, isSelected, isHovered)
+            'angle': () => this.renderAngle(id, data, color, isSelected, isHovered)
         };
         
         const renderer = renderers[type];
@@ -422,7 +420,6 @@ class AnnotationRenderer {
             'rectangle': '#9933ff',
             'angle': '#00cccc',
             'polygon': '#00cc66',
-            'freehand': '#ff6600',
             'fallback': '#ff0000'
         };
         return colors[type] || colors.fallback || '#ff0000';
@@ -1121,72 +1118,6 @@ class AnnotationRenderer {
     }
     
     // ========================================================================
-    // Freehand Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render a freehand annotation
-     * @param {string} id - Annotation ID
-     * @param {{points: Point[]}} data - Freehand data
-     * @param {string} color - Display color
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     */
-    renderFreehand(id, data, color, isSelected, isHovered) {
-        const points = data.points || [];
-        if (points.length < 2) return;
-        
-        const group = this._createGroup(id, 'freehand', isSelected, isHovered);
-        const { scale, strokeWidth } = this._getRenderProps(isSelected);
-        
-        // Build smooth path using quadratic curves
-        const pathData = this._buildFreehandPath(points);
-        
-        group.appendChild(this._createPath(pathData, {
-            'class': 'annotation-freehand',
-            'fill': 'none',
-            ...this._strokeAttrs(color, strokeWidth, { 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
-        }));
-        
-        // Start and end markers
-        const lastPoint = points[points.length - 1];
-        group.appendChild(this._createMarker(points[0].x, points[0].y, color, 'annotation-freehand-start', scale, 4));
-        group.appendChild(this._createCircle(lastPoint.x, lastPoint.y, 4 / scale, {
-            'class': 'annotation-freehand-end',
-            'fill': 'white',
-            'stroke': color,
-            'stroke-width': 2 / scale
-        }));
-        
-        this._transformGroup.appendChild(group);
-        this._createNameLabel(points[0].x, points[0].y - 10 / scale, id, color);
-    }
-    
-    /**
-     * Build smooth path data for freehand drawing using quadratic curves
-     * @param {Point[]} points - Array of points
-     * @returns {string} SVG path data
-     * @private
-     */
-    _buildFreehandPath(points) {
-        let pathData = `M ${points[0].x} ${points[0].y}`;
-        
-        if (points.length === 2) {
-            pathData += ` L ${points[1].x} ${points[1].y}`;
-        } else {
-            for (let i = 1; i < points.length - 1; i++) {
-                const xc = (points[i].x + points[i + 1].x) / 2;
-                const yc = (points[i].y + points[i + 1].y) / 2;
-                pathData += ` Q ${points[i].x} ${points[i].y} ${xc} ${yc}`;
-            }
-            const last = points[points.length - 1];
-            pathData += ` L ${last.x} ${last.y}`;
-        }
-        
-        return pathData;
-    }
-    
-    // ========================================================================
     // Angle Annotation Rendering
     // ========================================================================
     
@@ -1316,41 +1247,129 @@ class AnnotationRenderer {
     }
     
     // ========================================================================
-    // Tag Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render a tag annotation
-     * Tags have no visual representation on the image canvas - they are
-     * image-level labels that only appear in the annotation sidebar/list.
-     * This method is intentionally a no-op.
-     * 
-     * @param {string} id - Annotation ID (label name)
-     * @param {Object} data - Tag data (empty object for tags)
-     * @param {string} color - Display color (unused for tags)
-     * @param {boolean} isSelected - Whether selected (unused for tags)
-     * @param {boolean} isHovered - Whether hovered (unused for tags)
-     */
-    renderTag(id, data, color, isSelected, isHovered) {
-        // Tags have no visual representation on the image
-        // They appear only in the annotation list/sidebar
-        // This is intentionally a no-op
-        window.Debug?.log('AnnotationRenderer', `Tag "${id}" has no visual representation`);
-    }
-    
-    // ========================================================================
     // Preview Rendering (for in-progress annotations)
     // ========================================================================
     
     /**
-     * Render a preview annotation (dashed, semi-transparent)
+     * Render a preview of an in-progress annotation (dashed, semi-transparent)
+     * Shows collected points + a line/shape to the current cursor position
      * @param {string} type - Annotation type
-     * @param {Object} data - Partial annotation data
+     * @param {Array<{x: number, y: number}>} points - Collected points so far
+     * @param {{x: number, y: number}|null} previewPoint - Current cursor position
      * @param {string} [color] - Preview color
      */
-    renderPreview(type, data, color = '#666666') {
-        // TODO: Implement preview rendering
-        console.warn('[AnnotationRenderer] renderPreview not yet implemented');
+    renderPreview(type, points, previewPoint, color = '#666666') {
+        this.clearPreview();
+        if (!this._transformGroup || !points || points.length === 0) return;
+
+        const scale = this._currentScale;
+        const strokeWidth = 2 / scale;
+        const dashArray = `${6 / scale} ${4 / scale}`;
+        const markerRadius = 4 / scale;
+
+        const group = document.createElementNS(SVG_NS, 'g');
+        group.classList.add('annotation-preview');
+        group.style.pointerEvents = 'none';
+        group.style.opacity = '0.7';
+
+        // Draw markers at all collected points
+        points.forEach(p => {
+            group.appendChild(this._createCircle(p.x, p.y, markerRadius, {
+                'fill': color,
+                'fill-opacity': '0.5',
+                'stroke': color,
+                'stroke-width': strokeWidth
+            }));
+        });
+
+        // Combine points with preview point for shape rendering
+        const allPoints = previewPoint ? [...points, previewPoint] : points;
+
+        switch (type) {
+            case 'point':
+                // Point is already shown as marker above
+                break;
+
+            case 'line':
+                if (allPoints.length >= 2) {
+                    group.appendChild(this._createLine(
+                        allPoints[0].x, allPoints[0].y,
+                        allPoints[1].x, allPoints[1].y,
+                        { 'stroke': color, 'stroke-width': strokeWidth, 'stroke-dasharray': dashArray }
+                    ));
+                }
+                break;
+
+            case 'circle':
+                if (allPoints.length >= 2) {
+                    const radius = Math.hypot(
+                        allPoints[1].x - allPoints[0].x,
+                        allPoints[1].y - allPoints[0].y
+                    );
+                    group.appendChild(this._createCircle(
+                        allPoints[0].x, allPoints[0].y, radius,
+                        { 'fill': color, 'fill-opacity': '0.1', 'stroke': color,
+                          'stroke-width': strokeWidth, 'stroke-dasharray': dashArray }
+                    ));
+                }
+                break;
+
+            case 'rectangle':
+                if (allPoints.length >= 2) {
+                    const x = Math.min(allPoints[0].x, allPoints[1].x);
+                    const y = Math.min(allPoints[0].y, allPoints[1].y);
+                    const w = Math.abs(allPoints[1].x - allPoints[0].x);
+                    const h = Math.abs(allPoints[1].y - allPoints[0].y);
+                    group.appendChild(this._createRect(x, y, w, h, {
+                        'fill': color, 'fill-opacity': '0.1', 'stroke': color,
+                        'stroke-width': strokeWidth, 'stroke-dasharray': dashArray
+                    }));
+                }
+                break;
+
+            case 'angle':
+                // Draw lines between consecutive points
+                for (let i = 0; i < allPoints.length - 1 && i < 2; i++) {
+                    group.appendChild(this._createLine(
+                        allPoints[i].x, allPoints[i].y,
+                        allPoints[i + 1].x, allPoints[i + 1].y,
+                        { 'stroke': color, 'stroke-width': strokeWidth, 'stroke-dasharray': dashArray }
+                    ));
+                }
+                break;
+
+            case 'polygon':
+            case 'freehand': {
+                // Draw polyline through all points
+                if (allPoints.length >= 2) {
+                    const pathData = allPoints.map((p, i) =>
+                        `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+                    ).join(' ');
+                    // Close polygon if enough points and it's a polygon
+                    const closePath = type === 'polygon' && points.length >= 3 ? ' Z' : '';
+                    group.appendChild(this._createPath(pathData + closePath, {
+                        'fill': type === 'polygon' && points.length >= 3 ? color : 'none',
+                        'fill-opacity': '0.1',
+                        'stroke': color,
+                        'stroke-width': strokeWidth,
+                        'stroke-dasharray': dashArray
+                    }));
+                }
+                break;
+            }
+        }
+
+        // Draw preview cursor marker if we have a preview point
+        if (previewPoint) {
+            group.appendChild(this._createCircle(previewPoint.x, previewPoint.y, markerRadius * 0.8, {
+                'fill': 'none',
+                'stroke': color,
+                'stroke-width': strokeWidth,
+                'stroke-dasharray': `${3 / scale} ${2 / scale}`
+            }));
+        }
+
+        this._transformGroup.appendChild(group);
     }
     
     /**
@@ -1377,8 +1396,9 @@ if (typeof window !== 'undefined') {
     window.annotationRenderer = annotationRenderer;
 }
 
-// ES Module exports
-export { AnnotationRenderer, annotationRenderer };
-export default annotationRenderer;
+// ES Module exports (if using type="module")
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { AnnotationRenderer, annotationRenderer };
+}
 
 console.log('[AnnotationRenderer] Core annotation renderer initialized');

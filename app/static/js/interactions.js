@@ -9,9 +9,10 @@
  * - Touch event support
  */
 
-// Zoom limits for pinch zoom
-const MIN_ZOOM = 0.1;  // 10%
-const MAX_ZOOM = 5.0;  // 500%
+// Zoom limits for pinch zoom (get from zoom.js if available, otherwise use defaults)
+// Use function to avoid redeclaration errors
+function getMinZoom() { return typeof window !== 'undefined' && window.MIN_ZOOM ? window.MIN_ZOOM : 0.1; }
+function getMaxZoom() { return typeof window !== 'undefined' && window.MAX_ZOOM ? window.MAX_ZOOM : 5.0; }
 
 /**
  * Calculate distance between two touch points
@@ -221,8 +222,8 @@ function handleLinePointDrag(coords) {
 
 function handleMouseDown(e) {
     // [New System Compatibility]
-    // If the new DrawingHandler is active, yield control to it completely.
-    if (window.DrawingHandler && window.DrawingHandler.isActive) {
+    // If the new DrawingHandler is active AND we're in annotation mode, yield control to it completely.
+    if (window.DrawingHandler && window.DrawingHandler.isActive && STATE.isAnnotationMode) {
         return;
     }
 
@@ -258,8 +259,8 @@ function handleMouseMove(e) {
     if (!STATE.imageLoaded) return;
 
     // [New System Compatibility]
-    // If the new DrawingHandler is active, yield control to it completely.
-    if (window.DrawingHandler && window.DrawingHandler.isActive) {
+    // If the new DrawingHandler is active AND we're in annotation mode, yield control to it completely.
+    if (window.DrawingHandler && window.DrawingHandler.isActive && STATE.isAnnotationMode) {
         return;
     }
 
@@ -288,7 +289,7 @@ function handleMouseMove(e) {
 
 function handleMouseUp(e) {
     // [New System Compatibility]
-    if (window.DrawingHandler && window.DrawingHandler.isActive) {
+    if (window.DrawingHandler && window.DrawingHandler.isActive && STATE.isAnnotationMode) {
         return;
     }
 
@@ -347,7 +348,7 @@ function handleTouchMove(e) {
 
         // Calculate new zoom based on the initial pinch zoom
         const oldZoom = STATE.currentZoom;
-        const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, touchState.pinchStartZoom * scaleRatio));
+        const newZoom = Math.max(getMinZoom(), Math.min(getMaxZoom(), touchState.pinchStartZoom * scaleRatio));
         
         // If zoom didn't change (at limits), do nothing
         if (newZoom === oldZoom) return;
@@ -426,8 +427,6 @@ function handleKeyDown(e) {
 
     const keyHandlers = {
         'Escape': handleEscapeKey,
-        'c': toggleCenterIndicators,
-        'C': toggleCenterIndicators,
         'r': resetView,
         '+': zoomIn,
         '=': zoomIn,
@@ -447,4 +446,6 @@ function handleKeyDown(e) {
 function handleEscapeKey() {
     // Allow other handlers to react first
 }
+
+console.log('[interactions.js] Interaction handlers loaded');
 

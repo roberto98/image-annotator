@@ -7,8 +7,6 @@ const DOM = {
     
     // Sidebar elements
     labelList: document.getElementById('labelList'),
-    labelInput: document.getElementById('labelInput'),
-    createLabelBtn: document.getElementById('createLabelBtn'),
     sidebarTitle: document.getElementById('sidebarTitle'),
     
     // UI feedback elements

@@ -98,54 +98,6 @@ function switchTool(tool, showPopup = true) {
 }
 
 /**
- * Create a new label from user input
- * @async
- * @returns {Promise<void>}
- */
-async function createNewLabel() {
-    const name = DOM.labelInput.value.trim();
-    if (!name) {
-        showMessage('Please enter a label name', 'warning');
-        return;
-    }
-
-    if (STATE.allLabels.some(l => l.name === name)) {
-        showMessage('Label already exists', 'warning');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/landmarks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ landmark_name: name })
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'success') {
-            STATE.allLabels = [...STATE.allLabels, {
-                name,
-                in_use: false,
-                annotated_count: 0,
-                total_count: 0,
-                type: 'generic'
-            }].sort((a, b) => a.name.localeCompare(b.name));
-
-            STATE.visibilityToggles = { ...STATE.visibilityToggles, [name]: true };
-
-            DOM.labelInput.value = '';
-            selectLabel(name);
-
-            showMessage(formatSuccessMessage('Created', `label "${name}"`), 'success');
-        }
-    } catch (error) {
-        console.error('Error creating label:', error);
-        showMessage(formatErrorMessage('create', 'label', error), 'error');
-    }
-}
-
-/**
  * Select a label for annotation
  * @param {string} name - The label name to select
  */

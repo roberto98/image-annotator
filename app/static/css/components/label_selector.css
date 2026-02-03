@@ -321,6 +321,57 @@
 }
 
 /* =============================================
+   CREATE NEW LABEL
+   ============================================= */
+
+.label-selector-create-new {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    text-align: center;
+}
+
+.label-selector-create-new p {
+    font-size: 14px;
+    color: var(--text-light, #6c757d);
+    margin: 0 0 16px 0;
+}
+
+.label-selector-create-new strong {
+    color: var(--text, #495057);
+}
+
+.create-new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--primary, #4f46e5);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md, 6px);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.create-new-btn:hover {
+    background: var(--primary-dark, #4338ca);
+    transform: translateY(-1px);
+}
+
+.create-new-btn:active {
+    transform: translateY(0);
+}
+
+.create-new-btn svg {
+    flex-shrink: 0;
+}
+
+/* =============================================
    FOOTER SECTION
    ============================================= */
 

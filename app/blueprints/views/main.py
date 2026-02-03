@@ -12,6 +12,9 @@ from app.blueprints.views import views_bp
 from app.annotations import AnnotationManager
 from app.images import ImageManager
 
+# V2 annotations directory
+V2_DATA_DIR = Path("data")
+
 # Supported image file extensions
 IMAGE_EXTENSIONS = ('*.png', '*.jpg', '*.jpeg')
 ALL_IMAGE_EXTENSIONS = IMAGE_EXTENSIONS + ('*.dcm', '*.dicom')
@@ -23,6 +26,46 @@ DICOM_JPEG_QUALITY = 95
 def _get_annotations_manager() -> AnnotationManager:
     """Get the annotations manager from the app context."""
     return current_app.config['annotations']
+
+
+def _load_v2_annotations(patient: str, image: str) -> Dict[str, Any]:
+    """Load V2 annotations from data directory.
+
+    Returns the annotations dict from V2 format, or empty dict if not found.
+    V2 format: {"version": 2, "annotations": {...}, ...}
+    Returns just the annotations dict for compatibility with legacy format.
+    """
+    image_stem = Path(image).stem
+    v2_path = V2_DATA_DIR / patient / f"{image_stem}_annotations_v2.json"
+
+    if v2_path.exists():
+        try:
+            data = json.loads(v2_path.read_text(encoding='utf-8'))
+            # V2 format stores annotations in 'annotations' field
+            return data.get('annotations', {})
+        except (json.JSONDecodeError, IOError) as e:
+            current_app.logger.warning(f"Failed to load V2 annotations from {v2_path}: {e}")
+
+    return {}
+
+
+def _get_merged_annotations(patient: str, image: str) -> Dict[str, Any]:
+    """Get annotations from both V2 and legacy sources, merged.
+
+    V2 annotations take precedence over legacy.
+    """
+    annotations = _get_annotations_manager()
+
+    # Load legacy annotations
+    legacy_annotations = annotations.get_all_landmarks(patient, image)
+
+    # Load V2 annotations
+    v2_annotations = _load_v2_annotations(patient, image)
+
+    # Merge: V2 takes precedence
+    merged = {**legacy_annotations, **v2_annotations}
+
+    return merged
 
 
 def _get_images_manager() -> ImageManager:
@@ -128,7 +171,6 @@ def start_annotation() -> str:
 @views_bp.route('/annotate/<patient>/<image>')
 def annotate_image(patient: str, image: str) -> str:
     """Image annotation interface."""
-    annotations = _get_annotations_manager()
     images = _get_images_manager()
 
     image_path = Path(config.IMAGE_DIR) / patient / image
@@ -140,7 +182,8 @@ def annotate_image(patient: str, image: str) -> str:
     all_segments = config.get_segments()
     all_figures = config.get_figures()
 
-    current_annotations = annotations.get_all_landmarks(patient, image)
+    # Load annotations from both V2 and legacy sources
+    current_annotations = _get_merged_annotations(patient, image)
     prev_img = images.get_previous_image(patient, image)
     next_img = images.get_next_image(patient, image)
     current_index = images.get_image_index(patient, image)

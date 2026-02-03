@@ -274,7 +274,7 @@ const EditingHandler = {
      */
     attachListeners() {
         // Get SVG layer from AnnotationRenderer if available
-        const svg = window.AnnotationRenderer?.svg;
+        const svg = window.annotationRenderer?._svg;
         if (svg) {
             svg.addEventListener('mousedown', this._handleMouseDown);
             svg.addEventListener('mouseover', this._handleMouseOver);
@@ -305,7 +305,7 @@ const EditingHandler = {
      * Detach event listeners (for cleanup)
      */
     detachListeners() {
-        const svg = window.AnnotationRenderer?.svg;
+        const svg = window.annotationRenderer?._svg;
         if (svg) {
             svg.removeEventListener('mousedown', this._handleMouseDown);
             svg.removeEventListener('mouseover', this._handleMouseOver);
@@ -1328,7 +1328,7 @@ const EditingHandler = {
         document.body.style.cursor = 'grabbing';
         
         // Add dragging class to annotation element
-        const svg = window.AnnotationRenderer?.svg;
+        const svg = window.annotationRenderer?._svg;
         if (svg) {
             svg.classList.add('dragging');
         }
@@ -1342,7 +1342,7 @@ const EditingHandler = {
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
         
-        const svg = window.AnnotationRenderer?.svg;
+        const svg = window.annotationRenderer?._svg;
         if (svg) {
             svg.classList.remove('dragging');
         }
@@ -1364,7 +1364,7 @@ if (typeof window !== 'undefined') {
     function initWhenReady() {
         // Check if essential dependencies are available
         const hasDOM = window.DOM?.imageContainer || document.querySelector('.image-container');
-        const hasRenderer = window.AnnotationRenderer?.svg;
+        const hasRenderer = window.annotationRenderer?._svg;
         
         if (hasDOM || hasRenderer) {
             EditingHandler.init();

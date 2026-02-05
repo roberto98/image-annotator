@@ -1,90 +1,100 @@
 /**
  * Annotation operations for points, polygons, and figures
  * @module annotations
+ * 
+ * REWRITTEN: New direct annotation workflow
+ * - Tool buttons show label popup immediately
+ * - Selected label persists across annotations
+ * - Pan mode freezes all interactions
+ * 
+ * Dependencies: utilities.js (validateCoordinates, formatErrorMessage, formatSuccessMessage)
  */
+
+// Loading state flag to prevent double submissions during save operations
+let _isSaving = false;
+
+/**
+ * Validate label name for security and correctness
+ * @param {string} name - Label name to validate
+ * @returns {{valid: boolean, error?: string}} Validation result
+ */
+function validateLabelName(name) {
+    if (!name || typeof name !== 'string') {
+        return { valid: false, error: 'Label name must be a non-empty string' };
+    }
+
+    if (name.length > 100) {
+        return { valid: false, error: 'Label name is too long (max 100 characters)' };
+    }
+
+    // Check for potentially malicious content:
+    // - No HTML/script tags
+    // - No path traversal characters
+    // - Only allow alphanumeric, spaces, underscores, hyphens, and common punctuation
+    const dangerousPatterns = [
+        /<[^>]*>/,           // HTML tags
+        /[<>]/,              // Angle brackets
+        /\.\.\//,            // Path traversal
+        /[\x00-\x1f]/,       // Control characters
+        /javascript:/i,      // JavaScript protocol
+        /data:/i,            // Data protocol
+        /vbscript:/i         // VBScript protocol
+    ];
+
+    if (dangerousPatterns.some(pattern => pattern.test(name))) {
+        return { valid: false, error: 'Label name contains invalid characters' };
+    }
+
+    // Allow alphanumeric, spaces, underscores, hyphens, periods, and parentheses
+    const allowedPattern = /^[\w\s\-\.\(\)]+$/;
+    if (!allowedPattern.test(name)) {
+        return { valid: false, error: 'Label name contains disallowed characters' };
+    }
+
+    return { valid: true };
+}
 
 /**
  * Switch the current annotation tool
+ * Shows label popup for direct annotation workflow
  * @param {string} tool - Tool name: 'landmark', 'polygon', or 'figure'
+ * @param {boolean} showPopup - Whether to show the label popup (default: true)
  */
-function switchTool(tool) {
+function switchTool(tool, showPopup = true) {
+    console.log('[annotations.js] switchTool:', tool);
     STATE.currentTool = tool;
 
+    // Update tool button active states
     document.querySelectorAll('.tool-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tool === tool);
     });
 
-    const titles = {
-        landmark: 'Labels (Point Mode)',
-        polygon: 'Labels (Polygon Mode)',
-        figure: 'Labels (Figure Mode)'
+    // Update sidebar title
+    const modeNames = {
+        point: 'Point', landmark: 'Point', polygon: 'Polygon',
+        line: 'Line', circle: 'Circle', rectangle: 'Rectangle',
+        angle: 'Angle'
     };
-    DOM.sidebarTitle.textContent = titles[tool];
-
-    DOM.figureConfig.classList.toggle('active', tool === 'figure');
-    DOM.polygonTools.classList.toggle('active', tool === 'polygon');
-
-    if (tool !== 'polygon') {
-        clearPolygonElements();
-        STATE.activePolygonPoints = [];
+    if (DOM.sidebarTitle) {
+        DOM.sidebarTitle.textContent = `Labels (${modeNames[tool] || tool} Mode)`;
     }
 
-    STATE.selectedLabel = null;
-    updateFigureInteractivity();
-    renderLabelList();
-    renderAnnotations();
+    // Show/hide tool-specific panels
+    if (DOM.figureConfig) DOM.figureConfig.classList.toggle('active', false);
+    if (DOM.polygonTools) DOM.polygonTools.classList.toggle('active', tool === 'polygon');
+
+    // Ensure we're in annotation mode when switching tools
+    if (!STATE.isAnnotationMode) {
+        STATE.isAnnotationMode = true;
+        if (typeof updateModeDisplay === 'function') updateModeDisplay();
+    }
+
+    // Activate the new DrawingHandler if available
+    if (window.DrawingHandler) {
+        window.DrawingHandler.activate(tool);
+    }
 
     showMessage(`Switched to ${tool} mode`);
-}
-
-/**
- * Create a new label from user input
- * @async
- * @returns {Promise<void>}
- */
-async function createNewLabel() {
-    const name = DOM.labelInput.value.trim();
-    if (!name) {
-        showMessage('Please enter a label name', 'warning');
-        return;
-    }
-
-    if (STATE.allLabels.some(l => l.name === name)) {
-        showMessage('Label already exists', 'warning');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/landmarks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ landmark_name: name })
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'success') {
-            STATE.allLabels.push({
-                name,
-                in_use: false,
-                annotated_count: 0,
-                total_count: 0,
-                type: 'generic'
-            });
-
-            STATE.allLabels.sort((a, b) => a.name.localeCompare(b.name));
-            STATE.visibilityToggles[name] = true;
-
-            DOM.labelInput.value = '';
-            selectLabel(name);
-            renderLabelList();
-
-            showMessage(`Label "${name}" created`, 'success');
-        }
-    } catch (error) {
-        console.error('Error creating label:', error);
-        showMessage('Failed to create label', 'error');
-    }
 }
 
 /**
@@ -92,35 +102,56 @@ async function createNewLabel() {
  * @param {string} name - The label name to select
  */
 function selectLabel(name) {
+    console.log('[annotations.js] selectLabel:', name);
     STATE.selectedLabel = name;
-    renderLabelList();
-    updateFigureInteractivity();
 
-    const annotation = STATE.annotations[name];
-    if (annotation && STATE.currentTool === 'polygon' && annotation.type === 'polygon' && annotation.points) {
-        STATE.activePolygonPoints = JSON.parse(JSON.stringify(annotation.points));
-        renderActivePolygon();
-        DOM.completePolyBtn.disabled = false;
-        setPolygonTool('edit');
+    // Sync with new AnnotationState if available
+    if (window.AnnotationState) {
+        window.AnnotationState.selectedAnnotation = name;
     }
 
+    // Ensure annotation mode is active
     if (!STATE.isAnnotationMode) {
         STATE.isAnnotationMode = true;
-        updateModeDisplay();
+        if (typeof updateModeDisplay === 'function') updateModeDisplay();
     }
-    
+
     showMessage(`Selected: ${name} (${STATE.currentTool} mode)`);
 }
 
+/**
+ * Deselect current label
+ */
+function deselectLabel() {
+    STATE.selectedLabel = null;
+    if (window.AnnotationState) {
+        window.AnnotationState.selectedAnnotation = null;
+    }
+}
+
 function toggleVisibility(name) {
-    STATE.visibilityToggles[name] = !STATE.visibilityToggles[name];
-    renderLabelList();
-    renderAnnotations();
+    STATE.visibilityToggles = {
+        ...STATE.visibilityToggles,
+        [name]: !STATE.visibilityToggles[name]
+    };
 }
 
 async function markOccluded(name) {
+    if (_isSaving) {
+        showMessage('Save operation in progress...', 'info');
+        return;
+    }
+
+    // Validate label name before sending to server
+    const labelValidation = validateLabelName(name);
+    if (!labelValidation.valid) {
+        showMessage(labelValidation.error, 'error');
+        return;
+    }
+
+    _isSaving = true;
     try {
-        const response = await fetch(`/api/landmarks/${window.patientId}/${window.imageName}/${name}`, {
+        const response = await fetch(`/api/landmarks/${window.patientId}/${window.imageName}/${encodeURIComponent(name)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'occluded' })
@@ -128,35 +159,24 @@ async function markOccluded(name) {
 
         const data = await response.json();
         if (data.status === 'success') {
-            STATE.annotations[name] = {
-                status: 'occluded/missing',
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [name]: {
+                    status: 'occluded/missing',
+                    timestamp: createTimestamp()
+                }
             };
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
-            showMessage(`${name} marked as occluded`, 'success');
+            showMessage(formatSuccessMessage('Marked', name, 'occluded'), 'success');
         }
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Failed to mark as occluded', 'error');
+        showMessage(formatErrorMessage('mark', 'annotation as occluded', error), 'error');
+    } finally {
+        _isSaving = false;
     }
 }
 
-/**
- * Get the API endpoint for an annotation based on its type
- * @param {string} name - The annotation label name
- * @param {Object} annotation - The annotation data object
- * @returns {string} API endpoint path
- */
-function getAnnotationEndpoint(name, annotation) {
-    const path = `/${window.patientId}/${window.imageName}/${name}`;
-    const type = annotation?.type;
-
-    if (type === 'polygon') return `/api/segments${path}`;
-    if (type === 'figure') return `/api/figures${path}`;
-    return `/api/landmarks${path}`;
-}
 
 /**
  * Delete an annotation after user confirmation
@@ -165,31 +185,52 @@ function getAnnotationEndpoint(name, annotation) {
  * @returns {Promise<void>}
  */
 async function deleteAnnotation(name) {
-    if (!confirm(`⚠️ Are you sure you want to delete the annotation for "${name}"?\n\nThis action cannot be undone (unless you use Ctrl+Z).`)) return;
+    if (_isSaving) {
+        showMessage('Save operation in progress...', 'info');
+        return;
+    }
 
+    // Validate label name before sending to server
+    const labelValidation = validateLabelName(name);
+    if (!labelValidation.valid) {
+        showMessage(labelValidation.error, 'error');
+        return;
+    }
+
+    // No confirmation dialog - undo is available via Ctrl+Z (US-020)
+
+    _isSaving = true;
     try {
-        const endpoint = getAnnotationEndpoint(name, STATE.annotations[name]);
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'remove' })
-        });
-
-        const data = await response.json();
-        if (data.status === 'success') {
-            delete STATE.annotations[name];
-            if (STATE.selectedLabel === name) {
-                STATE.selectedLabel = null;
-                updateFigureInteractivity();
-            }
-            saveToHistory();
-            renderLabelList();
-            renderAnnotations();
-            showMessage(`Deleted annotation for ${name}`, 'success');
+        // Use v2 API for deletion
+        if (window.AnnotationAPI?.deleteAnnotation) {
+            await window.AnnotationAPI.deleteAnnotation(
+                window.patientId,
+                window.imageName,
+                name
+            );
+        } else {
+            throw new Error('AnnotationAPI not available');
         }
+
+        // Update both state systems
+        const { [name]: _, ...rest } = STATE.annotations;
+        STATE.annotations = rest;
+        if (STATE.selectedLabel === name) {
+            STATE.selectedLabel = null;
+        }
+
+        // Sync with AnnotationState
+        if (window.AnnotationState?.removeAnnotation) {
+            window.AnnotationState.removeAnnotation(name);
+        }
+
+        saveToHistory();
+        showMessage(formatSuccessMessage('Deleted', `annotation for ${name}`), 'success');
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Failed to delete annotation', 'error');
+        showMessage(formatErrorMessage('delete', 'annotation', error), 'error');
+    } finally {
+        _isSaving = false;
     }
 }
 
@@ -208,8 +249,33 @@ function createTimestamp() {
  * @returns {Promise<void>}
  */
 async function annotateLandmark(coords) {
+    if (_isSaving) {
+        showMessage('Save operation in progress...', 'info');
+        return;
+    }
+
+    if (!STATE.selectedLabel) {
+        showMessage('Please select a label first', 'warning');
+        return;
+    }
+
+    // Validate label name before sending to server
+    const labelValidation = validateLabelName(STATE.selectedLabel);
+    if (!labelValidation.valid) {
+        showMessage(labelValidation.error, 'error');
+        return;
+    }
+
+    // Validate coordinates before processing
+    const validation = validateCoordinates(coords);
+    if (!validation.valid) {
+        showMessage(validation.error, 'error');
+        return;
+    }
+
+    _isSaving = true;
     try {
-        const response = await fetch(`/api/landmarks/${window.patientId}/${window.imageName}/${STATE.selectedLabel}`, {
+        const response = await fetch(`/api/landmarks/${window.patientId}/${window.imageName}/${encodeURIComponent(STATE.selectedLabel)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -221,23 +287,40 @@ async function annotateLandmark(coords) {
 
         const data = await response.json();
         if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
-                status: 'ok',
-                coordinates: { x: coords.x, y: coords.y },
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [STATE.selectedLabel]: {
+                    status: 'ok',
+                    coordinates: { x: coords.x, y: coords.y },
+                    timestamp: createTimestamp()
+                }
             };
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
-            showMessage(`Annotated ${STATE.selectedLabel}`, 'success');
+            showMessage(formatSuccessMessage('Annotated', STATE.selectedLabel), 'success');
         }
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Failed to save annotation', 'error');
+        showMessage(formatErrorMessage('save', 'annotation', error), 'error');
+    } finally {
+        _isSaving = false;
     }
 }
 
 async function propagateAnnotations() {
+    // Validate required state
+    if (!window.patientId || typeof window.patientId !== 'string') {
+        showMessage('Invalid patient ID', 'error');
+        return;
+    }
+    if (!window.imageName || typeof window.imageName !== 'string') {
+        showMessage('Invalid image name', 'error');
+        return;
+    }
+    if (!STATE.annotations || typeof STATE.annotations !== 'object') {
+        showMessage('Invalid annotations data', 'error');
+        return;
+    }
+
     const annotationCount = Object.keys(STATE.annotations).length;
     if (annotationCount === 0) {
         showMessage('No annotations to propagate', 'warning');
@@ -267,29 +350,34 @@ async function propagateAnnotations() {
             showMessage(`Annotations propagated to ${data.target_patient}/${data.target_image}`, 'success');
 
             if (data.target_patient && data.target_image && confirm('Navigate to the target image?')) {
-                window.location.href = `/annotate/${data.target_patient}/${data.target_image}`;
+                window.location.href = `/annotate/${encodeURIComponent(data.target_patient)}/${encodeURIComponent(data.target_image)}`;
             }
         } else {
             showMessage(data.message || 'Failed to propagate annotations', 'error');
         }
     } catch (error) {
         console.error('Error propagating annotations:', error);
-        showMessage('Failed to propagate annotations', 'error');
+        showMessage(formatErrorMessage('propagate', 'annotations', error), 'error');
     }
 }
 
 async function nextUnannotatedImage() {
     try {
-        const response = await fetch(`/api/next-unannotated?current_patient=${window.patientId}&current_image=${window.imageName}`);
+        // Use URLSearchParams for safe query string construction (prevents injection)
+        const params = new URLSearchParams({
+            current_patient: window.patientId,
+            current_image: window.imageName
+        });
+        const response = await fetch(`/api/next-unannotated?${params.toString()}`);
         const data = await response.json();
         
         if (data.patient && data.image) {
-            window.location.href = `/annotate/${data.patient}/${data.image}`;
+            window.location.href = `/annotate/${encodeURIComponent(data.patient)}/${encodeURIComponent(data.image)}`;
         } else {
             showMessage('No more unannotated images found', 'info');
         }
     } catch (error) {
         console.error('Error finding next unannotated image:', error);
-        showMessage('Error finding next image', 'error');
+        showMessage(formatErrorMessage('find', 'next image', error), 'error');
     }
 }

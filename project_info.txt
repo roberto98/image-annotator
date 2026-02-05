@@ -1,0 +1,15 @@
+
+
+CONDA ENVIRONMENT:
+C:\Users\robyd\anaconda3\envs\tool_landmark
+
+RUN THE PROJECT:
+python start.py
+
+FIND THE APP PORT:
+netstat -ano | findstr :8000 
+
+KILL THE SERVER:
+taskkill /PID 8000 /F 
+
+

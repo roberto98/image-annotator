@@ -1,10 +1,18 @@
 // Polygon drawing and manipulation operations
+// Dependencies: utilities.js (validateCoordinates, formatErrorMessage, formatSuccessMessage)
 
 /**
  * Handle click events during polygon drawing/editing
  * @param {{x: number, y: number}} coords - Click coordinates in image space
  */
 function handlePolygonClick(coords) {
+    // Validate coordinates before processing
+    const validation = validateCoordinates(coords);
+    if (!validation.valid) {
+        showMessage(validation.error, 'error');
+        return;
+    }
+
     if (STATE.polygonTool === 'draw') {
         STATE.activePolygonPoints.push({ x: coords.x, y: coords.y });
         renderActivePolygon();
@@ -70,21 +78,22 @@ async function completePolygon() {
 
         const data = await response.json();
         if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
-                type: 'polygon',
-                status: 'ok',
-                points: STATE.activePolygonPoints,
-                timestamp: createTimestamp()
+            STATE.annotations = {
+                ...STATE.annotations,
+                [STATE.selectedLabel]: {
+                    type: 'polygon',
+                    status: 'ok',
+                    points: STATE.activePolygonPoints,
+                    timestamp: createTimestamp()
+                }
             };
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
-            showMessage('Polygon saved', 'success');
+            showMessage(formatSuccessMessage('Saved', 'polygon'), 'success');
             setPolygonTool('edit');
         }
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Failed to save polygon', 'error');
+        showMessage(formatErrorMessage('save', 'polygon', error), 'error');
     }
 }
 

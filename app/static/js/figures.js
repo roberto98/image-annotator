@@ -1,44 +1,57 @@
-// Figure drawing and manipulation operations
+/**
+ * Figure drawing and manipulation operations
+ * @module figures
+ * 
+ * REWRITTEN: Multi-click drawing system
+ * - Rectangles/Ellipses: First click = center, Second click = size
+ * - Lines: First click = start, Second click = end
+ * - No minimum size restriction (uses default if clicks too close)
+ * - Figures editable in annotation mode (not just pan mode)
+ * - Mobile and automation friendly
+ * 
+ * Dependencies: utilities.js (calculateLineProperties, getServerErrorMessage, formatErrorMessage, formatSuccessMessage)
+ */
+
+// Constants for figure size constraints
+const DEFAULT_FIGURE_SIZE = 20; // Default size if clicks are too close
+const MIN_FIGURE_SIZE = 5;      // Minimum figure size in pixels
+const MIN_LINE_LENGTH = 5;      // Minimum line length in pixels
 
 /**
  * Clean up and remove the figure preview element
  */
 function cleanupFigurePreview() {
-    if (STATE.figurePreview) {
-        STATE.figurePreview.remove();
-        STATE.figurePreview = null;
-    }
-}
-
-/**
- * Calculate line properties from two points
- * @param {{x: number, y: number}} start - Start point
- * @param {{x: number, y: number}} end - End point
- * @returns {{dx: number, dy: number, length: number, angle: number, centerX: number, centerY: number}}
- */
-function calculateLineProperties(start, end) {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    const centerX = (start.x + end.x) / 2;
-    const centerY = (start.y + end.y) / 2;
-    return { dx, dy, length, angle, centerX, centerY };
+    if (!STATE.figurePreview) return;
+    STATE.figurePreview.remove();
+    STATE.figurePreview = null;
 }
 
 /**
  * Save a figure annotation to the server
  * @async
  * @param {Object} figureData - The figure data to save
+ * @param {string} labelName - The label name (defaults to STATE.selectedLabel)
  * @returns {Promise<Object>} Server response data
  */
-async function saveFigureToServer(figureData) {
-    const response = await fetch(`/api/figures/${window.patientId}/${window.imageName}/${STATE.selectedLabel}`, {
+async function saveFigureToServer(figureData, labelName = null) {
+    const label = labelName || STATE.selectedLabel;
+    const response = await fetch(`/api/figures/${window.patientId}/${window.imageName}/${label}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'figure', ...figureData })
     });
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
     return response.json();
+}
+
+/**
+ * Check if a line drawing is in progress
+ * @returns {boolean} True if line points exist
+ */
+function hasLinePointsInProgress() {
+    return STATE.linePoints?.length > 0;
 }
 
 /**
@@ -50,55 +63,86 @@ function selectFigureShape(shape) {
     DOM.circleBtn.classList.toggle('active', shape === 'circle');
     DOM.rectangleBtn.classList.toggle('active', shape === 'rectangle');
     DOM.lineBtn.classList.toggle('active', shape === 'line');
+
+    // Cancel any in-progress drawing when changing shape
+    if (STATE.figureDrawing || hasLinePointsInProgress()) {
+        cancelFigureDrawing();
+    }
 }
 
 /**
- * Start drawing a new figure at the given coordinates
+ * Start drawing a new figure at the given coordinates (multi-click system)
+ * First click: set center point (or start point for lines)
  * @param {{x: number, y: number}} coords - Starting coordinates in image space
  */
 function startFigureDrawing(coords) {
+    if (!STATE.selectedLabel) {
+        showMessage('Please select a label first', 'warning');
+        return;
+    }
+
     if (STATE.figureShape === 'line') {
+        // Line drawing: collect two points
         if (!STATE.linePoints) STATE.linePoints = [];
 
         STATE.linePoints.push({ x: coords.x, y: coords.y });
 
         if (STATE.linePoints.length === 1) {
+            // First click - create preview
             STATE.figurePreview = document.createElement('div');
             STATE.figurePreview.className = 'line-preview';
-            STATE.figurePreview.style.position = 'absolute';
-            STATE.figurePreview.style.pointerEvents = 'none';
-            STATE.figurePreview.style.zIndex = '15';
+            STATE.figurePreview.setAttribute('data-preview', 'line');
+            Object.assign(STATE.figurePreview.style, {
+                position: 'absolute',
+                pointerEvents: 'none',
+                zIndex: '15'
+            });
             DOM.imageContainer.appendChild(STATE.figurePreview);
+            showMessage('Click second point to complete line');
         } else if (STATE.linePoints.length === 2) {
+            // Second click - complete line
             completeLineDrawing();
-            return;
         }
     } else {
-        STATE.figureDrawing = true;
-        STATE.figureStartX = coords.x;
-        STATE.figureStartY = coords.y;
+        // Circle/Rectangle: first click sets center, second click sets size
+        if (!STATE.figureDrawing) {
+            // First click - set center
+            STATE.figureDrawing = true;
+            STATE.figureStartX = coords.x;
+            STATE.figureStartY = coords.y;
 
-        STATE.figurePreview = document.createElement('div');
-        STATE.figurePreview.className = `figure-shape figure-${STATE.figureShape}`;
-        STATE.figurePreview.style.borderColor = '#7950f2';
-        STATE.figurePreview.style.background = 'rgba(121, 80, 242, 0.2)';
-        STATE.figurePreview.style.borderWidth = '3px';
-        STATE.figurePreview.style.borderStyle = 'dashed';
-        
-        DOM.imageContainer.appendChild(STATE.figurePreview);
+            // Create preview
+            STATE.figurePreview = document.createElement('div');
+            STATE.figurePreview.className = `figure-shape figure-${STATE.figureShape}`;
+            STATE.figurePreview.setAttribute('data-preview', STATE.figureShape);
+            Object.assign(STATE.figurePreview.style, {
+                borderColor: '#7950f2',
+                background: 'rgba(121, 80, 242, 0.2)',
+                borderWidth: '3px',
+                borderStyle: 'dashed',
+                pointerEvents: 'none'
+            });
+            DOM.imageContainer.appendChild(STATE.figurePreview);
+            
+            showMessage('Click to set size');
+        } else {
+            // Second click - complete figure
+            completeFigureDrawing(coords);
+        }
     }
 }
 
 /**
- * Update the figure preview during drawing
+ * Update the figure preview during drawing (follows mouse)
  * @param {{x: number, y: number}} coords - Current mouse coordinates in image space
  */
 function updateFigurePreview(coords) {
     if (!STATE.figurePreview) return;
 
     if (STATE.figureShape === 'line' && STATE.linePoints.length === 1) {
+        // Line preview
         const { length, angle, centerX, centerY } = calculateLineProperties(STATE.linePoints[0], coords);
-        const displayCenter = imageToDisplayCoords(centerX, centerY);
+        const displayCenter = viewport.imageToDisplay(centerX, centerY);
         const displayLength = length * STATE.currentZoom;
 
         Object.assign(STATE.figurePreview.style, {
@@ -111,13 +155,14 @@ function updateFigurePreview(coords) {
             transform: `rotate(${angle}deg)`,
             transformOrigin: '50% 50%'
         });
-    } else if (STATE.figureShape !== 'line') {
+    } else if (STATE.figureShape !== 'line' && STATE.figureDrawing) {
+        // Circle/Rectangle preview - size based on distance from center
         const dx = coords.x - STATE.figureStartX;
         const dy = coords.y - STATE.figureStartY;
         const size = Math.sqrt(dx * dx + dy * dy) * 2;
 
-        const displayCenter = imageToDisplayCoords(STATE.figureStartX, STATE.figureStartY);
-        const displaySize = size * STATE.currentZoom;
+        const displayCenter = viewport.imageToDisplay(STATE.figureStartX, STATE.figureStartY);
+        const displaySize = Math.max(size, DEFAULT_FIGURE_SIZE) * STATE.currentZoom;
 
         Object.assign(STATE.figurePreview.style, {
             left: `${displayCenter.x - displaySize / 2}px`,
@@ -129,73 +174,79 @@ function updateFigurePreview(coords) {
     }
 }
 
+/**
+ * Complete line drawing (second click)
+ * @async
+ * @returns {Promise<void>}
+ */
 async function completeLineDrawing() {
     if (STATE.linePoints.length !== 2) return;
 
     const [startPoint, endPoint] = STATE.linePoints;
     const { length, centerX, centerY } = calculateLineProperties(startPoint, endPoint);
 
-    if (length < 10) {
-        showMessage('Line too short, draw longer', 'warning');
-        STATE.linePoints = [];
-        cleanupFigurePreview();
-        return;
-    }
+    // Use default size if line is too short
+    const finalLength = length < MIN_LINE_LENGTH ? DEFAULT_FIGURE_SIZE : length;
 
     try {
         const data = await saveFigureToServer({
             x: centerX,
             y: centerY,
             shape: 'line',
-            size: Math.round(length),
+            size: Math.round(finalLength),
             startX: startPoint.x,
             startY: startPoint.y,
             endX: endPoint.x,
             endY: endPoint.y
         });
 
-        if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
+        if (data.status !== 'success') {
+            throw new Error(getServerErrorMessage(data));
+        }
+
+        STATE.annotations = {
+            ...STATE.annotations,
+            [STATE.selectedLabel]: {
                 type: 'figure',
                 status: 'ok',
                 x: centerX,
                 y: centerY,
                 shape: 'line',
-                size: Math.round(length),
+                size: Math.round(finalLength),
                 startX: startPoint.x,
                 startY: startPoint.y,
                 endX: endPoint.x,
                 endY: endPoint.y,
                 timestamp: createTimestamp()
-            };
+            }
+        };
 
-            saveToHistory();
-            renderLabelList();
-            renderAnnotations();
-            showMessage(`Created line (${Math.round(length)}px)`, 'success');
-        }
+        saveToHistory();
+        showMessage(formatSuccessMessage('Created', 'line', `${Math.round(finalLength)}px`), 'success');
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Failed to save line', 'error');
+        showMessage(formatErrorMessage('save', 'line', error), 'error');
     } finally {
         STATE.linePoints = [];
         cleanupFigurePreview();
     }
 }
 
+/**
+ * Complete figure drawing (second click for circles/rectangles)
+ * @async
+ * @param {{x: number, y: number}} coords - Second click coordinates
+ * @returns {Promise<void>}
+ */
 async function completeFigureDrawing(coords) {
     if (!STATE.figureDrawing) return;
 
     const dx = coords.x - STATE.figureStartX;
     const dy = coords.y - STATE.figureStartY;
-    const size = Math.round(Math.sqrt(dx * dx + dy * dy) * 2);
-
-    if (size < 10) {
-        showMessage('Figure too small, draw larger', 'warning');
-        cleanupFigurePreview();
-        STATE.figureDrawing = false;
-        return;
-    }
+    const rawSize = Math.sqrt(dx * dx + dy * dy) * 2;
+    
+    // Use default size if too small
+    const size = Math.round(rawSize < MIN_FIGURE_SIZE ? DEFAULT_FIGURE_SIZE : rawSize);
 
     try {
         const data = await saveFigureToServer({
@@ -205,8 +256,13 @@ async function completeFigureDrawing(coords) {
             size
         });
 
-        if (data.status === 'success') {
-            STATE.annotations[STATE.selectedLabel] = {
+        if (data.status !== 'success') {
+            throw new Error(getServerErrorMessage(data));
+        }
+
+        STATE.annotations = {
+            ...STATE.annotations,
+            [STATE.selectedLabel]: {
                 type: 'figure',
                 status: 'ok',
                 x: STATE.figureStartX,
@@ -214,28 +270,49 @@ async function completeFigureDrawing(coords) {
                 shape: STATE.figureShape,
                 size,
                 timestamp: createTimestamp()
-            };
-            saveToHistory();
-            renderLabelList();
-            renderAnnotations();
-            showMessage(`Created ${STATE.figureShape} (${size}px)`, 'success');
-        }
+            }
+        };
+        saveToHistory();
+        showMessage(formatSuccessMessage('Created', STATE.figureShape, `${size}px`), 'success');
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Failed to save figure', 'error');
+        showMessage(formatErrorMessage('save', 'figure', error), 'error');
     } finally {
         cleanupFigurePreview();
         STATE.figureDrawing = false;
     }
 }
 
+/**
+ * Cancel in-progress figure drawing
+ */
+function cancelFigureDrawing() {
+    STATE.figureDrawing = false;
+    STATE.linePoints = [];
+    cleanupFigurePreview();
+    showMessage('Drawing cancelled');
+}
+
+/**
+ * Update figure interactivity based on current state
+ * REWRITTEN: Figures are now interactive in annotation mode when their label is selected
+ */
 function updateFigureInteractivity() {
     document.querySelectorAll('.figure-shape').forEach(figure => {
-        const isInteractive = !STATE.isAnnotationMode && STATE.selectedLabel === figure.dataset.figureName;
+        const figureName = figure.dataset.figureName;
+        
+        // Figures are interactive when:
+        // 1. In annotation mode (not pan mode)
+        // 2. Using figure tool
+        // 3. This figure's label is selected
+        const isInteractive = STATE.isAnnotationMode && 
+                             STATE.currentTool === 'figure' && 
+                             STATE.selectedLabel === figureName;
 
-        figure.classList.remove('interactive', 'non-interactive');
-        figure.classList.add(isInteractive ? 'interactive' : 'non-interactive');
+        figure.classList.toggle('interactive', isInteractive);
+        figure.classList.toggle('non-interactive', !isInteractive);
 
+        // Show/hide handles
         const displayValue = isInteractive ? 'block' : 'none';
         figure.querySelectorAll('.resize-handle, .line-point').forEach(el => {
             el.style.display = displayValue;
@@ -243,45 +320,76 @@ function updateFigureInteractivity() {
     });
 }
 
+/**
+ * Handle click on a figure element
+ * @param {Event} e - Click event
+ */
 function handleFigureClick(e) {
     e.stopPropagation();
-    if (STATE.isAnnotationMode) return;
-    selectFigure(e.target.dataset.figureName);
+    
+    // In pan mode, ignore clicks
+    if (!STATE.isAnnotationMode) return;
+    
+    const figureName = e.target.dataset.figureName || e.target.closest('.figure-shape')?.dataset.figureName;
+    if (!figureName) return;
+
+    // In annotation mode, clicking a figure selects its label
+    if (STATE.currentTool === 'figure') {
+        STATE.selectedLabel = figureName;
+        selectFigure(figureName);
+        updateFigureInteractivity();
+        showMessage(`Selected: ${figureName}`);
+    }
 }
 
+/**
+ * Handle mouse down on a figure element
+ * @param {Event} e - Mouse event
+ */
 function handleFigureMouseDown(e) {
     e.stopPropagation();
 
-    if (STATE.isAnnotationMode) return;
+    // In pan mode, ignore
+    if (!STATE.isAnnotationMode) return;
+
+    const figureElement = e.target.closest('.figure-shape');
+    if (!figureElement || !figureElement.classList.contains('interactive')) return;
+
+    const figureName = figureElement.dataset.figureName;
+    const figureData = STATE.annotations[figureName];
+    if (!figureData) return;
 
     const rect = DOM.imageContainer.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
     if (e.target.classList.contains('resize-handle')) {
+        // Start resize
         STATE.figureResizing = true;
         STATE.resizeHandle = e.target.dataset.handle;
-        STATE.figureOriginalSize = STATE.annotations[e.target.closest('.figure-shape').dataset.figureName].size;
+        STATE.selectedFigure = figureName;
+        STATE.figureOriginalSize = figureData.size;
         STATE.figureDragStartX = mouseX;
         STATE.figureDragStartY = mouseY;
     } else {
+        // Start drag
         STATE.figureDragging = true;
-        STATE.selectedFigure = e.target.dataset.figureName;
+        STATE.selectedFigure = figureName;
         STATE.figureDragStartX = mouseX;
         STATE.figureDragStartY = mouseY;
-
-        const figureData = STATE.annotations[STATE.selectedFigure];
         STATE.figureOriginalX = figureData.x;
         STATE.figureOriginalY = figureData.y;
 
-        const figureElement = e.target.closest('.figure-shape');
         const figureRect = figureElement.getBoundingClientRect();
-
         STATE.figureDragOffsetX = (figureRect.left + figureRect.width / 2) - e.clientX;
         STATE.figureDragOffsetY = (figureRect.top + figureRect.height / 2) - e.clientY;
     }
 }
 
+/**
+ * Select a figure for editing
+ * @param {string} figureName - Name of the figure to select
+ */
 function selectFigure(figureName) {
     document.querySelectorAll('.figure-shape').forEach(fig => {
         fig.classList.remove('selected');
@@ -294,6 +402,9 @@ function selectFigure(figureName) {
     }
 }
 
+/**
+ * Deselect all figures
+ */
 function deselectAllFigures() {
     document.querySelectorAll('.figure-shape').forEach(fig => {
         fig.classList.remove('selected');
@@ -302,62 +413,52 @@ function deselectAllFigures() {
 }
 
 /**
- * Update label position next to a figure element
- * @param {HTMLElement} figureElement - The figure DOM element
- * @param {{x: number, y: number}} displayCoords - Display coordinates
- * @param {number} displaySize - Display size
+ * Update figure position
+ * @param {string} figureName - Name of the figure
+ * @param {number} newX - New X coordinate
+ * @param {number} newY - New Y coordinate
  */
-function updateFigureLabel(figureElement, displayCoords, displaySize) {
-    const label = figureElement.nextElementSibling;
-    if (label && label.classList.contains('annotation-label')) {
-        label.style.left = `${displayCoords.x + displaySize / 2}px`;
-        label.style.top = `${displayCoords.y}px`;
-    }
-}
-
 function updateFigurePosition(figureName, newX, newY) {
     const figureData = STATE.annotations[figureName];
     if (!figureData) return;
 
-    figureData.x = newX;
-    figureData.y = newY;
-
-    const displayCoords = imageToDisplayCoords(newX, newY);
-    const displaySize = figureData.size * STATE.currentZoom;
-    const figureElement = document.querySelector(`[data-figure-name="${figureName}"]`);
-
-    if (figureElement) {
-        figureElement.style.left = `${displayCoords.x - displaySize / 2}px`;
-        figureElement.style.top = `${displayCoords.y - displaySize / 2}px`;
-        updateFigureLabel(figureElement, displayCoords, displaySize);
-    }
+    STATE.annotations = {
+        ...STATE.annotations,
+        [figureName]: {
+            ...figureData,
+            x: newX,
+            y: newY
+        }
+    };
 }
 
+/**
+ * Update figure size
+ * @param {string} figureName - Name of the figure
+ * @param {number} newSize - New size
+ */
 function updateFigureSize(figureName, newSize) {
     const figureData = STATE.annotations[figureName];
     if (!figureData) return;
 
-    figureData.size = Math.max(10, newSize);
-
-    const displayCoords = imageToDisplayCoords(figureData.x, figureData.y);
-    const displaySize = figureData.size * STATE.currentZoom;
-    const figureElement = document.querySelector(`[data-figure-name="${figureName}"]`);
-
-    if (figureElement) {
-        Object.assign(figureElement.style, {
-            left: `${displayCoords.x - displaySize / 2}px`,
-            top: `${displayCoords.y - displaySize / 2}px`,
-            width: `${displaySize}px`,
-            height: `${displaySize}px`
-        });
-        updateFigureLabel(figureElement, displayCoords, displaySize);
-    }
+    STATE.annotations = {
+        ...STATE.annotations,
+        [figureName]: {
+            ...figureData,
+            size: Math.max(MIN_FIGURE_SIZE, newSize)
+        }
+    };
 }
 
+/**
+ * Complete figure interaction (drag/resize) and save to server
+ */
 async function completeFigureInteraction() {
     if ((STATE.figureDragging || STATE.figureResizing) && STATE.selectedFigure) {
         const figureData = STATE.annotations[STATE.selectedFigure];
-        await saveFigureUpdate(STATE.selectedFigure, figureData.x, figureData.y, figureData.shape, figureData.size);
+        if (figureData) {
+            await saveFigureUpdate(STATE.selectedFigure, figureData.x, figureData.y, figureData.shape, figureData.size);
+        }
     }
 
     STATE.figureDragging = false;
@@ -365,25 +466,55 @@ async function completeFigureInteraction() {
     STATE.resizeHandle = null;
 }
 
+/**
+ * Save figure update to server
+ * @async
+ * @param {string} figureName - Name of the figure to update
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {string} shape - Figure shape type
+ * @param {number} size - Figure size
+ * @returns {Promise<void>}
+ */
 async function saveFigureUpdate(figureName, x, y, shape, size) {
     try {
+        const figureData = STATE.annotations[figureName];
+        const requestBody = { action: 'update', x, y, shape, size };
+        
+        // Include line-specific data
+        if (shape === 'line' && figureData) {
+            requestBody.startX = figureData.startX;
+            requestBody.startY = figureData.startY;
+            requestBody.endX = figureData.endX;
+            requestBody.endY = figureData.endY;
+        }
+
         const response = await fetch(`/api/figures/${window.patientId}/${window.imageName}/${figureName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'update', x, y, shape, size })
+            body: JSON.stringify(requestBody)
         });
 
-        const data = await response.json();
-        if (data.status === 'success') {
-            saveToHistory();
-            showMessage(`Updated ${figureName}`, 'success');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+
+        const data = await response.json();
+        if (data.status !== 'success') {
+            throw new Error(getServerErrorMessage(data));
+        }
+
+        saveToHistory();
+        showMessage(formatSuccessMessage('Updated', figureName), 'success');
     } catch (error) {
         console.error('Error updating figure:', error);
-        showMessage('Failed to update figure', 'error');
+        showMessage(formatErrorMessage('update', 'figure', error), 'error');
     }
 }
 
+/**
+ * Delete the currently selected figure
+ */
 async function deleteSelectedFigure() {
     if (!STATE.selectedFigure) return;
     
@@ -395,31 +526,40 @@ async function deleteSelectedFigure() {
             body: JSON.stringify({ action: 'remove' })
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
         const data = await response.json();
         if (data.status === 'success') {
-            delete STATE.annotations[figureName];
+            const { [figureName]: _, ...rest } = STATE.annotations;
+            STATE.annotations = rest;
             saveToHistory();
-            renderLabelList();
-            renderAnnotations();
             deselectAllFigures();
-            showMessage(`Deleted ${figureName}`, 'success');
+            showMessage(formatSuccessMessage('Deleted', figureName), 'success');
         }
     } catch (error) {
         console.error('Error deleting figure:', error);
-        showMessage('Failed to delete figure', 'error');
+        showMessage(formatErrorMessage('delete', 'figure', error), 'error');
     }
 }
 
+/**
+ * Handle mouse down on line element
+ */
 function handleLineMouseDown(e) {
     e.stopPropagation();
 
-    if (STATE.isAnnotationMode) return;
+    if (!STATE.isAnnotationMode) return;
 
     const figureElement = e.target.closest('.figure-shape');
     if (!figureElement.classList.contains('interactive')) return;
 
     const figureName = figureElement.dataset.figureName;
     const figureData = STATE.annotations[figureName];
+
+    // Guard against deleted annotations
+    if (!figureData) return;
 
     STATE.figureDragging = true;
     STATE.selectedFigure = figureName;
@@ -440,86 +580,58 @@ function handleLineMouseDown(e) {
     STATE.figureDragOffsetY = (figureRect.top + figureRect.height / 2) - e.clientY;
 }
 
+/**
+ * Handle mouse down on line endpoint
+ */
 function handleLinePointMouseDown(e) {
     e.stopPropagation();
 
-    if (STATE.isAnnotationMode) return;
+    if (!STATE.isAnnotationMode) return;
 
     STATE.linePointDragging = true;
     STATE.linePointDraggedFigure = e.target.dataset.figureName;
     STATE.linePointDraggedType = e.target.dataset.pointType;
 }
 
-function updateLineElement(figureName, figureData) {
-    const figureElement = document.querySelector(`[data-figure-name="${figureName}"]`);
-    if (!figureElement) return;
-
-    const displayStart = imageToDisplayCoords(figureData.startX, figureData.startY);
-    const displayEnd = imageToDisplayCoords(figureData.endX, figureData.endY);
-    const { length, angle } = calculateLineProperties(displayStart, displayEnd);
-
-    const centerX = (displayStart.x + displayEnd.x) / 2;
-    const centerY = (displayStart.y + displayEnd.y) / 2;
-
-    Object.assign(figureElement.style, {
-        left: `${centerX - length / 2}px`,
-        top: `${centerY - 1.5}px`,
-        width: `${length}px`,
-        height: '3px',
-        transform: `rotate(${angle}deg)`
-    });
-
-    const label = figureElement.nextElementSibling;
-    if (label && label.classList.contains('annotation-label')) {
-        const displayCoords = imageToDisplayCoords(figureData.x, figureData.y);
-        label.style.left = `${displayCoords.x + length / 2}px`;
-        label.style.top = `${displayCoords.y}px`;
-    }
-
-    const startPoint = figureElement.querySelector('.line-start');
-    const endPoint = figureElement.querySelector('.line-end');
-
-    if (startPoint) {
-        startPoint.style.left = '0px';
-        startPoint.style.top = '50%';
-    }
-
-    if (endPoint) {
-        endPoint.style.left = '100%';
-        endPoint.style.top = '50%';
-    }
-}
-
+/**
+ * Complete line point interaction
+ */
 async function completeLinePointInteraction() {
     if (STATE.linePointDragging && STATE.linePointDraggedFigure) {
         const figureName = STATE.linePointDraggedFigure;
         const figureData = STATE.annotations[figureName];
         
-        try {
-            const response = await fetch(`/api/figures/${window.patientId}/${window.imageName}/${figureName}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update',
-                    x: figureData.x,
-                    y: figureData.y,
-                    shape: 'line',
-                    size: figureData.size,
-                    startX: figureData.startX,
-                    startY: figureData.startY,
-                    endX: figureData.endX,
-                    endY: figureData.endY
-                })
-            });
-            
-            const data = await response.json();
-            if (data.status === 'success') {
-                saveToHistory();
-                showMessage('Line updated', 'success');
+        if (figureData) {
+            try {
+                const response = await fetch(`/api/figures/${window.patientId}/${window.imageName}/${figureName}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update',
+                        x: figureData.x,
+                        y: figureData.y,
+                        shape: 'line',
+                        size: figureData.size,
+                        startX: figureData.startX,
+                        startY: figureData.startY,
+                        endX: figureData.endX,
+                        endY: figureData.endY
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    saveToHistory();
+                    showMessage(formatSuccessMessage('Updated', 'line'), 'success');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage(formatErrorMessage('update', 'line', error), 'error');
             }
-        } catch (error) {
-            console.error('Error:', error);
-            showMessage('Failed to update line', 'error');
         }
 
         STATE.linePointDragging = false;
@@ -530,20 +642,27 @@ async function completeLinePointInteraction() {
 
 /**
  * Move the selected figure using arrow keys
- * Step size: 1px (normal), 10px (Shift), 0.5px (Ctrl/Cmd)
- * @param {'ArrowUp'|'ArrowDown'|'ArrowLeft'|'ArrowRight'} direction - Arrow key direction
+ * @param {string} direction - Arrow key direction
  * @param {KeyboardEvent} e - The keyboard event
  */
 function moveFigureWithArrow(direction, e) {
     if (!STATE.selectedFigure) return;
 
     const figureData = STATE.annotations[STATE.selectedFigure];
+    if (!figureData) {
+        STATE.selectedFigure = null;
+        return;
+    }
 
+    // Determine step size based on modifier keys
     let stepSize = 1;
+    let modifier = '';
     if (e.shiftKey) {
         stepSize = 10;
+        modifier = ' (Shift)';
     } else if (e.ctrlKey || e.metaKey) {
         stepSize = 0.5;
+        modifier = ' (Ctrl)';
     }
 
     const deltas = {
@@ -559,11 +678,24 @@ function moveFigureWithArrow(direction, e) {
     const newX = Math.max(0, Math.min(STATE.naturalWidth, figureData.x + delta.x));
     const newY = Math.max(0, Math.min(STATE.naturalHeight, figureData.y + delta.y));
 
-    updateFigurePosition(STATE.selectedFigure, newX, newY);
+    // For line figures, also update the endpoints
+    if (figureData.shape === 'line') {
+        STATE.annotations = {
+            ...STATE.annotations,
+            [STATE.selectedFigure]: {
+                ...figureData,
+                x: newX,
+                y: newY,
+                startX: figureData.startX + delta.x,
+                startY: figureData.startY + delta.y,
+                endX: figureData.endX + delta.x,
+                endY: figureData.endY + delta.y
+            }
+        };
+    } else {
+        updateFigurePosition(STATE.selectedFigure, newX, newY);
+    }
     saveFigureUpdate(STATE.selectedFigure, newX, newY, figureData.shape, figureData.size);
 
-    let modifier = '';
-    if (e.shiftKey) modifier = ' (Shift)';
-    else if (e.ctrlKey || e.metaKey) modifier = ' (Ctrl)';
     showMessage(`Moved ${stepSize}px${modifier}`, 'info', 500);
 }

@@ -241,7 +241,45 @@ class Viewport {
 
 const viewport = new Viewport();
 
+/**
+ * Link viewport to global STATE and DOM when available
+ * Called during initialization to ensure proper linkage
+ */
+function linkViewportToGlobals() {
+    try {
+        if (window.viewport && window.viewport.linkState) {
+            // Link state if available
+            if (window.STATE) {
+                window.viewport.linkState({
+                    getZoom: () => window.STATE.currentZoom,
+                    getTranslateX: () => window.STATE.translateX,
+                    getTranslateY: () => window.STATE.translateY,
+                    getNaturalWidth: () => window.STATE.naturalWidth,
+                    getNaturalHeight: () => window.STATE.naturalHeight
+                });
+                console.log('[Viewport] Linked to STATE');
+            } else {
+                console.warn('[Viewport] STATE not available yet');
+            }
+
+            // Link container if available
+            if (window.DOM && window.DOM.imageContainer) {
+                window.viewport.setContainer(window.DOM.imageContainer);
+                console.log('[Viewport] Linked to DOM');
+            } else {
+                console.warn('[Viewport] DOM not available yet');
+            }
+        }
+    } catch (error) {
+        console.error('[Viewport] Error linking to globals:', error);
+    }
+}
+
 if (typeof window !== 'undefined') {
     window.Viewport = Viewport;
     window.viewport = viewport;
+    window.linkViewportToGlobals = linkViewportToGlobals;
+
+    // Try to link immediately if already available
+    linkViewportToGlobals();
 }

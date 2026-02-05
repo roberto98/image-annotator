@@ -46,7 +46,8 @@ body, html {
 }
 
 .tool-btn {
-    padding: 8px 16px;
+    min-height: 44px; /* Touch-friendly */
+    padding: 10px 16px;
     border: none;
     background: transparent;
     color: white;
@@ -54,7 +55,7 @@ body, html {
     border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
-    transition: all 0.3s;
+    /* NO transition for better performance */
     display: flex;
     align-items: center;
     gap: 6px;
@@ -74,6 +75,133 @@ body, html {
     display: flex;
     gap: 8px;
     align-items: stretch;
+}
+
+/* Primary actions always visible */
+.toolbar-right .nav-btn-primary {
+    display: inline-flex;
+}
+
+/* Actions dropdown for overflow */
+.actions-dropdown {
+    position: relative;
+}
+
+.actions-dropdown-trigger {
+    padding: 0 12px;
+    height: 36px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.actions-dropdown-trigger:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.actions-dropdown-trigger svg {
+    transition: transform 0.2s;
+}
+
+.actions-dropdown.open .actions-dropdown-trigger svg {
+    transform: rotate(180deg);
+}
+
+.actions-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    min-width: 180px;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.2s;
+}
+
+.actions-dropdown.open .actions-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.actions-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    color: #333;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.actions-dropdown-item:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.actions-dropdown-item:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.actions-dropdown-item:hover {
+    background: #f5f5f5;
+}
+
+.actions-dropdown-item svg {
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.actions-dropdown-divider {
+    height: 1px;
+    background: #eee;
+    margin: 4px 0;
+}
+
+/* Responsive toolbar adjustments */
+@media (max-width: 1200px) {
+    .tool-btn span {
+        display: none;
+    }
+    .tool-btn {
+        padding: 10px 12px;
+    }
+    .toolbar-left {
+        gap: 12px;
+    }
+}
+
+@media (max-width: 900px) {
+    .toolbar-info {
+        display: none;
+    }
+    .toolbar-title {
+        font-size: 14px;
+    }
+    .nav-btn span {
+        display: none;
+    }
+    .nav-btn {
+        padding: 0 10px;
+    }
 }
 
 .nav-btn {
@@ -209,6 +337,17 @@ body, html {
     cursor: crosshair;
 }
 
+/* Pan/Navigation mode cursor */
+.image-container.pan-mode .image-wrapper,
+.image-container[data-mode="panning"] .image-wrapper {
+    cursor: grab;
+}
+
+.image-container.pan-mode.dragging .image-wrapper,
+.image-container[data-mode="panning"].dragging .image-wrapper {
+    cursor: grabbing;
+}
+
 .image-wrapper img {
     display: block;
     pointer-events: none;
@@ -331,6 +470,32 @@ body, html {
     margin-bottom: 8px;
 }
 
+/* Annotation Summary */
+.annotation-summary {
+    padding: 12px;
+    background: linear-gradient(135deg, #e8f4f8 0%, #f0f7fa 100%);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid #d0e3ea;
+}
+
+.annotation-summary .summary-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #4a5568;
+}
+
+.annotation-summary svg {
+    color: #38a169;
+    flex-shrink: 0;
+}
+
+.annotation-summary strong {
+    color: #2d3748;
+}
+
 .label-name {
     font-weight: 600;
     font-size: 14px;
@@ -373,45 +538,27 @@ body, html {
 .label-actions {
     display: flex;
     gap: 4px;
-    margin-top: 8px;
+    margin-top: 6px;
+    justify-content: flex-end;
 }
 
 .action-btn {
-    flex: 1;
-    padding: 6px 12px;
+    padding: 4px 8px;
     border: none;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     transition: all 0.2s;
 }
 
-.btn-annotate {
-    background: #4dabf7;
-    color: white;
-}
-
-.btn-annotate:hover {
-    background: #339af0;
-}
-
-.btn-occluded {
-    background: #fd7e14;
-    color: white;
-}
-
-.btn-occluded:hover {
-    background: #e8590c;
-}
-
 .btn-delete {
-    background: #fa5252;
+    background: #868e96;
     color: white;
 }
 
 .btn-delete:hover {
-    background: #e03131;
+    background: #fa5252;
 }
 
 /* Status Badges */
@@ -524,18 +671,22 @@ body, html {
     pointer-events: none;
 }
 
-/* Figure Elements */
+/* Figure Elements - REMOVED transitions for better drawing performance */
 .figure-shape {
     position: absolute;
     pointer-events: none;
     z-index: 10;
-    transition: all 0.2s ease;
+    /* NO transition - causes lag during drawing */
 }
 
 .figure-shape.interactive {
     pointer-events: auto;
     cursor: move;
     box-shadow: 0 0 0 2px rgba(121, 80, 242, 0.3);
+}
+
+.figure-shape.selected {
+    box-shadow: 0 0 0 3px rgba(121, 80, 242, 0.5), 0 0 12px rgba(121, 80, 242, 0.3);
 }
 
 .figure-circle {
@@ -566,19 +717,23 @@ body, html {
     transform: translateY(-50%);
 }
 
-/* Line point markers */
+/* Line point markers - mobile friendly */
 .line-point {
     position: absolute;
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
     background: #7950f2;
     border: 2px solid white;
     border-radius: 50%;
     cursor: move;
     z-index: 12;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    /* NO transition for performance */
     transform: translate(-50%, -50%);
+    /* Touch-friendly size */
+    min-width: 24px;
+    min-height: 24px;
+    margin: -6px;
 }
 
 .figure-shape.interactive .line-point {
@@ -612,14 +767,17 @@ body, html {
 
 .resize-handle {
     position: absolute;
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
     background: #7950f2;
     border: 2px solid white;
     border-radius: 50%;
     z-index: 11;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    /* NO transition for performance */
+    /* Touch-friendly minimum size */
+    min-width: 24px;
+    min-height: 24px;
 }
 
 .figure-shape.selected .resize-handle {
@@ -631,14 +789,14 @@ body, html {
     transform: scale(1.2);
 }
 
-.resize-handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
-.resize-handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
-.resize-handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
-.resize-handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
-.resize-handle.n { top: -6px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
-.resize-handle.s { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
-.resize-handle.w { top: 50%; left: -6px; transform: translateY(-50%); cursor: w-resize; }
-.resize-handle.e { top: 50%; right: -6px; transform: translateY(-50%); cursor: e-resize; }
+.resize-handle.nw { top: -8px; left: -8px; cursor: nw-resize; }
+.resize-handle.ne { top: -8px; right: -8px; cursor: ne-resize; }
+.resize-handle.sw { bottom: -8px; left: -8px; cursor: sw-resize; }
+.resize-handle.se { bottom: -8px; right: -8px; cursor: se-resize; }
+.resize-handle.n { top: -8px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.resize-handle.s { bottom: -8px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.resize-handle.w { top: 50%; left: -8px; transform: translateY(-50%); cursor: w-resize; }
+.resize-handle.e { top: 50%; right: -8px; transform: translateY(-50%); cursor: e-resize; }
 
 /* Center indicator */
 .center-indicator {
@@ -650,7 +808,7 @@ body, html {
     border-radius: 50%;
     z-index: 12;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    /* NO transition for performance */
     pointer-events: none;
     left: 50%;
     top: 50%;
@@ -759,11 +917,33 @@ body, html {
     gap: 8px;
 }
 
+.mode-indicator:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transform: translateY(-1px);
+}
+
+.mode-indicator:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
 .mode-dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
     background: #4dabf7;
+}
+
+.mode-shortcut {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: monospace;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 4px;
+    color: #666;
+    margin-left: 4px;
 }
 
 .mode-indicator.panning {
@@ -773,6 +953,11 @@ body, html {
 
 .mode-indicator.panning .mode-dot {
     background: white;
+}
+
+.mode-indicator.panning .mode-shortcut {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
 }
 
 /* Mouse Position */
@@ -823,14 +1008,15 @@ body, html {
 
 .shape-btn {
     flex: 1;
-    padding: 8px;
+    min-height: 44px; /* Touch-friendly */
+    padding: 10px 8px;
     border: 2px solid #ddd;
     background: white;
     border-radius: 8px;
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    transition: all 0.2s;
+    /* NO transition for better performance */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -847,14 +1033,13 @@ body, html {
     color: var(--primary);
 }
 
-.shape-btn svg {
-    flex-shrink: 0;
+/* Hide size input - using multi-click drawing now */
+.size-input-group {
+    display: none;
 }
 
-.size-input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.shape-btn svg {
+    flex-shrink: 0;
 }
 
 .size-label {
@@ -969,4 +1154,192 @@ body, html {
     border-top: 4px solid white;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+}
+
+/* ============================================================================
+   Drawing Preview Styles
+   ============================================================================ */
+
+/* Generic preview styling */
+.drawing-preview {
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Point preview */
+.drawing-preview-point {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 0, 0, 0.7);
+    border: 2px solid white;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 15;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Line preview */
+.drawing-preview-line {
+    position: absolute;
+    height: 2px;
+    background: rgba(121, 80, 242, 0.6);
+    transform-origin: 0 50%;
+    pointer-events: none;
+    z-index: 15;
+}
+
+.drawing-preview-line::before,
+.drawing-preview-line::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(121, 80, 242, 0.8);
+    border: 2px solid white;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.drawing-preview-line::before {
+    left: -4px;
+}
+
+.drawing-preview-line::after {
+    right: -4px;
+}
+
+/* Circle preview */
+.drawing-preview-circle {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px dashed rgba(121, 80, 242, 0.6);
+    background: rgba(121, 80, 242, 0.1);
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Rectangle preview */
+.drawing-preview-rectangle {
+    position: absolute;
+    border: 2px dashed rgba(121, 80, 242, 0.6);
+    background: rgba(121, 80, 242, 0.1);
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Angle preview */
+.drawing-preview-angle {
+    position: absolute;
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Polygon preview - uses SVG */
+.drawing-preview-polygon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Freehand preview - uses SVG path */
+.drawing-preview-freehand {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 15;
+}
+
+/* Preview point markers during multi-click drawing */
+.drawing-preview-marker {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(67, 97, 238, 0.9);
+    border: 2px solid white;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 16;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.drawing-preview-marker.first {
+    background: #fa5252;
+    width: 10px;
+    height: 10px;
+}
+
+/* Ghost line following cursor */
+.drawing-preview-ghost {
+    opacity: 0.5;
+    border-style: dashed !important;
+}
+
+.drawing-preview-line.drawing-preview-ghost {
+    position: absolute;
+    height: 2px;
+    background: transparent;
+    border-top: 2px dashed;
+    transform-origin: 0 50%;
+    pointer-events: none;
+    z-index: 14;
+}
+
+/* Drawing instruction tooltip */
+.drawing-instruction {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 25;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.drawing-instruction kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 12px;
+    margin: 0 2px;
+}
+
+/* Cursor styles during drawing */
+.image-container.drawing-point {
+    cursor: crosshair;
+}
+
+.image-container.drawing-line {
+    cursor: crosshair;
+}
+
+.image-container.drawing-circle {
+    cursor: crosshair;
+}
+
+.image-container.drawing-rectangle {
+    cursor: crosshair;
+}
+
+.image-container.drawing-polygon {
+    cursor: crosshair;
+}
+
+.image-container.drawing-freehand {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M12 19l7-7 3 3-7 7-3-3z"/><path fill="black" stroke="white" stroke-width="1" d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path fill="black" stroke="white" stroke-width="1" d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2" fill="white"/></svg>') 2 18, crosshair;
 }

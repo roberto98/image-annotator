@@ -1,5 +1,5 @@
-# blueprints/api/annotations_v2.py
-"""V2 Annotation API endpoints supporting multiple annotation types.
+# blueprints/api/annotations.py
+"""Annotation API endpoints supporting multiple annotation types.
 
 Supported annotation types:
 - Point: Single point with x, y coordinates
@@ -12,7 +12,7 @@ Supported annotation types:
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 import json
 import logging
 import math
@@ -20,13 +20,10 @@ import re
 
 from flask import Blueprint, jsonify, request, Response
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
-# Create a separate blueprint for v2 API
-annotations_v2_bp = Blueprint("annotations_v2", __name__, url_prefix="/api/v2")
+annotations_bp = Blueprint("annotations", __name__, url_prefix="/api/annotations")
 
-# Constants
 DATA_DIR = Path("data")
 LABELS_FILE = DATA_DIR / "labels.json"
 VALID_ANNOTATION_TYPES = {
@@ -40,18 +37,13 @@ VALID_ANNOTATION_TYPES = {
 DEFAULT_CATEGORIES = ["anatomy", "pathology", "measurement", "other"]
 
 
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
 def _validate_hex_color(color: str) -> bool:
     """Validate that a string is a valid hex color code."""
     return bool(re.match(r"^#[0-9a-fA-F]{6}$", color))
 
 
 def _get_annotation_path(patient_id: str, image_name: str) -> Path:
-    """Get path to v2 annotation JSON file for patient/image.
+    """Get path to annotation JSON file for patient/image.
 
     Sanitizes inputs to prevent path traversal attacks.
 
@@ -75,7 +67,7 @@ def _get_annotation_path(patient_id: str, image_name: str) -> Path:
     if not safe_image_name or safe_image_name in (".", ".."):
         raise ValueError("Invalid image_name")
 
-    result = DATA_DIR / safe_patient_id / f"{safe_image_name}_annotations_v2.json"
+    result = DATA_DIR / safe_patient_id / f"{safe_image_name}_annotations.json"
 
     # Verify path is under DATA_DIR
     if not result.resolve().is_relative_to(DATA_DIR.resolve()):
@@ -85,18 +77,7 @@ def _get_annotation_path(patient_id: str, image_name: str) -> Path:
 
 
 def _load_annotations(patient_id: str, image_name: str) -> Dict[str, Any]:
-    """Load v2 annotations from file, returning default structure if not exists.
-
-    Args:
-        patient_id: The patient identifier
-        image_name: The image filename
-
-    Returns:
-        Annotation data dictionary
-
-    Raises:
-        ValueError: If path validation fails (path traversal attempt)
-    """
+    """Load annotations from file, returning default structure if not exists."""
     path = _get_annotation_path(patient_id, image_name)
     if path.exists():
         try:
@@ -104,7 +85,6 @@ def _load_annotations(patient_id: str, image_name: str) -> Dict[str, Any]:
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"Failed to load annotations from {path}: {e}")
 
-    # Return default structure
     return {
         "version": 2,
         "calibration": {"pixelsPerMm": None},
@@ -114,16 +94,7 @@ def _load_annotations(patient_id: str, image_name: str) -> Dict[str, Any]:
 
 
 def _save_annotations(patient_id: str, image_name: str, data: Dict[str, Any]) -> None:
-    """Save v2 annotations to JSON file.
-
-    Args:
-        patient_id: The patient identifier
-        image_name: The image filename
-        data: Annotation data to save
-
-    Raises:
-        ValueError: If path validation fails (path traversal attempt)
-    """
+    """Save annotations to JSON file."""
     path = _get_annotation_path(patient_id, image_name)
     path.parent.mkdir(exist_ok=True, parents=True)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -137,7 +108,6 @@ def _load_labels() -> Dict[str, Any]:
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"Failed to load labels from {LABELS_FILE}: {e}")
 
-    # Return default structure
     return {"labels": [], "categories": DEFAULT_CATEGORIES.copy()}
 
 
@@ -160,11 +130,7 @@ def _validate_annotation_type(annotation_type: str) -> bool:
 def _validate_annotation_data(
     annotation_type: str, data: Dict[str, Any]
 ) -> Tuple[bool, str]:
-    """Validate annotation data matches the expected format for the type.
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
+    """Validate annotation data matches the expected format for the type."""
     if not isinstance(data, dict):
         return False, "data must be an object"
 
@@ -297,13 +263,13 @@ def _calculate_line_length(
     end: Dict[str, float],
     pixels_per_mm: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """Calculate line length in pixels and optionally in real units."""
+    """Calculate line length in pixels and optionally in millimeters."""
     dx = end["x"] - start["x"]
     dy = end["y"] - start["y"]
-    length_px = math.sqrt(dx * dx + dy * dy)
+    length_px = math.hypot(dx, dy)
 
     result = {"pixels": round(length_px, 2)}
-    if pixels_per_mm is not None and pixels_per_mm > 0:
+    if pixels_per_mm and pixels_per_mm > 0:
         result["mm"] = round(length_px / pixels_per_mm, 2)
 
     return result
@@ -312,28 +278,21 @@ def _calculate_line_length(
 def _calculate_angle(
     point1: Dict[str, float], vertex: Dict[str, float], point2: Dict[str, float]
 ) -> float:
-    """Calculate angle between three points in degrees."""
-    # Vector from vertex to point1
+    """Calculate angle between three points in degrees using the vertex as origin."""
     v1_x = point1["x"] - vertex["x"]
     v1_y = point1["y"] - vertex["y"]
-
-    # Vector from vertex to point2
     v2_x = point2["x"] - vertex["x"]
     v2_y = point2["y"] - vertex["y"]
 
-    # Calculate angle using dot product
     dot_product = v1_x * v2_x + v1_y * v2_y
-    mag1 = math.sqrt(v1_x * v1_x + v1_y * v1_y)
-    mag2 = math.sqrt(v2_x * v2_x + v2_y * v2_y)
+    mag1 = math.hypot(v1_x, v1_y)
+    mag2 = math.hypot(v2_x, v2_y)
 
     if mag1 == 0 or mag2 == 0:
         return 0.0
 
     cos_angle = max(-1, min(1, dot_product / (mag1 * mag2)))
-    angle_rad = math.acos(cos_angle)
-    angle_deg = math.degrees(angle_rad)
-
-    return round(angle_deg, 2)
+    return round(math.degrees(math.acos(cos_angle)), 2)
 
 
 def _success_response(data: Optional[Dict[str, Any]] = None) -> Tuple[Response, int]:
@@ -349,12 +308,7 @@ def _error_response(message: str, status_code: int = 400) -> Tuple[Response, int
     return jsonify({"status": "error", "message": message}), status_code
 
 
-# =============================================================================
-# Annotation Endpoints
-# =============================================================================
-
-
-@annotations_v2_bp.route("/annotations/<patient_id>/<image_name>", methods=["GET"])
+@annotations_bp.route("/<patient_id>/<image_name>", methods=["GET"])
 def get_annotations(patient_id: str, image_name: str) -> Tuple[Response, int]:
     """Get all annotations for an image.
 
@@ -442,16 +396,14 @@ def get_annotations(patient_id: str, image_name: str) -> Tuple[Response, int]:
 
         enriched_annotations[label] = enriched
 
-    return jsonify(
-        {
-            "annotations": enriched_annotations,
-            "labels": used_labels,
-            "calibration": calibration,
-        }
-    ), 200
+    return jsonify({
+        "annotations": enriched_annotations,
+        "labels": used_labels,
+        "calibration": calibration,
+    }), 200
 
 
-@annotations_v2_bp.route("/annotations/<patient_id>/<image_name>", methods=["POST"])
+@annotations_bp.route("/<patient_id>/<image_name>", methods=["POST"])
 def create_or_update_annotation(
     patient_id: str, image_name: str
 ) -> Tuple[Response, int]:
@@ -536,8 +488,8 @@ def create_or_update_annotation(
     return _success_response({"label": label, "annotation": annotation})
 
 
-@annotations_v2_bp.route(
-    "/annotations/<patient_id>/<image_name>/<label>", methods=["DELETE"]
+@annotations_bp.route(
+    "/<patient_id>/<image_name>/<label>", methods=["DELETE"]
 )
 def delete_annotation(
     patient_id: str, image_name: str, label: str
@@ -579,24 +531,17 @@ def delete_annotation(
     return _success_response({"deleted": label})
 
 
-# =============================================================================
-# Labels Endpoints
-# =============================================================================
-
-
-@annotations_v2_bp.route("/labels", methods=["GET"])
+@annotations_bp.route("/labels", methods=["GET"])
 def get_labels() -> Tuple[Response, int]:
     """Get all available labels with categories and colors."""
     data = _load_labels()
-    return jsonify(
-        {
-            "labels": data.get("labels", []),
-            "categories": data.get("categories", DEFAULT_CATEGORIES),
-        }
-    ), 200
+    return jsonify({
+        "labels": data.get("labels", []),
+        "categories": data.get("categories", DEFAULT_CATEGORIES),
+    }), 200
 
 
-@annotations_v2_bp.route("/labels", methods=["POST"])
+@annotations_bp.route("/labels", methods=["POST"])
 def create_label() -> Tuple[Response, int]:
     """Create a new label.
 
@@ -660,7 +605,7 @@ def create_label() -> Tuple[Response, int]:
     return _success_response({"label": label}), 201
 
 
-@annotations_v2_bp.route("/labels/<name>", methods=["PUT"])
+@annotations_bp.route("/labels/<name>", methods=["PUT"])
 def update_label(name: str) -> Tuple[Response, int]:
     """Update an existing label.
 
@@ -714,7 +659,7 @@ def update_label(name: str) -> Tuple[Response, int]:
     return _success_response({"label": label})
 
 
-@annotations_v2_bp.route("/labels/<name>", methods=["DELETE"])
+@annotations_bp.route("/labels/<name>", methods=["DELETE"])
 def delete_label(name: str) -> Tuple[Response, int]:
     """Delete a label by name."""
     data = _load_labels()
@@ -733,12 +678,7 @@ def delete_label(name: str) -> Tuple[Response, int]:
     return _success_response({"deleted": name})
 
 
-# =============================================================================
-# Calibration Endpoints
-# =============================================================================
-
-
-@annotations_v2_bp.route("/calibration/<patient_id>/<image_name>", methods=["PUT"])
+@annotations_bp.route("/calibration/<patient_id>/<image_name>", methods=["PUT"])
 def set_calibration(patient_id: str, image_name: str) -> Tuple[Response, int]:
     """Set image calibration (pixels per mm).
 
@@ -784,7 +724,7 @@ def set_calibration(patient_id: str, image_name: str) -> Tuple[Response, int]:
     return _success_response({"calibration": data["calibration"]})
 
 
-@annotations_v2_bp.route("/calibration/<patient_id>/<image_name>", methods=["GET"])
+@annotations_bp.route("/calibration/<patient_id>/<image_name>", methods=["GET"])
 def get_calibration(patient_id: str, image_name: str) -> Tuple[Response, int]:
     """Get image calibration data."""
     try:
@@ -795,24 +735,9 @@ def get_calibration(patient_id: str, image_name: str) -> Tuple[Response, int]:
     return jsonify({"calibration": data.get("calibration", {"pixelsPerMm": None})}), 200
 
 
-# =============================================================================
-# Image Metadata Endpoint
-# =============================================================================
-
-
-@annotations_v2_bp.route("/images/<patient_id>/<image_name>/metadata", methods=["GET"])
+@annotations_bp.route("/images/<patient_id>/<image_name>/metadata", methods=["GET"])
 def get_image_metadata(patient_id: str, image_name: str) -> Tuple[Response, int]:
-    """Get image metadata including dimensions and DICOM calibration.
-
-    Returns:
-        {
-            "width": int,              # Image width in pixels
-            "height": int,             # Image height in pixels
-            "format": str,             # "DICOM", "PNG", "JPEG", etc.
-            "pixelSpacing": [float, float] | null,  # [row_spacing, col_spacing] in mm from DICOM
-            "modality": str | null     # DICOM modality (e.g., "CR", "DX", "MR")
-        }
-    """
+    """Get image metadata including dimensions and DICOM calibration."""
     import config
     from PIL import Image as PILImage
     from app.imaging.dicom import (
@@ -839,7 +764,6 @@ def get_image_metadata(patient_id: str, image_name: str) -> Tuple[Response, int]
         return _error_response(f"Image not found: {safe_image_name}", 404)
 
     try:
-        # Initialize metadata
         metadata = {
             "width": 0,
             "height": 0,
@@ -848,7 +772,6 @@ def get_image_metadata(patient_id: str, image_name: str) -> Tuple[Response, int]
             "modality": None,
         }
 
-        # Check if DICOM
         if is_dicom_file(image_path):
             try:
                 dcm = read_dicom(image_path)
@@ -874,9 +797,8 @@ def get_image_metadata(patient_id: str, image_name: str) -> Tuple[Response, int]
 
             except Exception as e:
                 logger.error(f"Error reading DICOM metadata from {image_path}: {e}")
-                return _error_response(f"Failed to read DICOM metadata: {str(e)}", 500)
+                return _error_response(f"Failed to read DICOM metadata: {e}", 500)
         else:
-            # Standard image formats
             try:
                 img = PILImage.open(image_path)
                 metadata["width"], metadata["height"] = img.size
@@ -884,22 +806,17 @@ def get_image_metadata(patient_id: str, image_name: str) -> Tuple[Response, int]
                 img.close()
             except Exception as e:
                 logger.error(f"Error reading image metadata from {image_path}: {e}")
-                return _error_response(f"Failed to read image metadata: {str(e)}", 500)
+                return _error_response(f"Failed to read image metadata: {e}", 500)
 
         return jsonify(metadata), 200
 
     except Exception as e:
         logger.error(f"Unexpected error in get_image_metadata: {e}", exc_info=True)
-        return _error_response(f"Internal server error: {str(e)}", 500)
+        return _error_response(f"Internal server error: {e}", 500)
 
 
-# =============================================================================
-# Bulk Operations
-# =============================================================================
-
-
-@annotations_v2_bp.route(
-    "/annotations/<patient_id>/<image_name>/bulk", methods=["POST"]
+@annotations_bp.route(
+    "/<patient_id>/<image_name>/bulk", methods=["POST"]
 )
 def bulk_update_annotations(patient_id: str, image_name: str) -> Tuple[Response, int]:
     """Bulk create/update/delete annotations.
@@ -1014,17 +931,15 @@ def bulk_update_annotations(patient_id: str, image_name: str) -> Tuple[Response,
                 }
             )
 
-    # Save
     try:
         _save_annotations(patient_id, image_name, data)
     except ValueError as e:
         logger.warning(f"Invalid path parameters in bulk_update_annotations save: {e}")
         return _error_response(str(e), 400)
 
-    return jsonify(
-        {
-            "status": "success" if not errors else "partial",
-            "results": results,
-            "errors": errors,
-        }
-    ), 200 if not errors else 207  # 207 Multi-Status for partial success
+    status_code = 200 if not errors else 207  # 207 Multi-Status for partial success
+    return jsonify({
+        "status": "success" if not errors else "partial",
+        "results": results,
+        "errors": errors,
+    }), status_code

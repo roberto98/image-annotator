@@ -1,40 +1,59 @@
 /**
  * Main application entry point for the annotation system
  * @module main
- * 
- * This module coordinates initialization of all annotation modules
- * and provides the primary application lifecycle management.
  */
 
 const App = {
-    // ========================================================================
-    // Configuration
-    // ========================================================================
-
-    /**
-     * Whether the app has been initialized
-     * @type {boolean}
-     */
     initialized: false,
-
-    /**
-     * Debug mode flag
-     * @type {boolean}
-     */
+    _initializing: false,
     debug: false,
+    _errorCount: 0,
+    _maxErrors: 5,
+    _dependencies: {
+        state: null,
+        viewport: null,
+        renderer: null,
+        api: null,
+        debug: null
+    },
 
-    // ========================================================================
-    // Main Initialization
-    // ========================================================================
+    _getDependency(key, resolver) {
+        if (!this._dependencies[key]) {
+            this._dependencies[key] = resolver();
+        }
+        return this._dependencies[key];
+    },
 
-    /**
-     * Initialize the application
-     * Called automatically when DOM is ready
-     */
+    get state() {
+        return this._getDependency('state', () => window.AnnotationState || window.STATE);
+    },
+
+    get viewport() {
+        return this._getDependency('viewport', () => window.viewport);
+    },
+
+    get renderer() {
+        return this._getDependency('renderer', () => window.annotationRenderer);
+    },
+
+    get api() {
+        return this._getDependency('api', () => window.AnnotationAPI);
+    },
+
+    get debug() {
+        return this._getDependency('debug', () => window.Debug || console);
+    },
+
     async init() {
         // Prevent double initialization
         if (this.initialized) {
             Debug.log('App', 'Already initialized');
+            return;
+        }
+
+        // Prevent concurrent initialization attempts
+        if (this._initializing) {
+            Debug.warn('App', 'Initialization already in progress');
             return;
         }
 
@@ -44,7 +63,8 @@ const App = {
             return;
         }
 
-        Debug.log('App', 'Starting initialization...');
+        this._initializing = true;
+        this.debug.log('App', 'Starting initialization...');
 
         try {
             // Initialize state management
@@ -63,31 +83,27 @@ const App = {
             this.render();
 
             this.initialized = true;
-            Debug.log('App', 'Initialization complete');
+            this.debug.log('App', 'Initialization complete');
 
         } catch (error) {
-            Debug.error('App', 'Initialization failed:', error);
+            this.debug.error('App', 'Initialization failed:', error);
             window.showMessage?.('Failed to initialize application', 'error');
+            throw error;
+        } finally {
+            this._initializing = false;
         }
     },
 
-    // ========================================================================
-    // State Initialization
-    // ========================================================================
-
-    /**
-     * Initialize state management
-     */
     async initState() {
-        Debug.log('App', 'Initializing state...');
+        this.debug.log('App', 'Initializing state...');
 
         // Get patient/image info from template data or globals
         const patientId = window.patientId || window.__APP_CONFIG__?.patientId;
         const imageName = window.imageName || window.__APP_CONFIG__?.imageName;
 
-        // Initialize AnnotationState with context
-        if (window.AnnotationState) {
-            window.AnnotationState.init({
+        // Initialize state with context
+        if (this.state?.init) {
+            this.state.init({
                 patientId,
                 imageName,
                 annotations: window.currentAnnotations || {},
@@ -98,22 +114,22 @@ const App = {
             const img = document.getElementById('annotationImage');
             if (img) {
                 if (img.complete && img.naturalWidth > 0) {
-                    window.AnnotationState.imageWidth = img.naturalWidth;
-                    window.AnnotationState.imageHeight = img.naturalHeight;
+                    this.state.imageWidth = img.naturalWidth;
+                    this.state.imageHeight = img.naturalHeight;
                 } else {
                     img.addEventListener('load', () => {
-                        window.AnnotationState.imageWidth = img.naturalWidth;
-                        window.AnnotationState.imageHeight = img.naturalHeight;
+                        this.state.imageWidth = img.naturalWidth;
+                        this.state.imageHeight = img.naturalHeight;
                     });
                 }
             }
         }
 
         // Subscribe to state changes for auto-rendering
-        if (window.AnnotationState?.subscribe) {
-            window.AnnotationState.subscribe((event, data) => {
+        if (this.state?.subscribe) {
+            this.state.subscribe((event, data) => {
                 if (this.debug) {
-                    Debug.log('App', 'State event:', event, data);
+                    this.debug.log('App', 'State event:', event, data);
                 }
 
                 // Auto-render on relevant state changes
@@ -130,52 +146,43 @@ const App = {
         }
     },
 
-    // ========================================================================
-    // UI Initialization
-    // ========================================================================
-
-    /**
-     * Initialize UI components
-     */
     initUI() {
-        Debug.log('App', 'Initializing UI components...');
+        this.debug.log('App', 'Initializing UI components...');
 
         // Get container
         const container = document.getElementById('imageContainer') ||
             document.getElementById('imageWrapper')?.parentElement;
 
-        // Initialize annotation renderer (use singleton instance)
-        if (window.annotationRenderer && container) {
-            window.annotationRenderer.init(container, window.viewport);
-            Debug.log('App', 'AnnotationRenderer initialized');
+        // Initialize annotation renderer
+        if (this.renderer && container) {
+            this.renderer.init(container, this.viewport);
+            this.debug.log('App', 'AnnotationRenderer initialized');
+
+            // Reattach EditingHandler listeners to SVG now that it exists
+            if (window.EditingHandler?.reattachSVGListeners) {
+                window.EditingHandler.reattachSVGListeners();
+            }
         }
 
         // Initialize label selector
         if (window.LabelSelector) {
             window.LabelSelector.init();
-            Debug.log('App', 'LabelSelector initialized');
+            this.debug.log('App', 'LabelSelector initialized');
         }
 
         // Initialize drawing handler
         if (window.DrawingHandler) {
             window.DrawingHandler.init();
-            Debug.log('App', 'DrawingHandler initialized');
+            this.debug.log('App', 'DrawingHandler initialized');
         }
 
         // Initialize editing handler
         if (window.EditingHandler) {
             window.EditingHandler.init();
-            Debug.log('App', 'EditingHandler initialized');
+            this.debug.log('App', 'EditingHandler initialized');
         }
     },
 
-    // ========================================================================
-    // Data Loading
-    // ========================================================================
-
-    /**
-     * Load annotations from the API
-     */
     async loadAnnotations() {
         Debug.log('App', 'Loading annotations...');
 
@@ -196,7 +203,9 @@ const App = {
                         window.AnnotationState.setLabels(labels);
                     }
                 } catch (labelError) {
+                    this._errorCount++;
                     Debug.warn('App', 'Failed to load labels:', labelError);
+                    window.showMessage?.('Failed to load labels from server, using cached data', 'warning');
                     // Continue anyway - we have fallback labels from template
                 }
             }
@@ -214,7 +223,9 @@ const App = {
                 } catch (annoError) {
                     // 404 is expected for new images
                     if (annoError.status !== 404) {
+                        this._errorCount++;
                         Debug.warn('App', 'Failed to load annotations:', annoError);
+                        window.showMessage?.('Failed to load annotations from server', 'warning');
                     }
                 }
             }
@@ -229,7 +240,9 @@ const App = {
                 } catch (calError) {
                     // 404 is expected if no calibration set
                     if (calError.status !== 404) {
+                        this._errorCount++;
                         Debug.warn('App', 'Failed to load calibration:', calError);
+                        window.showMessage?.('Failed to load calibration data', 'warning');
                     }
                 }
             }
@@ -237,18 +250,18 @@ const App = {
             Debug.log('App', 'Annotations loaded successfully');
 
         } catch (error) {
+            this._errorCount++;
             Debug.error('App', 'Failed to load annotations:', error);
+            window.showMessage?.('Error loading data from server', 'error');
+
+            // Check if too many errors occurred
+            if (this._errorCount >= this._maxErrors) {
+                throw new Error(`Too many errors during initialization (${this._errorCount})`);
+            }
             // Don't throw - template data provides fallback
         }
     },
 
-    // ========================================================================
-    // Event Handlers
-    // ========================================================================
-
-    /**
-     * Setup application event handlers
-     */
     setupEventHandlers() {
         Debug.log('App', 'Setting up event handlers...');
 
@@ -262,9 +275,6 @@ const App = {
         this.setupKeyboardShortcuts();
     },
 
-    /**
-     * Setup tool button click handlers
-     */
     setupToolButtons() {
         // Find all tool buttons with data-tool attribute
         const toolButtons = document.querySelectorAll('[data-tool]');
@@ -279,9 +289,6 @@ const App = {
         Debug.log('App', `Attached handlers to ${toolButtons.length} tool buttons`);
     },
 
-    /**
-     * Setup mode toggle handler
-     */
     setupModeToggle() {
         const modeIndicator = document.getElementById('modeIndicator');
         if (modeIndicator) {
@@ -289,9 +296,6 @@ const App = {
         }
     },
 
-    /**
-     * Setup keyboard shortcuts
-     */
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
             // Skip if typing in input
@@ -335,14 +339,6 @@ const App = {
         });
     },
 
-    // ========================================================================
-    // Tool Selection
-    // ========================================================================
-
-    /**
-     * Select a drawing tool
-     * @param {string} tool - Tool name (from AnnotationType)
-     */
     selectTool(tool) {
         Debug.log('App', 'Selecting tool:', tool);
 
@@ -367,23 +363,12 @@ const App = {
         window.showMessage?.(`${toolName} tool selected`, 'info', 1000);
     },
 
-    /**
-     * Get currently selected tool
-     * @returns {string|null}
-     */
     getCurrentTool() {
         return window.AnnotationState?.currentTool ||
             window.STATE?.currentTool ||
             null;
     },
 
-    // ========================================================================
-    // Mode Management
-    // ========================================================================
-
-    /**
-     * Toggle between annotation mode and pan/navigation mode
-     */
     toggleMode() {
         // Don't toggle if drawing is in progress
         if (window.DrawingHandler?.isDrawingInProgress?.()) {
@@ -412,15 +397,10 @@ const App = {
         this.updateModeDisplay();
 
         // Show feedback
-        const isAnnotationMode = window.AnnotationState?.isAnnotationMode ??
-            window.STATE?.isAnnotationMode ?? true;
         const modeName = isAnnotationMode ? 'Annotation' : 'Navigation';
         window.showMessage?.(`${modeName} mode`, 'info', 1000);
     },
 
-    /**
-     * Update mode indicator display
-     */
     updateModeDisplay() {
         const indicator = document.getElementById('modeIndicator');
         const container = document.getElementById('imageContainer');
@@ -449,19 +429,12 @@ const App = {
         }
     },
 
-    // ========================================================================
-    // Rendering
-    // ========================================================================
-
-    /**
-     * Trigger a render of all annotations
-     */
     render() {
-        // Use new renderer singleton if available
-        if (window.annotationRenderer?.render) {
-            const annotations = window.AnnotationState?.annotations || window.STATE?.annotations || {};
-            const calibration = window.AnnotationState?.calibration?.pixelsPerMm || null;
-            window.annotationRenderer.render(annotations, calibration);
+        // Use new renderer if available
+        if (this.renderer?.render) {
+            const annotations = this.state?.annotations || {};
+            const calibration = this.state?.calibration?.pixelsPerMm || null;
+            this.renderer.render(annotations, calibration);
             return;
         }
 
@@ -477,23 +450,12 @@ const App = {
         }
     },
 
-    // ========================================================================
-    // Public API
-    // ========================================================================
-
-    /**
-     * Get current annotations
-     * @returns {Object}
-     */
     getAnnotations() {
         return window.AnnotationState?.annotations ||
             window.STATE?.annotations ||
             {};
     },
 
-    /**
-     * Save all annotations to the server
-     */
     async saveAll() {
         const patientId = window.patientId || window.AnnotationState?.patientId;
         const imageName = window.imageName || window.AnnotationState?.imageName;
@@ -514,16 +476,4 @@ const App = {
     }
 };
 
-// ============================================================================
-// Export and Auto-Initialize
-// ============================================================================
-
-// Export to window
 window.App = App;
-
-// Note: Auto-initialization is handled by initialization.js which calls
-// initializeNewAnnotationSystem(). This file provides the App object and 
-// additional utility methods but defers to the main initialization flow.
-// 
-// If you need to use App.init() directly (e.g., in a SPA context), you can
-// call it manually after DOMContentLoaded.

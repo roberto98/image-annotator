@@ -142,7 +142,7 @@ function updateFigurePreview(coords) {
     if (STATE.figureShape === 'line' && STATE.linePoints.length === 1) {
         // Line preview
         const { length, angle, centerX, centerY } = calculateLineProperties(STATE.linePoints[0], coords);
-        const displayCenter = viewport.imageToDisplay(centerX, centerY);
+        const displayCenter = viewport.imageToScreen(centerX, centerY);
         const displayLength = length * STATE.currentZoom;
 
         Object.assign(STATE.figurePreview.style, {
@@ -161,7 +161,7 @@ function updateFigurePreview(coords) {
         const dy = coords.y - STATE.figureStartY;
         const size = Math.sqrt(dx * dx + dy * dy) * 2;
 
-        const displayCenter = viewport.imageToDisplay(STATE.figureStartX, STATE.figureStartY);
+        const displayCenter = viewport.imageToScreen(STATE.figureStartX, STATE.figureStartY);
         const displaySize = Math.max(size, DEFAULT_FIGURE_SIZE) * STATE.currentZoom;
 
         Object.assign(STATE.figurePreview.style, {
@@ -451,22 +451,6 @@ function updateFigureSize(figureName, newSize) {
 }
 
 /**
- * Complete figure interaction (drag/resize) and save to server
- */
-async function completeFigureInteraction() {
-    if ((STATE.figureDragging || STATE.figureResizing) && STATE.selectedFigure) {
-        const figureData = STATE.annotations[STATE.selectedFigure];
-        if (figureData) {
-            await saveFigureUpdate(STATE.selectedFigure, figureData.x, figureData.y, figureData.shape, figureData.size);
-        }
-    }
-
-    STATE.figureDragging = false;
-    STATE.figureResizing = false;
-    STATE.resizeHandle = null;
-}
-
-/**
  * Save figure update to server
  * @async
  * @param {string} figureName - Name of the figure to update
@@ -593,109 +577,3 @@ function handleLinePointMouseDown(e) {
     STATE.linePointDraggedType = e.target.dataset.pointType;
 }
 
-/**
- * Complete line point interaction
- */
-async function completeLinePointInteraction() {
-    if (STATE.linePointDragging && STATE.linePointDraggedFigure) {
-        const figureName = STATE.linePointDraggedFigure;
-        const figureData = STATE.annotations[figureName];
-        
-        if (figureData) {
-            try {
-                const response = await fetch(`/api/figures/${window.patientId}/${window.imageName}/${figureName}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'update',
-                        x: figureData.x,
-                        y: figureData.y,
-                        shape: 'line',
-                        size: figureData.size,
-                        startX: figureData.startX,
-                        startY: figureData.startY,
-                        endX: figureData.endX,
-                        endY: figureData.endY
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                if (data.status === 'success') {
-                    saveToHistory();
-                    showMessage(formatSuccessMessage('Updated', 'line'), 'success');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showMessage(formatErrorMessage('update', 'line', error), 'error');
-            }
-        }
-
-        STATE.linePointDragging = false;
-        STATE.linePointDraggedFigure = null;
-        STATE.linePointDraggedType = null;
-    }
-}
-
-/**
- * Move the selected figure using arrow keys
- * @param {string} direction - Arrow key direction
- * @param {KeyboardEvent} e - The keyboard event
- */
-function moveFigureWithArrow(direction, e) {
-    if (!STATE.selectedFigure) return;
-
-    const figureData = STATE.annotations[STATE.selectedFigure];
-    if (!figureData) {
-        STATE.selectedFigure = null;
-        return;
-    }
-
-    // Determine step size based on modifier keys
-    let stepSize = 1;
-    let modifier = '';
-    if (e.shiftKey) {
-        stepSize = 10;
-        modifier = ' (Shift)';
-    } else if (e.ctrlKey || e.metaKey) {
-        stepSize = 0.5;
-        modifier = ' (Ctrl)';
-    }
-
-    const deltas = {
-        ArrowUp: { x: 0, y: -stepSize },
-        ArrowDown: { x: 0, y: stepSize },
-        ArrowLeft: { x: -stepSize, y: 0 },
-        ArrowRight: { x: stepSize, y: 0 }
-    };
-
-    const delta = deltas[direction];
-    if (!delta) return;
-
-    const newX = Math.max(0, Math.min(STATE.naturalWidth, figureData.x + delta.x));
-    const newY = Math.max(0, Math.min(STATE.naturalHeight, figureData.y + delta.y));
-
-    // For line figures, also update the endpoints
-    if (figureData.shape === 'line') {
-        STATE.annotations = {
-            ...STATE.annotations,
-            [STATE.selectedFigure]: {
-                ...figureData,
-                x: newX,
-                y: newY,
-                startX: figureData.startX + delta.x,
-                startY: figureData.startY + delta.y,
-                endX: figureData.endX + delta.x,
-                endY: figureData.endY + delta.y
-            }
-        };
-    } else {
-        updateFigurePosition(STATE.selectedFigure, newX, newY);
-    }
-    saveFigureUpdate(STATE.selectedFigure, newX, newY, figureData.shape, figureData.size);
-
-    showMessage(`Moved ${stepSize}px${modifier}`, 'info', 500);
-}

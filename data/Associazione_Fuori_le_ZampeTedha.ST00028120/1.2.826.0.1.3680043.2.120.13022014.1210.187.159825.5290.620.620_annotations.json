@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "calibration": {
+    "pixelsPerMm": null
+  },
+  "annotations": {
+    "poi": {
+      "type": "point",
+      "status": "ok",
+      "timestamp": "2026-02-04T19:19:08.435312+00:00",
+      "data": {
+        "x": 1137.919393445646,
+        "y": 226.26717962963397
+      },
+      "color": "#96ceb4"
+    },
+    "cioa": {
+      "type": "point",
+      "status": "ok",
+      "timestamp": "2026-02-04T19:19:11.617251+00:00",
+      "data": {
+        "x": 1500.7342725152723,
+        "y": 219.67054546473167
+      },
+      "color": "#ffe119"
+    }
+  },
+  "history": []
+}

@@ -8,7 +8,7 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 # Import remaining V1 route modules (images, export)
 from app.blueprints.api import images, export
 
-# Import v2 annotations blueprint
-from app.blueprints.api.annotations_v2 import annotations_v2_bp
+# Import annotations blueprint
+from app.blueprints.api.annotations import annotations_bp
 
-__all__ = ["api_bp", "annotations_v2_bp"]
+__all__ = ["api_bp", "annotations_bp"]

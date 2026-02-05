@@ -1,63 +1,27 @@
 /**
  * EditingHandler - Manages annotation selection and modification
  * @module annotations/editing
- * 
- * This module provides a comprehensive editing system for annotations:
- * - Drag to move entire annotations
- * - Drag specific points to reshape annotations  
- * - Drag handles to resize circles/rectangles
- * - Arrow key movement for fine adjustments
- * - Touch support for mobile editing
- * - Undo/redo integration
- * - Visual feedback during drag operations
- * 
- * Compatibility: Works with both the new AnnotationState/AnnotationRenderer
- * and the legacy STATE/renderAnnotations() systems.
- * 
- * Dependencies:
- * - constants.js (EditingConstants, Debug)
+ *
+ * Features: drag-to-move, point/handle dragging, arrow key movement,
+ * touch support, undo/redo integration, visual feedback.
+ *
+ * Compatible with both AnnotationState and legacy STATE systems.
  */
 
-// ============================================================================
-// EditingHandler Module
-// ============================================================================
-
 const EditingHandler = {
-    // ========================================================================
-    // State Properties
-    // ========================================================================
-    
-    /** Whether a drag operation is in progress */
+    // State properties
     isDragging: false,
-    
-    /** Type of drag: 'annotation', 'point', 'handle' */
     dragTarget: null,
-    
-    /** Index of point being dragged (for multi-point annotations) */
     dragPointIndex: -1,
-    
-    /** Type of resize handle being dragged */
     dragHandleType: null,
-    
-    /** Starting position for drag operation in image coordinates */
     dragStartPos: null,
-    
-    /** Original annotation data before drag (for undo/revert) */
     originalData: null,
-    
-    /** Label of the annotation being edited */
     editingLabel: null,
-    
-    /** Cached container rect for performance */
     _containerRect: null,
-    
-    /** Whether handler is initialized */
     _initialized: false,
-    
-    /** Flag to prevent deselection right after drag */
     _justDragged: false,
-    
-    // Bound event handler references for cleanup
+
+    // Bound event handler references
     _handleMouseDown: null,
     _handleMouseMove: null,
     _handleMouseUp: null,
@@ -68,165 +32,115 @@ const EditingHandler = {
     _handleTouchMove: null,
     _handleTouchEnd: null,
     _handleContainerClick: null,
-    
+
     // Touch state
     _touchStartPos: null,
     _isTouchDrag: false,
-    
-    // ========================================================================
-    // Constants Accessors (using shared constants with fallbacks)
-    // ========================================================================
-    
-    /** Get minimum circle radius */
+
+    // Save operation state
+    _isSaving: false,
+    _pendingSave: null,
+
+    // Edit mode enabled state
+    enabled: false,
+
+    // Default constants (fallback when EditingConstants unavailable)
+    _defaultConstants: {
+        MIN_CIRCLE_RADIUS: 5,
+        MIN_RECTANGLE_SIZE: 10,
+        ARROW_STEP_NORMAL: 1,
+        ARROW_STEP_SHIFT: 10,
+        ARROW_STEP_CTRL: 0.5,
+        TOUCH_DRAG_THRESHOLD: 5,
+        ARROW_SAVE_DEBOUNCE: 300
+    },
+
+    // Constants accessors with fallbacks
     get MIN_CIRCLE_RADIUS() {
-        return window.EditingConstants?.MIN_CIRCLE_RADIUS ?? 5;
+        return window.EditingConstants?.MIN_CIRCLE_RADIUS ?? this._defaultConstants.MIN_CIRCLE_RADIUS;
     },
-    
-    /** Get minimum rectangle size */
     get MIN_RECTANGLE_SIZE() {
-        return window.EditingConstants?.MIN_RECTANGLE_SIZE ?? 10;
+        return window.EditingConstants?.MIN_RECTANGLE_SIZE ?? this._defaultConstants.MIN_RECTANGLE_SIZE;
     },
-    
-    /** Get arrow step normal */
     get ARROW_STEP_NORMAL() {
-        return window.EditingConstants?.ARROW_STEP_NORMAL ?? 1;
+        return window.EditingConstants?.ARROW_STEP_NORMAL ?? this._defaultConstants.ARROW_STEP_NORMAL;
     },
-    
-    /** Get arrow step with shift */
     get ARROW_STEP_SHIFT() {
-        return window.EditingConstants?.ARROW_STEP_SHIFT ?? 10;
+        return window.EditingConstants?.ARROW_STEP_SHIFT ?? this._defaultConstants.ARROW_STEP_SHIFT;
     },
-    
-    /** Get arrow step with ctrl */
     get ARROW_STEP_CTRL() {
-        return window.EditingConstants?.ARROW_STEP_CTRL ?? 0.5;
+        return window.EditingConstants?.ARROW_STEP_CTRL ?? this._defaultConstants.ARROW_STEP_CTRL;
     },
-    
-    /** Get touch drag threshold */
     get TOUCH_DRAG_THRESHOLD() {
-        return window.EditingConstants?.TOUCH_DRAG_THRESHOLD ?? 5;
+        return window.EditingConstants?.TOUCH_DRAG_THRESHOLD ?? this._defaultConstants.TOUCH_DRAG_THRESHOLD;
     },
-    
-    /** Get arrow save debounce time */
     get ARROW_SAVE_DEBOUNCE() {
-        return window.EditingConstants?.ARROW_SAVE_DEBOUNCE ?? 300;
+        return window.EditingConstants?.ARROW_SAVE_DEBOUNCE ?? this._defaultConstants.ARROW_SAVE_DEBOUNCE;
     },
+
+    // State accessors (compatibility layer)
     
-    // ========================================================================
-    // State Accessors (compatibility layer)
-    // ========================================================================
-    
-    /**
-     * Get the state object (new or legacy)
-     * @returns {Object} State object
-     */
     _getState() {
         return window.AnnotationState || window.STATE || {};
     },
-    
-    /**
-     * Get patient ID from state
-     * @returns {string|undefined}
-     */
+
     _getPatientId() {
         const state = this._getState();
         return state.patientId || window.patientId || window.STATE?.patientId || window.__APP_CONFIG__?.patientId;
     },
-    
-    /**
-     * Get image name from state
-     * @returns {string|undefined}
-     */
+
     _getImageName() {
         const state = this._getState();
         return state.imageName || window.imageName || window.STATE?.imageName || window.__APP_CONFIG__?.imageName;
     },
-    
-    /**
-     * Get an annotation by label
-     * @param {string} label - Annotation label
-     * @returns {Object|null} Annotation object
-     */
+
     _getAnnotation(label) {
         const state = this._getState();
-        if (state.getAnnotation) {
-            return state.getAnnotation(label);
-        }
-        return state.annotations?.[label] || null;
+        return state.getAnnotation ? state.getAnnotation(label) : state.annotations?.[label] || null;
     },
-    
-    /**
-     * Set an annotation
-     * @param {string} label - Annotation label
-     * @param {Object} data - Annotation data
-     * @param {boolean} [saveToServer=false] - Whether to save to server
-     */
+
     _setAnnotation(label, data, saveToServer = false) {
-        const state = this._getState();
-        if (state.setAnnotation) {
-            state.setAnnotation(label, data, saveToServer);
-        } else if (state.annotations) {
-            state.annotations = {
-                ...state.annotations,
-                [label]: data
-            };
+        if (window.AnnotationState?.setAnnotation) {
+            window.AnnotationState.setAnnotation(label, data, saveToServer);
+        }
+        if (window.STATE?.annotations) {
+            window.STATE.annotations = { ...window.STATE.annotations, [label]: data };
         }
     },
-    
-    /**
-     * Remove an annotation
-     * @param {string} label - Annotation label
-     */
+
     _removeAnnotation(label) {
-        const state = this._getState();
-        if (state.removeAnnotation) {
-            state.removeAnnotation(label);
-        } else if (state.annotations) {
-            const { [label]: _, ...rest } = state.annotations;
-            state.annotations = rest;
+        // Update AnnotationState if available
+        if (window.AnnotationState?.removeAnnotation) {
+            window.AnnotationState.removeAnnotation(label);
+        }
+        // Always update STATE.annotations for renderLabelList() compatibility
+        if (window.STATE?.annotations) {
+            const { [label]: _, ...rest } = window.STATE.annotations;
+            window.STATE.annotations = rest;
         }
     },
-    
-    /**
-     * Get selected label
-     * @returns {string|null}
-     */
+
     _getSelectedLabel() {
         const state = this._getState();
         return state.selectedLabel || state.selectedFigure || null;
     },
-    
-    /**
-     * Set selected label
-     * @param {string|null} label
-     */
+
     _setSelectedLabel(label) {
-        const state = this._getState();
-        if ('selectedLabel' in state) {
-            state.selectedLabel = label;
-        }
-        if ('selectedFigure' in state) {
-            state.selectedFigure = label;
-        }
+        // Sync both AnnotationState and STATE for renderAnnotations() compatibility
+        [window.AnnotationState, window.STATE].forEach(obj => {
+            if (!obj) return;
+            if ('selectedLabel' in obj) obj.selectedLabel = label;
+            if ('selectedFigure' in obj) obj.selectedFigure = label;
+        });
     },
-    
-    /**
-     * Save current state to history
-     */
+
     _saveToHistory() {
-        // Delegate to global saveToHistory which handles AnnotationState/AppStore priority
         if (typeof window.saveToHistory === 'function') {
             window.saveToHistory();
         }
     },
-    
-    /**
-     * Trigger a render update
-     * Uses the central rendering pipeline to ensure visibility filters and
-     * consistent colors are applied
-     */
+
     _render() {
-        // Use the central render pipeline to ensure visibility filtering and colors
         if (typeof window.forceRender === 'function') {
             window.forceRender();
         } else if (typeof window.scheduleRender === 'function') {
@@ -235,75 +149,82 @@ const EditingHandler = {
             window.renderAnnotations(true);
         }
     },
-    
-    // ========================================================================
+
     // Initialization
-    // ========================================================================
     
-    /**
-     * Initialize editing handler
-     * Binds event handlers and attaches listeners
-     */
     init() {
         if (this._initialized) {
             window.Debug?.log('EditingHandler', 'Already initialized');
             return;
         }
-        
+
         // Bind methods to preserve 'this' context
-        this._handleMouseDown = this.handleMouseDown.bind(this);
-        this._handleMouseMove = this.handleMouseMove.bind(this);
-        this._handleMouseUp = this.handleMouseUp.bind(this);
-        this._handleMouseOver = this.handleMouseOver.bind(this);
-        this._handleMouseOut = this.handleMouseOut.bind(this);
-        this._handleKeyDown = this.handleKeyDown.bind(this);
-        this._handleTouchStart = this.handleTouchStart.bind(this);
-        this._handleTouchMove = this.handleTouchMove.bind(this);
-        this._handleTouchEnd = this.handleTouchEnd.bind(this);
-        this._handleContainerClick = this.handleContainerClick.bind(this);
-        
+        const methods = ['handleMouseDown', 'handleMouseMove', 'handleMouseUp', 'handleMouseOver',
+            'handleMouseOut', 'handleKeyDown', 'handleTouchStart', 'handleTouchMove',
+            'handleTouchEnd', 'handleContainerClick'];
+        methods.forEach(m => this[`_${m}`] = this[m].bind(this));
+
         this.attachListeners();
         this._initialized = true;
-        
+        this._svgListenersAttached = false;
         window.Debug?.log('EditingHandler', 'Initialized');
     },
-    
-    /**
-     * Attach event listeners to annotation elements
-     * Uses event delegation on the SVG layer for efficiency
-     */
-    attachListeners() {
-        // Get SVG layer from AnnotationRenderer if available
+
+    enable() {
+        this.enabled = true;
+        window.editModeEnabled = true;
+        window.Debug?.log('EditingHandler', 'Edit mode enabled');
+    },
+
+    disable() {
+        this.enabled = false;
+        window.editModeEnabled = false;
+        this.deselect();
+        window.Debug?.log('EditingHandler', 'Edit mode disabled');
+    },
+
+    isEnabled() {
+        return this.enabled || window.editModeEnabled === true;
+    },
+
+    reattachSVGListeners() {
+        if (this._svgListenersAttached) return;
+
         const svg = window.annotationRenderer?._svg;
-        if (svg) {
+        if (!svg || !this._handleMouseDown) return;
+
+        svg.addEventListener('mousedown', this._handleMouseDown);
+        svg.addEventListener('mouseover', this._handleMouseOver);
+        svg.addEventListener('mouseout', this._handleMouseOut);
+        svg.addEventListener('touchstart', this._handleTouchStart, { passive: false });
+        this._svgListenersAttached = true;
+        window.Debug?.log('EditingHandler', 'SVG listeners attached');
+    },
+
+    attachListeners() {
+        const svg = window.annotationRenderer?._svg;
+        if (svg && !this._svgListenersAttached) {
             svg.addEventListener('mousedown', this._handleMouseDown);
             svg.addEventListener('mouseover', this._handleMouseOver);
             svg.addEventListener('mouseout', this._handleMouseOut);
             svg.addEventListener('touchstart', this._handleTouchStart, { passive: false });
+            this._svgListenersAttached = true;
         }
-        
-        // Also listen on image container as fallback
+
         const container = window.DOM?.imageContainer;
         if (container) {
-            // Don't add duplicate listeners if SVG is inside container
-            if (!svg || !container.contains(svg)) {
+            if (!this._svgListenersAttached) {
                 container.addEventListener('mousedown', this._handleMouseDown);
                 container.addEventListener('mouseover', this._handleMouseOver);
                 container.addEventListener('mouseout', this._handleMouseOut);
                 container.addEventListener('touchstart', this._handleTouchStart, { passive: false });
             }
-            
-            // Listen for clicks on container to handle empty space deselection
             container.addEventListener('click', this._handleContainerClick);
         }
-        
-        // Global keyboard listener - use capture to get events before other handlers
+
         document.addEventListener('keydown', this._handleKeyDown, true);
     },
-    
-    /**
-     * Detach event listeners (for cleanup)
-     */
+
     detachListeners() {
         const svg = window.annotationRenderer?._svg;
         if (svg) {
@@ -312,7 +233,7 @@ const EditingHandler = {
             svg.removeEventListener('mouseout', this._handleMouseOut);
             svg.removeEventListener('touchstart', this._handleTouchStart);
         }
-        
+
         const container = window.DOM?.imageContainer;
         if (container) {
             container.removeEventListener('mousedown', this._handleMouseDown);
@@ -321,228 +242,141 @@ const EditingHandler = {
             container.removeEventListener('touchstart', this._handleTouchStart);
             container.removeEventListener('click', this._handleContainerClick);
         }
-        
+
         document.removeEventListener('keydown', this._handleKeyDown, true);
         document.removeEventListener('mousemove', this._handleMouseMove);
         document.removeEventListener('mouseup', this._handleMouseUp);
         document.removeEventListener('touchmove', this._handleTouchMove);
         document.removeEventListener('touchend', this._handleTouchEnd);
-        
+
         this._initialized = false;
     },
-    
-    // ========================================================================
+
     // Mouse Event Handlers
-    // ========================================================================
     
-    /**
-     * Handle mouse down on annotations
-     * Determines what was clicked and starts appropriate drag operation
-     * @param {MouseEvent} e - Mouse event
-     */
     handleMouseDown(e) {
-        // Only handle in annotation mode
-        if (!this._isAnnotationMode()) return;
-        
-        // Find clicked annotation element
+        if (!this.isEnabled()) return;
+        if (!this._isAnnotationMode()) {
+            window.Debug?.log('EditingHandler', 'Not in annotation mode, ignoring mousedown');
+            return;
+        }
+
         const target = e.target.closest('[data-annotation]');
-        if (!target) return;
-        
+        if (!target) {
+            window.Debug?.log('EditingHandler', 'No annotation element found at click target');
+            return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
-        
-        const label = target.dataset.annotation;
-        const handleType = target.dataset.handle;
-        const pointIndex = target.dataset.pointIndex;
-        
+
+        const { annotation: label, handle: handleType, pointIndex } = target.dataset;
+        window.Debug?.log('EditingHandler', `MouseDown: label=${label}, handleType=${handleType}, pointIndex=${pointIndex}`);
         this._startDrag(e, label, handleType, pointIndex);
     },
-    
-    /**
-     * Handle click on container for empty space deselection
-     * @param {MouseEvent} e - Mouse event
-     */
+
     handleContainerClick(e) {
-        // Only handle in annotation mode (not pan mode)
         if (!this._isAnnotationMode()) return;
-        
-        // Ignore if a drag just happened (we moved the annotation)
-        // A small threshold handles minor movement during click
         if (this._justDragged) {
             this._justDragged = false;
             return;
         }
-        
-        // Ignore if clicking on an annotation element
-        const target = e.target.closest('[data-annotation]');
-        if (target) return;
-        
-        // Ignore if clicking on UI elements (popups, buttons, etc.)
-        if (e.target.closest('.label-popup, .label-selector, button, input, .toolbar')) {
-            return;
-        }
-        
-        // Ignore if a drawing is in progress
-        if (window.DrawingHandler?.isDrawingInProgress?.()) {
-            return;
-        }
-        
-        // Check if there's a current selection to clear
-        const selectedLabel = this._getSelectedLabel();
-        if (selectedLabel) {
+        if (e.target.closest('[data-annotation]')) return;
+        if (e.target.closest('.label-popup, .label-selector, button, input, .toolbar')) return;
+        if (window.DrawingHandler?.isDrawingInProgress?.()) return;
+
+        if (this._getSelectedLabel()) {
             this.deselect();
         }
     },
-    
-    /**
-     * Handle mouse move during drag
-     * @param {MouseEvent} e - Mouse event
-     */
+
     handleMouseMove(e) {
         if (!this.isDragging) return;
-        
         e.preventDefault();
-        
         const currentPos = this._eventToImage(e);
-        if (!currentPos) return;
-        
-        this._processDrag(currentPos);
+        if (currentPos) this._processDrag(currentPos);
     },
-    
-    /**
-     * Handle mouse up - end drag operation
-     * @param {MouseEvent} e - Mouse event
-     */
+
     handleMouseUp(e) {
         if (!this.isDragging) return;
-        
         e.preventDefault();
-        
         this._endDrag();
     },
-    
-    /**
-     * Handle mouse over for hover highlighting
-     * @param {MouseEvent} e - Mouse event
-     */
+
     handleMouseOver(e) {
-        // Don't highlight during drag operations
         if (this.isDragging) return;
-        
-        // Find annotation element under mouse
+
         const target = e.target.closest('[data-annotation]');
         if (!target) return;
-        
+
         const label = target.dataset.annotation;
-        if (!label) return;
-        
-        // Update hover state in renderer
-        if (window.annotationRenderer?.setHovered) {
+        if (label && window.annotationRenderer?.setHovered) {
             window.annotationRenderer.setHovered(label);
         }
-        
-        // Also update cursor to indicate interactivity
         target.style.cursor = 'pointer';
     },
-    
-    /**
-     * Handle mouse out to clear hover highlighting
-     * @param {MouseEvent} e - Mouse event
-     */
+
     handleMouseOut(e) {
-        // Don't clear during drag operations
         if (this.isDragging) return;
-        
-        // Check if we're leaving an annotation element
+
         const target = e.target.closest('[data-annotation]');
         if (!target) return;
-        
-        // Check if we're moving to another element within the same annotation
+
         const relatedTarget = e.relatedTarget?.closest('[data-annotation]');
         const currentLabel = target.dataset.annotation;
         const newLabel = relatedTarget?.dataset.annotation;
-        
-        // Only clear hover if we're leaving to a different annotation or no annotation
-        if (currentLabel !== newLabel) {
-            if (window.annotationRenderer?.setHovered) {
-                window.annotationRenderer.setHovered(newLabel || null);
-            }
+
+        if (currentLabel !== newLabel && window.annotationRenderer?.setHovered) {
+            window.annotationRenderer.setHovered(newLabel || null);
         }
     },
-    
-    // ========================================================================
+
     // Touch Event Handlers
-    // ========================================================================
     
-    /**
-     * Handle touch start for mobile editing
-     * @param {TouchEvent} e - Touch event
-     */
     handleTouchStart(e) {
-        if (!this._isAnnotationMode()) return;
-        if (e.touches.length !== 1) return; // Only single touch
-        
+        if (!this.isEnabled() || !this._isAnnotationMode() || e.touches.length !== 1) return;
+
         const touch = e.touches[0];
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
         const annotationEl = target?.closest('[data-annotation]');
-        
         if (!annotationEl) return;
-        
+
         e.preventDefault();
-        
-        const label = annotationEl.dataset.annotation;
-        const handleType = annotationEl.dataset.handle;
-        const pointIndex = annotationEl.dataset.pointIndex;
-        
-        // Store touch start for threshold check
+
+        const { annotation: label, handle: handleType, pointIndex } = annotationEl.dataset;
         this._touchStartPos = { x: touch.clientX, y: touch.clientY };
         this._isTouchDrag = false;
-        
-        // Pre-select the annotation
         this._selectAnnotation(label);
-        
-        // Store data for potential drag
+
         this.editingLabel = label;
         this.dragHandleType = handleType;
         this.dragPointIndex = pointIndex !== undefined ? parseInt(pointIndex, 10) : -1;
-        
-        // Store original data
+
         const annotation = this._getAnnotation(label);
         if (annotation) {
             this.originalData = JSON.parse(JSON.stringify(annotation.data || annotation));
         }
-        
-        // Attach touch move/end listeners
+
         document.addEventListener('touchmove', this._handleTouchMove, { passive: false });
         document.addEventListener('touchend', this._handleTouchEnd);
+        document.addEventListener('touchcancel', this._handleTouchEnd);
     },
-    
-    /**
-     * Handle touch move for mobile editing
-     * @param {TouchEvent} e - Touch event
-     */
+
     handleTouchMove(e) {
-        if (e.touches.length !== 1) return;
-        if (!this.editingLabel) return;
-        
+        if (e.touches.length !== 1 || !this.editingLabel) return;
         e.preventDefault();
-        
+
         const touch = e.touches[0];
-        
-        // Check drag threshold
+
         if (!this._isTouchDrag && this._touchStartPos) {
             const dx = touch.clientX - this._touchStartPos.x;
             const dy = touch.clientY - this._touchStartPos.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < this.TOUCH_DRAG_THRESHOLD) return;
-            
-            // Start actual drag
+            if (Math.hypot(dx, dy) < this.TOUCH_DRAG_THRESHOLD) return;
+
             this._isTouchDrag = true;
             this.isDragging = true;
             this.dragStartPos = this._touchEventToImage(touch);
-            
-            // Determine drag target
+
             if (this.dragPointIndex >= 0) {
                 this.dragTarget = 'point';
             } else if (this.dragHandleType) {
@@ -551,48 +385,38 @@ const EditingHandler = {
                 this.dragTarget = 'annotation';
             }
         }
-        
-        if (!this._isTouchDrag) return;
-        
-        const currentPos = this._touchEventToImage(touch);
-        if (currentPos) {
-            this._processDrag(currentPos);
+
+        if (this._isTouchDrag) {
+            const currentPos = this._touchEventToImage(touch);
+            if (currentPos) this._processDrag(currentPos);
         }
     },
-    
-    /**
-     * Handle touch end for mobile editing
-     * @param {TouchEvent} e - Touch event
-     */
+
     handleTouchEnd(e) {
-        document.removeEventListener('touchmove', this._handleTouchMove);
-        document.removeEventListener('touchend', this._handleTouchEnd);
-        
-        if (this._isTouchDrag) {
-            this._endDrag();
-        }
-        
+        this._cleanupTouchListeners();
+        if (this._isTouchDrag) this._endDrag();
+
         this._touchStartPos = null;
         this._isTouchDrag = false;
         this.editingLabel = null;
         this.dragHandleType = null;
         this.dragPointIndex = -1;
     },
-    
-    // ========================================================================
+
+    _cleanupTouchListeners() {
+        document.removeEventListener('touchmove', this._handleTouchMove);
+        document.removeEventListener('touchend', this._handleTouchEnd);
+        document.removeEventListener('touchcancel', this._handleTouchEnd);
+    },
+
     // Keyboard Event Handlers
-    // ========================================================================
     
-    /**
-     * Handle keyboard for selection and movement
-     * @param {KeyboardEvent} e - Keyboard event
-     */
     handleKeyDown(e) {
-        // Skip if typing in input
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        
+
         const selectedLabel = this._getSelectedLabel();
-        
+        const isMod = e.ctrlKey || e.metaKey;
+
         switch (e.key) {
             case 'Delete':
             case 'Backspace':
@@ -600,78 +424,63 @@ const EditingHandler = {
                     e.preventDefault();
                     this.deleteSelected();
                 }
-                return;
-                
+                break;
+
             case 'Escape':
                 e.preventDefault();
                 this.deselect();
-                return;
-                
+                break;
+
             case 'ArrowUp':
             case 'ArrowDown':
             case 'ArrowLeft':
             case 'ArrowRight':
                 if (selectedLabel) {
                     e.preventDefault();
-                    this.moveWithArrowKey(e.key, e.shiftKey, e.ctrlKey || e.metaKey);
+                    this.moveWithArrowKey(e.key, e.shiftKey, isMod);
                 }
-                return;
-                
+                break;
+
             case 'z':
             case 'Z':
-                if (e.ctrlKey || e.metaKey) {
+                if (isMod) {
                     e.preventDefault();
-                    if (e.shiftKey) {
-                        this.redo();
-                    } else {
-                        this.undo();
-                    }
+                    e.shiftKey ? this.redo() : this.undo();
                 }
-                return;
-                
+                break;
+
             case 'y':
             case 'Y':
-                if (e.ctrlKey || e.metaKey) {
+                if (isMod) {
                     e.preventDefault();
                     this.redo();
                 }
-                return;
+                break;
         }
     },
-    
-    // ========================================================================
+
     // Drag Operations
-    // ========================================================================
     
-    /**
-     * Start a drag operation
-     * @private
-     * @param {Event} e - The triggering event
-     * @param {string} label - Annotation label
-     * @param {string} handleType - Handle type if dragging a handle
-     * @param {string} pointIndex - Point index if dragging a point
-     */
     _startDrag(e, label, handleType, pointIndex) {
-        // Select the annotation
+        window.Debug?.log('EditingHandler', `_startDrag: label=${label}, handleType=${handleType}, pointIndex=${pointIndex}`);
         this._selectAnnotation(label);
-        
-        // Get annotation data
+
         const annotation = this._getAnnotation(label);
-        if (!annotation) return;
-        
-        // Start drag operation
+        if (!annotation) {
+            window.Debug?.warn('EditingHandler', `No annotation found for label: ${label}`);
+            return;
+        }
+
+        window.Debug?.log('EditingHandler', `Annotation found: type=${annotation.type}, data=`, annotation.data || annotation);
+
         this.isDragging = true;
         this.editingLabel = label;
         this.dragStartPos = this._eventToImage(e);
         this.originalData = JSON.parse(JSON.stringify(annotation.data || annotation));
-        
-        // Cache container rect
+
         const container = window.DOM?.imageContainer;
-        if (container) {
-            this._containerRect = container.getBoundingClientRect();
-        }
-        
-        // Determine drag target
+        if (container) this._containerRect = container.getBoundingClientRect();
+
         if (pointIndex !== undefined) {
             this.dragTarget = 'point';
             this.dragPointIndex = parseInt(pointIndex, 10);
@@ -681,149 +490,131 @@ const EditingHandler = {
         } else {
             this.dragTarget = 'annotation';
         }
-        
-        // Save state to history before modification
+
         this._saveToHistory();
-        
-        // Attach move/up listeners
         document.addEventListener('mousemove', this._handleMouseMove);
         document.addEventListener('mouseup', this._handleMouseUp);
-        
-        // Add visual feedback
         this._addDragFeedback();
-        
         this._render();
     },
-    
-    /**
-     * Process drag movement
-     * @private
-     * @param {{x: number, y: number}} currentPos - Current position in image coordinates
-     */
+
     _processDrag(currentPos) {
         const label = this.editingLabel || this._getSelectedLabel();
         const annotation = this._getAnnotation(label);
         if (!annotation) return;
-        
+
         const dx = currentPos.x - this.dragStartPos.x;
         const dy = currentPos.y - this.dragStartPos.y;
-        
         const newData = this.calculateNewData(annotation, dx, dy);
-        
-        // Update annotation in state (don't save to server yet)
-        this._setAnnotation(label, {
-            ...annotation,
-            data: newData
-        }, false); // Don't notify server during drag
-        
+
+        this._setAnnotation(label, { ...annotation, data: newData }, false);
         this._render();
     },
-    
-    /**
-     * End drag operation and save to server
-     * @private
-     */
+
     async _endDrag() {
         if (!this.isDragging) return;
-        
-        this.isDragging = false;
+
+        if (this._isSaving) {
+            window.Debug?.warn('EditingHandler', 'Save already in progress, queueing');
+            this._pendingSave = { retryEndDrag: true };
+            return;
+        }
+
+        try {
+            this._isSaving = true;
+            this.isDragging = false;
+            this._removeMouseListeners();
+            this._removeDragFeedback();
+            this._justDragged = true;
+            await this._saveEditedAnnotation();
+        } finally {
+            this._cleanupDragState();
+            this._processPendingSave();
+        }
+        this._render();
+    },
+
+    _removeMouseListeners() {
         document.removeEventListener('mousemove', this._handleMouseMove);
         document.removeEventListener('mouseup', this._handleMouseUp);
-        
-        // Remove visual feedback
-        this._removeDragFeedback();
-        
-        // Mark that we just finished dragging to prevent accidental deselection
-        this._justDragged = true;
-        
-        // Save to server
+    },
+
+    async _saveEditedAnnotation() {
         const label = this.editingLabel || this._getSelectedLabel();
         const annotation = this._getAnnotation(label);
-        
-        if (annotation && window.AnnotationAPI) {
-            try {
-                await window.AnnotationAPI.saveAnnotation(
-                    this._getPatientId(),
-                    this._getImageName(),
-                    label,
-                    annotation.type,
-                    annotation.data || annotation
-                );
-                
-                window.showMessage?.(`Updated: ${label}`, 'success');
-            } catch (error) {
-                window.Debug?.error('EditingHandler', 'Failed to save annotation:', error);
-                window.showMessage?.(`Failed to save: ${error.message}`, 'error');
-                
-                // Revert to original data on error
-                if (this.originalData) {
-                    this._setAnnotation(label, {
-                        ...annotation,
-                        data: this.originalData
-                    }, false);
-                }
-            }
+        if (!annotation || !window.AnnotationAPI) return;
+
+        try {
+            await window.AnnotationAPI.saveAnnotation(
+                this._getPatientId(),
+                this._getImageName(),
+                label,
+                annotation.type,
+                annotation.data || annotation
+            );
+            window.showMessage?.(`Updated: ${label}`, 'success');
+        } catch (error) {
+            window.Debug?.error('EditingHandler', 'Failed to save annotation:', error);
+            window.showMessage?.(`Failed to save: ${error.message}`, 'error');
+            this._revertToOriginalData(label, annotation);
         }
-        
-        // Reset state
+    },
+
+    _revertToOriginalData(label, annotation) {
+        if (this.originalData) {
+            this._setAnnotation(label, { ...annotation, data: this.originalData }, false);
+        }
+    },
+
+    _cleanupDragState() {
+        this._isSaving = false;
         this.originalData = null;
         this.editingLabel = null;
         this.dragTarget = null;
         this.dragPointIndex = -1;
         this.dragHandleType = null;
         this._containerRect = null;
-        
-        this._render();
     },
-    
-    // ========================================================================
+
+    _processPendingSave() {
+        if (this._pendingSave?.retryEndDrag) {
+            this._pendingSave = null;
+            window.Debug?.log('EditingHandler', 'Processing queued save');
+            this._endDrag();
+        }
+    },
+
     // Data Calculation Methods
-    // ========================================================================
     
-    /**
-     * Calculate new annotation data based on drag
-     * @param {Object} annotation - The annotation object
-     * @param {number} dx - Delta X in image coordinates
-     * @param {number} dy - Delta Y in image coordinates
-     * @returns {Object} New data object
-     */
     calculateNewData(annotation, dx, dy) {
-        const type = annotation.type;
+        if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+            window.Debug?.error('EditingHandler', `Invalid delta values: dx=${dx}, dy=${dy}`);
+            return this.originalData || annotation.data || annotation;
+        }
+
+        const { type } = annotation;
         const original = this.originalData;
-        
+        window.Debug?.log('EditingHandler', `calculateNewData: dragTarget=${this.dragTarget}, type=${type}, dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}`);
+
         switch (this.dragTarget) {
             case 'annotation':
                 return this.moveAnnotation(type, original, dx, dy);
             case 'point':
+                window.Debug?.log('EditingHandler', `Moving point ${this.dragPointIndex}`);
                 return this.movePoint(type, original, this.dragPointIndex, dx, dy);
             case 'handle':
+                window.Debug?.log('EditingHandler', `Resizing with handle: ${this.dragHandleType}`);
                 return this.resizeAnnotation(type, original, this.dragHandleType, dx, dy);
             default:
                 return original;
         }
     },
-    
-    /**
-     * Helper to move a point by delta and clamp to bounds
-     * @private
-     * @param {{x: number, y: number}} point - Original point
-     * @param {number} dx - Delta X
-     * @param {number} dy - Delta Y
-     * @returns {{x: number, y: number}} New clamped point
-     */
+
     _movePointByDelta(point, dx, dy) {
         const clamped = this._clampToImageBounds(point.x + dx, point.y + dy);
         return { x: clamped.x, y: clamped.y };
     },
-    
-    /**
-     * Move entire annotation by delta
-     * @param {string} type - Annotation type
-     * @param {Object} data - Original data
-     * @param {number} dx - Delta X
-     * @param {number} dy - Delta Y
-     * @returns {Object} New data
-     */
+
     moveAnnotation(type, data, dx, dy) {
         const move = (point) => this._movePointByDelta(point, dx, dy);
         
@@ -864,16 +655,7 @@ const EditingHandler = {
                 return data;
         }
     },
-    
-    /**
-     * Move a specific point within an annotation
-     * @param {string} type - Annotation type
-     * @param {Object} data - Original data
-     * @param {number} pointIndex - Index of point to move
-     * @param {number} dx - Delta X
-     * @param {number} dy - Delta Y
-     * @returns {Object} New data
-     */
+
     movePoint(type, data, pointIndex, dx, dy) {
         const move = (point) => this._movePointByDelta(point, dx, dy);
         
@@ -928,11 +710,7 @@ const EditingHandler = {
                 return data;
         }
     },
-    
-    /**
-     * Helper to move a rectangle corner
-     * @private
-     */
+
     _moveRectangleCorner(data, pointIndex, dx, dy) {
         const tl = { ...data.topLeft };
         const br = { ...data.bottomRight };
@@ -958,16 +736,7 @@ const EditingHandler = {
             bottomRight: { x: clampedBR.x, y: clampedBR.y }
         };
     },
-    
-    /**
-     * Resize annotation using handle
-     * @param {string} type - Annotation type
-     * @param {Object} data - Original data
-     * @param {string} handleType - Handle type (n, s, e, w, ne, nw, se, sw, radius)
-     * @param {number} dx - Delta X
-     * @param {number} dy - Delta Y
-     * @returns {Object} New data
-     */
+
     resizeAnnotation(type, data, handleType, dx, dy) {
         switch (type) {
             case 'circle': {
@@ -1002,17 +771,9 @@ const EditingHandler = {
                 return data;
         }
     },
-    
-    // ========================================================================
+
     // Arrow Key Movement
-    // ========================================================================
-    
-    /**
-     * Move selected annotation with arrow keys
-     * @param {string} direction - Arrow key direction
-     * @param {boolean} shiftKey - Shift key pressed (larger step)
-     * @param {boolean} ctrlKey - Ctrl key pressed (smaller step)
-     */
+
     moveWithArrowKey(direction, shiftKey, ctrlKey) {
         const label = this._getSelectedLabel();
         if (!label) return;
@@ -1060,14 +821,9 @@ const EditingHandler = {
         
         this._render();
     },
-    
-    /** Debounce timer for arrow key saves */
+
     _saveTimeout: null,
-    
-    /**
-     * Debounced save to server for arrow key movement
-     * @private
-     */
+
     _debouncedSave(label, type, data) {
         if (this._saveTimeout) {
             clearTimeout(this._saveTimeout);
@@ -1087,50 +843,57 @@ const EditingHandler = {
             }
         }, this.ARROW_SAVE_DEBOUNCE);
     },
-    
-    // ========================================================================
+
     // Selection and Deletion
-    // ========================================================================
-    
-    /**
-     * Delete selected annotation
-     */
+
     async deleteSelected() {
         const label = this._getSelectedLabel();
         if (!label) return;
-        
+
         // No confirmation dialog - undo is available (US-020)
-        
+
         // Save to history before deleting
         this._saveToHistory();
-        
+
+        let backendDeleteFailed = false;
         try {
             await window.AnnotationAPI?.deleteAnnotation(
                 this._getPatientId(),
                 this._getImageName(),
                 label
             );
-            
-            this._removeAnnotation(label);
-            this._setSelectedLabel(null);
-            
-            // Also clear selectedAnnotation if using new state
-            const state = this._getState();
-            if (state.selectedAnnotation !== undefined) {
-                state.selectedAnnotation = null;
-            }
-            
-            this._render();
-            window.showMessage?.(`Deleted: ${label}`, 'success');
         } catch (error) {
-            window.Debug?.error('EditingHandler', 'Failed to delete annotation:', error);
-            window.showMessage?.(`Failed to delete: ${error.message}`, 'error');
+            // If backend returns 404 (not found), annotation may only exist locally
+            // Still proceed with local cleanup
+            if (error.message?.includes('not found')) {
+                window.Debug?.warn('EditingHandler', `Annotation "${label}" not in backend, removing locally`);
+                backendDeleteFailed = true;
+            } else {
+                window.Debug?.error('EditingHandler', 'Failed to delete annotation:', error);
+                window.showMessage?.(`Failed to delete: ${error.message}`, 'error');
+                return;
+            }
+        }
+
+        // Always clean up local state
+        this._removeAnnotation(label);
+        this._setSelectedLabel(null);
+
+        // Also clear selectedAnnotation if using new state
+        const state = this._getState();
+        if (state.selectedAnnotation !== undefined) {
+            state.selectedAnnotation = null;
+        }
+
+        this._render();
+
+        if (backendDeleteFailed) {
+            window.showMessage?.(`Removed local annotation: ${label}`, 'info');
+        } else {
+            window.showMessage?.(`Deleted: ${label}`, 'success');
         }
     },
-    
-    /**
-     * Deselect current annotation
-     */
+
     deselect() {
         const state = this._getState();
         
@@ -1152,14 +915,9 @@ const EditingHandler = {
         this._render();
         window.showMessage?.('Selection cleared', 'info', 500);
     },
-    
-    // ========================================================================
+
     // Undo/Redo
-    // ========================================================================
-    
-    /**
-     * Undo last change
-     */
+
     undo() {
         // Delegate to global undo function which handles AnnotationState/AppStore priority
         if (typeof window.undo === 'function') {
@@ -1171,9 +929,6 @@ const EditingHandler = {
         }
     },
 
-    /**
-     * Redo last undone change
-     */
     redo() {
         // Delegate to global redo function which handles AnnotationState/AppStore priority
         if (typeof window.redo === 'function') {
@@ -1184,11 +939,7 @@ const EditingHandler = {
             window.showMessage?.('Nothing to redo', 'info');
         }
     },
-    
-    /**
-     * Sync state with server after undo/redo
-     * @private
-     */
+
     async _syncAfterUndo() {
         const state = this._getState();
         const annotations = state.annotations;
@@ -1204,190 +955,112 @@ const EditingHandler = {
             window.Debug?.error('EditingHandler', 'Failed to sync after undo/redo:', error);
         }
     },
-    
-    // ========================================================================
+
     // Helper Methods
-    // ========================================================================
-    
-    /**
-     * Check if in annotation mode
-     * @private
-     * @returns {boolean}
-     */
+
     _isAnnotationMode() {
-        // Check AnnotationState first, fall back to STATE
-        return window.AnnotationState?.isAnnotationMode ?? 
-               window.STATE?.isAnnotationMode ?? 
-               true;
+        return window.AnnotationState?.isAnnotationMode ?? window.STATE?.isAnnotationMode ?? true;
     },
-    
-    /**
-     * Select an annotation
-     * @private
-     * @param {string} label - Annotation label
-     */
+
     _selectAnnotation(label) {
         const state = this._getState();
         
         this._setSelectedLabel(label);
         
-        // Use the selectAnnotation method if available (preferred)
         if (typeof state.selectAnnotation === 'function') {
             state.selectAnnotation(label);
         } else if (state.selectedAnnotation !== undefined) {
-            // Legacy fallback - just set the label
             this._setSelectedLabel(label);
         }
-        
-        // Update renderer visual state
+
         if (window.annotationRenderer?.setSelected) {
             window.annotationRenderer.setSelected(label);
         }
     },
-    
-    /**
-     * Convert event to image coordinates
-     * @private
-     * @param {MouseEvent} e - Mouse event
-     * @returns {{x: number, y: number}|null}
-     */
+
     _eventToImage(e) {
-        if (window.viewport?.eventToImage) {
-            return window.viewport.eventToImage(e);
-        }
-        
-        // Fallback calculation
+        if (window.viewport?.eventToImage) return window.viewport.eventToImage(e);
+
         const container = window.DOM?.imageContainer;
         if (!container) return null;
-        
+
         const rect = this._containerRect || container.getBoundingClientRect();
         const zoom = window.STATE?.currentZoom || 1;
         const translateX = window.STATE?.translateX || 0;
         const translateY = window.STATE?.translateY || 0;
-        
+
         return {
             x: (e.clientX - rect.left - translateX) / zoom,
             y: (e.clientY - rect.top - translateY) / zoom
         };
     },
-    
-    /**
-     * Convert touch to image coordinates
-     * @private
-     * @param {Touch} touch - Touch object
-     * @returns {{x: number, y: number}|null}
-     */
+
     _touchEventToImage(touch) {
         const container = window.DOM?.imageContainer;
         if (!container) return null;
-        
+
         const rect = this._containerRect || container.getBoundingClientRect();
         const zoom = window.STATE?.currentZoom || window.AnnotationState?.calibration?.pixelsPerMm || 1;
         const translateX = window.STATE?.translateX || 0;
         const translateY = window.STATE?.translateY || 0;
-        
-        if (window.viewport?.displayToImage) {
-            const containerX = touch.clientX - rect.left;
-            const containerY = touch.clientY - rect.top;
-            return window.viewport.displayToImage(containerX, containerY);
+
+        if (window.viewport?.screenToImage) {
+            return window.viewport.screenToImage(touch.clientX - rect.left, touch.clientY - rect.top);
         }
-        
+
         return {
             x: (touch.clientX - rect.left - translateX) / zoom,
             y: (touch.clientY - rect.top - translateY) / zoom
         };
     },
-    
-    /**
-     * Clamp coordinates to image bounds
-     * @private
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     * @returns {{x: number, y: number}}
-     */
+
     _clampToImageBounds(x, y) {
-        const width = window.STATE?.naturalWidth || 
-                      window.AnnotationState?.imageWidth || 
-                      Infinity;
-        const height = window.STATE?.naturalHeight || 
-                       window.AnnotationState?.imageHeight || 
-                       Infinity;
-        
+        const width = window.STATE?.naturalWidth || window.AnnotationState?.imageWidth || Infinity;
+        const height = window.STATE?.naturalHeight || window.AnnotationState?.imageHeight || Infinity;
         return {
             x: Math.max(0, Math.min(width, x)),
             y: Math.max(0, Math.min(height, y))
         };
     },
-    
-    /**
-     * Add visual feedback during drag
-     * @private
-     */
+
     _addDragFeedback() {
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'grabbing';
-        
-        // Add dragging class to annotation element
-        const svg = window.annotationRenderer?._svg;
-        if (svg) {
-            svg.classList.add('dragging');
-        }
+        window.annotationRenderer?._svg?.classList.add('dragging');
     },
-    
-    /**
-     * Remove visual feedback after drag
-     * @private
-     */
+
     _removeDragFeedback() {
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
-        
-        const svg = window.annotationRenderer?._svg;
-        if (svg) {
-            svg.classList.remove('dragging');
-        }
+        window.annotationRenderer?._svg?.classList.remove('dragging');
     }
 };
 
-// ============================================================================
 // Export to Global Scope
-// ============================================================================
 
 if (typeof window !== 'undefined') {
     window.EditingHandler = EditingHandler;
-    
-    /**
-     * Initialize EditingHandler when dependencies are ready.
-     * Uses requestAnimationFrame for better timing than setTimeout,
-     * ensuring the browser has completed layout and other scripts have run.
-     */
+
     function initWhenReady() {
-        // Check if essential dependencies are available
         const hasDOM = window.DOM?.imageContainer || document.querySelector('.image-container');
         const hasRenderer = window.annotationRenderer?._svg;
-        
+
         if (hasDOM || hasRenderer) {
             EditingHandler.init();
         } else {
-            // Dependencies not ready - wait for next frame and try again
-            // Use a counter to prevent infinite loops
             initWhenReady._attempts = (initWhenReady._attempts || 0) + 1;
             if (initWhenReady._attempts < 10) {
                 requestAnimationFrame(initWhenReady);
             } else {
-                // After 10 attempts (~160ms at 60fps), initialize anyway
-                // The handler will gracefully handle missing elements
                 window.Debug?.warn('EditingHandler', 'Initializing without all dependencies ready');
                 EditingHandler.init();
             }
         }
     }
-    
-    // Auto-initialize when DOM is ready
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initWhenReady);
     } else {
-        // DOM already ready, use requestAnimationFrame for next paint
         requestAnimationFrame(initWhenReady);
     }
 }

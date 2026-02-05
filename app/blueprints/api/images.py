@@ -6,13 +6,15 @@ from flask import jsonify, request, send_file, current_app, Response
 from pathlib import Path
 from PIL import Image
 import io
+import json
+
 import config
 import utils
 from polygon_utils import generate_mask_from_polygon
 from app.blueprints.api import api_bp
 
-
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".dcm", ".dicom"}
+DATA_DIR = Path("data")
 
 
 def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
@@ -20,9 +22,26 @@ def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
     return jsonify({"error": message}), status
 
 
-def get_annotations_manager():
-    """Get the V1 annotation manager from app config (deprecated - will be removed)."""
-    return current_app.config.get("annotations")
+def _load_annotations(patient: str, image: str) -> Dict[str, Any]:
+    """Load annotations from data directory."""
+    annotation_path = DATA_DIR / patient / f"{Path(image).stem}_annotations.json"
+
+    if annotation_path.exists():
+        try:
+            data = json.loads(annotation_path.read_text(encoding='utf-8'))
+            return data.get('annotations', {})
+        except (json.JSONDecodeError, IOError) as e:
+            current_app.logger.warning(f"Failed to load annotations from {annotation_path}: {e}")
+
+    return {}
+
+
+def _get_merged_annotations(patient: str, image: str) -> Dict[str, Any]:
+    """Get annotations from both current and legacy sources, with current taking precedence."""
+    annotations_manager = current_app.config.get("annotations")
+    legacy = annotations_manager.get_all_landmarks(patient, image) if annotations_manager else {}
+    current = _load_annotations(patient, image)
+    return {**legacy, **current}
 
 
 def get_images_manager():
@@ -75,8 +94,7 @@ def get_image_directory() -> tuple:
 def get_segment_mask(patient: str, image: str, segment_name: str) -> Response:
     """Generate binary mask PNG from polygon segment."""
     try:
-        annotations = get_annotations_manager()
-        data = annotations.get_all_landmarks(patient, image)
+        data = _get_merged_annotations(patient, image)
 
         if segment_name not in data or data[segment_name].get("type") != "polygon":
             return error_response("Segment not found or not a polygon", 404)
@@ -119,11 +137,29 @@ def next_unannotated() -> tuple:
     return jsonify({"patient": None, "image": None})
 
 
+def _save_annotations_to_file(patient: str, image: str, annotations_dict: Dict[str, Any]) -> None:
+    """Save annotations to data file."""
+    annotation_path = DATA_DIR / patient / f"{Path(image).stem}_annotations.json"
+
+    default_structure = {"version": 2, "calibration": {"pixelsPerMm": None}, "annotations": {}, "history": []}
+
+    if annotation_path.exists():
+        try:
+            existing_data = json.loads(annotation_path.read_text(encoding='utf-8'))
+        except (json.JSONDecodeError, IOError):
+            existing_data = default_structure
+    else:
+        existing_data = default_structure
+
+    existing_data["annotations"] = annotations_dict
+    annotation_path.parent.mkdir(exist_ok=True, parents=True)
+    annotation_path.write_text(json.dumps(existing_data, indent=2), encoding='utf-8')
+
+
 @api_bp.route("/propagate-annotations", methods=["POST"])
 def propagate_annotations() -> tuple:
     """Copy annotations from current image to next unannotated image."""
     try:
-        annotations = get_annotations_manager()
         images = get_images_manager()
         data = request.json
 
@@ -140,7 +176,7 @@ def propagate_annotations() -> tuple:
 
         target_patient = next_image["patient"]
         target_image = next_image["filename"]
-        target_annotations = annotations.get_all_landmarks(target_patient, target_image)
+        target_annotations = _get_merged_annotations(target_patient, target_image)
 
         copied_count = 0
         for name, annotation_data in annotations_to_propagate.items():
@@ -149,9 +185,8 @@ def propagate_annotations() -> tuple:
                 copied_count += 1
 
         if copied_count > 0:
-            annotations._write_annotation_file(
-                target_patient, target_image, target_annotations
-            )
+            # Save to data file
+            _save_annotations_to_file(target_patient, target_image, target_annotations)
 
         return jsonify(
             {

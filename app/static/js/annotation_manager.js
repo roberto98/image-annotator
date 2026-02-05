@@ -201,7 +201,7 @@ async function deleteAnnotation(name) {
 
     _isSaving = true;
     try {
-        // Use v2 API for deletion
+        // Use API for deletion
         if (window.AnnotationAPI?.deleteAnnotation) {
             await window.AnnotationAPI.deleteAnnotation(
                 window.patientId,
@@ -225,6 +225,12 @@ async function deleteAnnotation(name) {
         }
 
         saveToHistory();
+
+        // Force UI update to refresh sidebar and canvas
+        if (typeof window.forceRender === 'function') {
+            window.forceRender();
+        }
+
         showMessage(formatSuccessMessage('Deleted', `annotation for ${name}`), 'success');
     } catch (error) {
         console.error('Error:', error);

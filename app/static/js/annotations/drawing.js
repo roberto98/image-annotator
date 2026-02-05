@@ -672,7 +672,7 @@ const DrawingHandler = {
             if (points.length > 0) {
                 const lastPoint = points[points.length - 1];
                 if (window.viewport && window.DOM && window.DOM.imageContainer) {
-                    const display = window.viewport.imageToDisplay(lastPoint.x, lastPoint.y);
+                    const display = window.viewport.imageToScreen(lastPoint.x, lastPoint.y);
                     const rect = window.DOM.imageContainer.getBoundingClientRect();
                     screenX = rect.left + display.x;
                     screenY = rect.top + display.y;

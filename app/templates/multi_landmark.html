@@ -63,6 +63,14 @@
                     </svg>
                     Angle
                 </button>
+                <div class="tool-divider"></div>
+                <button class="tool-btn edit-mode-toggle" id="editModeBtn" data-tool="edit" title="Toggle edit mode (E)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    Edit
+                </button>
             </div>
         </div>
 
@@ -359,45 +367,45 @@
     
     <!-- 1. Core state management -->
     <script src="{{ url_for('static', filename='js/core/AnnotationStore.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='js/dom_helpers.js') }}"></script>
+
     <!-- 2. Core services -->
     <script src="{{ url_for('static', filename='js/core/Viewport.js') }}"></script>
     <script src="{{ url_for('static', filename='js/core/AnnotationRenderer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utilities.js') }}"></script>
-    
+
     <!-- 3. New annotation system - constants first (shared across all modules) -->
     <script src="{{ url_for('static', filename='js/annotations/constants.js') }}"></script>
-    
+
     <!-- 4. New annotation system - types and measurements -->
     <script src="{{ url_for('static', filename='js/annotations/types.js') }}"></script>
     <script src="{{ url_for('static', filename='js/annotations/measurements.js') }}"></script>
-    
+
     <!-- 5. New annotation system - API and state -->
     <script src="{{ url_for('static', filename='js/annotations/api.js') }}"></script>
     <script src="{{ url_for('static', filename='js/annotations/state.js') }}"></script>
-    
+
     <!-- 6. New annotation system - handlers -->
     <script src="{{ url_for('static', filename='js/annotations/drawing.js') }}"></script>
     <script src="{{ url_for('static', filename='js/annotations/editing.js') }}"></script>
-    
+
     <!-- 7. UI Components -->
     <script src="{{ url_for('static', filename='js/components/LabelSelector.js') }}"></script>
-    
+
     <!-- 8. Rendering utilities (delegates to AnnotationRenderer for SVG rendering) -->
-    <script src="{{ url_for('static', filename='js/rendering.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='js/canvas_rendering.js') }}"></script>
+
     <!-- 9. Compatibility shims for legacy state references -->
     <script src="{{ url_for('static', filename='js/store/index.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/state.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='js/app_state.js') }}"></script>
+
     <!-- 10. Legacy modules (required for some features) -->
-    <script src="{{ url_for('static', filename='js/zoom.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/annotations.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/interactions.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='js/canvas_zoom.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/annotation_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/canvas_interactions.js') }}"></script>
+
     <!-- 11. Main entry point and initialization -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/initialization.js') }}"></script>
 </body>
 

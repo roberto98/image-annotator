@@ -17,9 +17,50 @@ def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
     return jsonify({"error": message}), status
 
 
-def get_annotations_manager():
-    """Get the V1 annotation manager from app config (deprecated - will be removed)."""
+def _get_annotations_manager():
+    """Get the legacy annotation manager from app config."""
     return current_app.config.get("annotations")
+
+
+def _load_annotations(patient: str, image: str) -> Dict[str, Any]:
+    """Load annotations from data directory.
+
+    Returns the annotations dict, or empty dict if not found.
+    Format: {"version": 2, "annotations": {...}, ...}
+    Returns just the annotations dict for compatibility.
+    """
+    from pathlib import Path
+    import json as json_module
+
+    data_dir = Path("data")
+    image_stem = Path(image).stem
+    annotation_path = data_dir / patient / f"{image_stem}_annotations.json"
+
+    if annotation_path.exists():
+        try:
+            data = json_module.loads(annotation_path.read_text(encoding='utf-8'))
+            return data.get('annotations', {})
+        except (json_module.JSONDecodeError, IOError) as e:
+            current_app.logger.warning(f"Failed to load annotations from {annotation_path}: {e}")
+
+    return {}
+
+
+def _get_merged_annotations(patient: str, image: str) -> Dict[str, Any]:
+    """Get annotations from both current and legacy sources, merged.
+
+    Current annotations take precedence over legacy.
+    """
+    annotations = _get_annotations_manager()
+
+    # Load legacy annotations
+    legacy_annotations = annotations.get_all_landmarks(patient, image) if annotations else {}
+
+    # Load current annotations
+    current_annotations = _load_annotations(patient, image)
+
+    # Merge: current takes precedence
+    return {**legacy_annotations, **current_annotations}
 
 
 def _extract_coordinates(ann: Dict[str, Any]) -> Tuple[str, str]:
@@ -126,7 +167,6 @@ EXPORT_FORMATS = {"json": _export_as_json, "csv": _export_as_csv, "xml": _export
 @api_bp.route("/export", methods=["POST"])
 def export_annotations() -> Response:
     """Export selected annotations as JSON, CSV, or XML file."""
-    annotations = get_annotations_manager()
     data = request.json
     export_format = data.get("format", "json")
     selected_images = data.get("images", [])
@@ -140,7 +180,7 @@ def export_annotations() -> Response:
     all_annotations = {}
     for img_key in selected_images:
         patient, filename = img_key.split("/")
-        annotations_data = annotations.get_all_landmarks(patient, filename)
+        annotations_data = _get_merged_annotations(patient, filename)
 
         if annotations_data:
             all_annotations[img_key] = {

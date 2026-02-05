@@ -1,18 +1,24 @@
 /**
  * Application initialization and setup
  * @module initialization
- * 
- * REWRITTEN: New modular annotation system integration
- * - Uses DrawingHandler for tool activation
- * - Uses AnnotationRenderer for SVG rendering
- * - Uses LabelSelector for label selection
- * - Maintains backward compatibility with legacy STATE
  */
 
-/**
- * Load figure labels from existing annotations and backend data
- * Combines landmarks, segments, and figures into unified label list
- */
+let _appInitialized = false;
+let _annotationSystemInitialized = false;
+
+// Event types that require syncing annotations to legacy STATE
+const SYNC_EVENTS = [
+    'annotationSet', 'annotationRemoved', 'annotationsLoaded',
+    'undo', 'redo'
+];
+
+// Event types that trigger re-rendering
+const RENDER_EVENTS = [
+    'annotationSet', 'annotationRemoved', 'annotationsLoaded',
+    'visibilityToggled', 'visibilitySet', 'pendingCleared',
+    'undo', 'redo'
+];
+
 function loadFigureLabelsFromAnnotations() {
     const landmarks = window.landmarksData || [];
     const segments = window.segmentsData || [];
@@ -94,17 +100,19 @@ function handleImageLoad() {
         resetView();
     }
     
-    // Initial render with new renderer
-    if (window.annotationRenderer && STATE?.annotations) {
-        const calibration = window.AnnotationState?.calibration?.pixelsPerMm || null;
-        window.annotationRenderer.render(STATE.annotations, calibration);
+    // Initial render - use renderAnnotations to ensure colors are applied consistently
+    if (STATE.annotations) {
+        // Pre-assign colors for all existing annotations to ensure consistency
+        if (window.getColorForLabel) {
+            Object.keys(STATE.annotations).forEach(name => {
+                window.getColorForLabel(name);  // This assigns and caches the color
+            });
+        }
+
+        renderAnnotations(true);
     }
 }
 
-/**
- * Handle image loading errors
- * @param {Event} e - Error event
- */
 function handleImageError(e) {
     console.error('[Initialization] Failed to load image:', e);
     if (DOM.loadingOverlay) {
@@ -118,34 +126,58 @@ function handleImageError(e) {
     }
 }
 
-/**
- * Handle tool button click - activates DrawingHandler with the selected tool
- * @param {string} tool - Tool name (from AnnotationType)
- * @param {Event} e - Click event
- */
-function handleToolButtonClick(tool, e) {
+function handleToolButtonClick(tool) {
+    // Handle edit mode toggle separately
+    if (tool === 'edit') {
+        toggleEditMode();
+        return;
+    }
+
     // Use the new DrawingHandler system
     if (window.DrawingHandler) {
         window.DrawingHandler.activate(tool);
     }
-    
-    // Update tool button UI
-    document.querySelectorAll('[data-tool]').forEach(btn => {
+
+    // Update tool button UI (excluding edit mode button)
+    document.querySelectorAll('[data-tool]:not([data-tool="edit"])').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tool === tool);
     });
-    
+
     // Show status message
     const toolName = window.getTypeDisplayName?.(tool) || tool;
     showMessage(`${toolName} tool selected - click on image to annotate`, 'info');
+}
+
+function toggleEditMode() {
+    const editBtn = document.getElementById('editModeBtn');
+    const isActive = editBtn?.classList.contains('active');
+
+    if (isActive) {
+        // Turn off edit mode
+        editBtn?.classList.remove('active');
+        window.editModeEnabled = false;
+        if (window.EditingHandler) {
+            window.EditingHandler.disable();
+        }
+        showMessage('Edit mode OFF - annotations are locked', 'info');
+    } else {
+        // Turn on edit mode
+        editBtn?.classList.add('active');
+        window.editModeEnabled = true;
+        if (window.EditingHandler) {
+            window.EditingHandler.enable();
+        }
+        showMessage('Edit mode ON - click annotations to select and drag to move', 'info');
+    }
 }
 
 function setupEventListeners() {
     // Tool buttons - use new handler system
     const toolButtons = document.querySelectorAll('[data-tool]');
     toolButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', () => {
             const tool = btn.dataset.tool;
-            handleToolButtonClick(tool, e);
+            handleToolButtonClick(tool);
         });
     });
 
@@ -241,6 +273,12 @@ function setupEventListeners() {
         } else if (isMod && (e.key === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
             e.preventDefault();
             redo();
+        } else if (e.key === 'e' || e.key === 'E') {
+            // Toggle edit mode with 'E' key (unless typing in input)
+            if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                toggleEditMode();
+            }
         } else {
             handleKeyDown(e);
         }
@@ -304,12 +342,18 @@ function setupEventListeners() {
     }
 }
 
-/**
- * Initialize the annotation application
- */
 function initializeApp() {
+    // Guard against multiple initialization
+    if (_appInitialized) {
+        console.warn('[Initialization] App already initialized, skipping');
+        return;
+    }
+
     try {
         console.log('[Initialization] Starting initialization...');
+
+        // Initialize edit mode as disabled (user must toggle the Edit button)
+        window.editModeEnabled = false;
 
         // Log available globals for debugging
         console.log('[Initialization] Globals check:', {
@@ -453,10 +497,16 @@ function initializeApp() {
             }, 100);
         }
 
+        // Mark initialization complete
+        _appInitialized = true;
         console.log('[Initialization] Complete - application ready');
     } catch (error) {
         console.error('[Initialization] Fatal error:', error);
         console.error('[Initialization] Error stack:', error.stack);
+
+        // Reset flag on error to allow retry
+        _appInitialized = false;
+
         if (DOM.loadingOverlay) {
             DOM.loadingOverlay.style.display = 'none';
         }
@@ -466,11 +516,13 @@ function initializeApp() {
     }
 }
 
-/**
- * Initialize new annotation system modules
- * Connects AnnotationRenderer, DrawingHandler, EditingHandler, and LabelSelector
- */
 function initializeNewAnnotationSystem() {
+    // Guard against multiple initialization
+    if (_annotationSystemInitialized) {
+        console.warn('[Initialization] Annotation system already initialized, skipping');
+        return;
+    }
+
     try {
         console.log('[Initialization] Setting up new annotation system...');
         
@@ -499,8 +551,13 @@ function initializeNewAnnotationSystem() {
             }
             
             console.log('[Initialization] AnnotationRenderer initialized');
+
+            // Reattach EditingHandler listeners to SVG now that it exists
+            if (window.EditingHandler?.reattachSVGListeners) {
+                window.EditingHandler.reattachSVGListeners();
+            }
         }
-        
+
         // Initialize LabelSelector
         if (window.LabelSelector) {
             window.LabelSelector.init();
@@ -523,35 +580,29 @@ function initializeNewAnnotationSystem() {
         if (window.AnnotationState?.subscribe) {
             window.AnnotationState.subscribe((event, data) => {
                 // Sync annotations back to legacy STATE
-                if (event === 'annotationSet' || event === 'annotationRemoved' || event === 'annotationsLoaded') {
+                if (SYNC_EVENTS.includes(event)) {
                     if (STATE) {
                         STATE.annotations = { ...window.AnnotationState.annotations };
                     }
                 }
-                
+
                 // Trigger render on relevant events
-                const renderEvents = [
-                    'annotationSet', 'annotationRemoved', 'annotationsLoaded',
-                    'visibilityToggled', 'visibilitySet', 'pendingCleared'
-                ];
-                
-                if (renderEvents.includes(event)) {
-                    if (window.annotationRenderer?.render) {
-                        // Use the new renderer with annotations data
-                        const annotations = window.AnnotationState?.annotations || STATE?.annotations || {};
-                        const calibration = window.AnnotationState?.calibration?.pixelsPerMm || null;
-                        window.annotationRenderer.render(annotations, calibration);
-                    } else if (typeof scheduleRender === 'function') {
-                        scheduleRender();
-                    }
+                if (RENDER_EVENTS.includes(event)) {
+                    renderAnnotations(true);
                 }
             });
             console.log('[Initialization] AnnotationState subscription established');
         }
-        
+
+        // Mark annotation system initialization complete
+        _annotationSystemInitialized = true;
         console.log('[Initialization] New annotation system ready');
     } catch (error) {
         console.error('[Initialization] Error initializing new annotation system:', error);
+
+        // Reset flag on error to allow retry
+        _annotationSystemInitialized = false;
+
         throw error;
     }
 }

@@ -1,7 +1,7 @@
 /**
- * API client for annotation operations (v2 endpoints)
+ * API client for annotation operations
  * @module annotations/api
- * 
+ *
  * This module provides a clean interface for all annotation-related
  * API calls, with proper error handling and response normalization.
  */
@@ -67,15 +67,15 @@ class AnnotationAPIError extends Error {
 // ============================================================================
 
 /**
- * Annotation API client for v2 endpoints
+ * Annotation API client
  * Provides methods for all annotation CRUD operations
  */
 const AnnotationAPI = {
     /**
-     * Base URL for API v2 endpoints
+     * Base URL for API endpoints
      * @type {string}
      */
-    baseUrl: '/api/v2',
+    baseUrl: '/api/annotations',
     
     /**
      * Default request timeout in milliseconds
@@ -198,7 +198,7 @@ const AnnotationAPI = {
      * @returns {Promise<Object>} Annotations keyed by label
      */
     async getAnnotations(patientId, imageName) {
-        const endpoint = `/annotations/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}`;
+        const endpoint = `/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}`;
         const response = await this._request(endpoint);
         return response.annotations || {};
     },
@@ -217,7 +217,7 @@ const AnnotationAPI = {
      * @returns {Promise<Object>} Saved annotation data
      */
     async saveAnnotation(patientId, imageName, label, type, data, options = {}) {
-        const endpoint = `/annotations/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}`;
+        const endpoint = `/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}`;
         
         const payload = {
             label,
@@ -241,7 +241,7 @@ const AnnotationAPI = {
      * @returns {Promise<Object>} Deletion confirmation
      */
     async deleteAnnotation(patientId, imageName, label) {
-        const endpoint = `/annotations/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}/${this._encodeSegment(label)}`;
+        const endpoint = `/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}/${this._encodeSegment(label)}`;
         
         return this._request(endpoint, {
             method: 'DELETE'
@@ -256,7 +256,7 @@ const AnnotationAPI = {
      * @returns {Promise<Object>} Save results
      */
     async batchSaveAnnotations(patientId, imageName, annotations) {
-        const endpoint = `/annotations/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}/bulk`;
+        const endpoint = `/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}/bulk`;
         
         return this._request(endpoint, {
             method: 'POST',

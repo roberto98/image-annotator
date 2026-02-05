@@ -14,26 +14,35 @@ BASE_DIR = Path.cwd()
 IMAGE_HEIGHT = 600
 IMAGE_DIR = str(BASE_DIR / "images")
 ANNOTATION_DIR = str(BASE_DIR / "annotations")
+DATA_DIR = str(BASE_DIR / "data")
 
 _annotation_cache: Optional[Dict[str, Any]] = None
 _cache_mtime: float = 0.0
 
 
 def _iter_annotation_dirs():
-    """Yield patient directories in the annotation folder."""
+    """Yield patient directories in both legacy and current annotation folders."""
+    # Legacy annotation directory
     annotation_dir = Path(ANNOTATION_DIR)
-    if not annotation_dir.exists():
-        return
-    for folder in annotation_dir.iterdir():
-        if folder.is_dir() and not folder.name.startswith("__"):
-            yield folder
+    if annotation_dir.exists():
+        for folder in annotation_dir.iterdir():
+            if folder.is_dir() and not folder.name.startswith("__"):
+                yield folder, "legacy"
+
+    # Current data directory
+    data_dir = Path(DATA_DIR)
+    if data_dir.exists():
+        for folder in data_dir.iterdir():
+            if folder.is_dir() and not folder.name.startswith("__"):
+                yield folder, "current"
 
 
 def _get_annotations_dir_mtime() -> float:
     """Get latest modification time of annotation files for cache invalidation."""
     latest_mtime = 0.0
-    for folder in _iter_annotation_dirs():
-        for file in folder.glob("*.json"):
+    for folder, source in _iter_annotation_dirs():
+        pattern = "*_annotations.json" if source == "current" else "*.json"
+        for file in folder.glob(pattern):
             try:
                 latest_mtime = max(latest_mtime, file.stat().st_mtime)
             except OSError:
@@ -63,17 +72,32 @@ def _get_total_images() -> int:
 
 
 def _determine_annotation_type(info: Dict[str, Any]) -> Optional[str]:
-    """Infer annotation type from data structure: 'polygon', 'figure', or 'landmark'."""
+    """Infer annotation type from data structure: 'polygon', 'figure', or 'landmark'.
+
+    Maps annotation types to display categories:
+    - point -> landmark (Points)
+    - polygon -> polygon (Polygons)
+    - line, circle, rectangle, angle -> figure (Figures)
+    """
     ann_type = info.get("type")
-    if ann_type in ("polygon", "figure"):
-        return ann_type
+
+    # Direct mapping for annotation types
+    if ann_type == "point":
+        return "landmark"
+    if ann_type == "polygon":
+        return "polygon"
+    if ann_type in ("line", "circle", "rectangle", "angle", "figure"):
+        return "figure"
+
+    # Legacy support: annotations with coordinates key are landmarks
     if "coordinates" in info or ann_type is None:
         return "landmark"
+
     return None
 
 
 def _scan_all_annotations() -> Dict[str, Any]:
-    """Scan all annotation files and cache label names with usage counts."""
+    """Scan all annotation files (legacy and current) and cache label names with usage counts."""
     global _annotation_cache, _cache_mtime
 
     current_mtime = _get_annotations_dir_mtime()
@@ -89,11 +113,25 @@ def _scan_all_annotations() -> Dict[str, Any]:
     }
     counts: Dict[Tuple[str, str], int] = {}
 
-    for folder in _iter_annotation_dirs():
-        for file in folder.glob("*.json"):
+    for folder, source in _iter_annotation_dirs():
+        # Use appropriate glob pattern for source type
+        pattern = "*_annotations.json" if source == "current" else "*.json"
+
+        for file in folder.glob(pattern):
             try:
                 data = json.loads(file.read_text())
-                for name, info in data.items():
+
+                # Current format files have annotations nested under "annotations" key
+                if source == "current":
+                    annotations = data.get("annotations", {})
+                else:
+                    annotations = data
+
+                for name, info in annotations.items():
+                    # Skip non-annotation keys
+                    if not isinstance(info, dict):
+                        continue
+
                     ann_type = _determine_annotation_type(info)
                     if ann_type:
                         labels[ann_type].add(name)
@@ -135,7 +173,7 @@ class AnnotationTypeManager:
         return sorted(cache['labels'].get(self.storage_key, set()))
 
     def remove_files(self, name: str) -> Tuple[int, int]:
-        """Remove all occurrences of an annotation from files.
+        """Remove all occurrences of an annotation from files (legacy and current).
 
         Returns:
             Tuple of (files_modified, files_deleted) counts
@@ -143,20 +181,34 @@ class AnnotationTypeManager:
         files_modified = 0
         files_deleted = 0
 
-        for patient_dir in _iter_annotation_dirs():
-            for json_file in patient_dir.glob("*.json"):
+        for patient_dir, source in _iter_annotation_dirs():
+            pattern = "*_annotations.json" if source == "current" else "*.json"
+
+            for json_file in patient_dir.glob(pattern):
                 try:
                     data = json.loads(json_file.read_text())
-                    if name in data and _determine_annotation_type(data[name]) == self.storage_key:
-                        del data[name]
-                        files_modified += 1
-                        if not data:
-                            json_file.unlink()
-                            files_deleted += 1
-                        else:
-                            json_file.write_text(json.dumps(data, indent=4))
+
+                    # Handle current nested structure
+                    if source == "current":
+                        annotations = data.get("annotations", {})
+                        if name in annotations and _determine_annotation_type(annotations[name]) == self.storage_key:
+                            del annotations[name]
+                            files_modified += 1
+                            # Keep current file structure even if empty (has version, calibration, etc.)
+                            json_file.write_text(json.dumps(data, indent=2))
+                    else:
+                        # Legacy format
+                        if name in data and _determine_annotation_type(data[name]) == self.storage_key:
+                            del data[name]
+                            files_modified += 1
+                            if not data:
+                                json_file.unlink()
+                                files_deleted += 1
+                            else:
+                                json_file.write_text(json.dumps(data, indent=4))
                 except Exception:
                     continue
+
             if patient_dir.exists() and not any(patient_dir.iterdir()):
                 patient_dir.rmdir()
 

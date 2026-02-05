@@ -1,115 +1,34 @@
 /**
  * AnnotationRenderer - SVG-based annotation rendering with viewport synchronization
- * 
- * This module manages an SVG overlay that renders annotations in image coordinates.
- * The SVG transform is automatically synced with the viewport (pan/zoom) state,
- * so annotations maintain their positions in image space during navigation.
- * 
- * Key features:
- * - SVG overlay positioned over the image container
- * - Viewport transform synchronization via matrix transform
- * - Annotations drawn in image coordinates (not screen coordinates)
- * - Support for all annotation types: point, line, circle, rectangle, polygon, freehand, angle
- * - Selection and hover state management
- * - Measurement label rendering
- * 
  * @module core/AnnotationRenderer
+ *
+ * Features: SVG overlay synced with viewport transform, annotations in image coords,
+ * all annotation types (point, line, circle, rectangle, polygon, angle),
+ * selection/hover state, measurement labels.
  */
-
-// ============================================================================
-// Type Definitions
-// ============================================================================
-
-/**
- * @typedef {Object} Point
- * @property {number} x - X coordinate in image space
- * @property {number} y - Y coordinate in image space
- */
-
-/**
- * @typedef {Object} AnnotationData
- * @property {string} type - Annotation type (point, line, circle, rectangle, polygon, freehand, angle)
- * @property {Object} data - Type-specific annotation data
- * @property {string} [color] - Optional color override
- * @property {string} [status] - Annotation status
- */
-
-/**
- * @typedef {Object} RendererConfig
- * @property {number} strokeWidth - Default stroke width
- * @property {number} selectedStrokeWidth - Stroke width for selected annotations
- * @property {number} pointRadius - Radius for point markers
- * @property {number} handleRadius - Radius for edit handles
- * @property {number} fillOpacity - Fill opacity for shapes
- * @property {number} selectedFillOpacity - Fill opacity for selected shapes
- * @property {number} measurementOffset - Offset for measurement labels
- * @property {number} arcRadius - Radius for angle arcs
- * @property {boolean} showMeasurements - Whether to show measurements
- * @property {boolean} showHandles - Whether to show edit handles
- * @property {boolean} showLabels - Whether to show annotation labels
- */
-
-// ============================================================================
-// SVG Namespace
-// ============================================================================
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-// ============================================================================
-// AnnotationRenderer Class
-// ============================================================================
-
 class AnnotationRenderer {
-    /**
-     * Create an annotation renderer
-     */
     constructor() {
-        /** @type {HTMLElement|null} Container element */
         this._container = null;
-        
-        /** @type {SVGSVGElement|null} Main SVG element */
         this._svg = null;
-        
-        /** @type {SVGGElement|null} Transform group (applies viewport transform) */
         this._transformGroup = null;
-        
-        /** @type {SVGDefsElement|null} SVG defs for markers and patterns */
         this._defs = null;
-        
-        /** @type {HTMLElement|null} HTML layer for measurement labels */
         this._labelLayer = null;
-        
-        /** @type {Viewport|null} Reference to viewport */
         this._viewport = null;
-        
-        /** @type {number|null} Viewport subscription ID */
         this._viewportSubscription = null;
-        
-        /** @type {string|null} Currently selected annotation ID */
         this._selectedId = null;
-        
-        /** @type {string|null} Currently hovered annotation ID */
         this._hoveredId = null;
-        
-        /** @type {RendererConfig} Renderer configuration */
         this._config = this._getDefaultConfig();
-        
-        /** @type {number} Image width for coordinate calculations */
         this._imageWidth = 0;
-        
-        /** @type {number} Image height for coordinate calculations */
         this._imageHeight = 0;
+        this._initialized = false;
+        this._renderedAnnotations = new Set();
     }
-    
-    // ========================================================================
+
     // Configuration
-    // ========================================================================
     
-    /**
-     * Get default configuration from constants or fallbacks
-     * @returns {RendererConfig}
-     * @private
-     */
     _getDefaultConfig() {
         const RC = window.RendererConstants || {};
         return {
@@ -126,73 +45,54 @@ class AnnotationRenderer {
             showLabels: true
         };
     }
-    
-    /**
-     * Update configuration
-     * @param {Partial<RendererConfig>} options - Configuration options to update
-     */
+
     configure(options) {
         this._config = { ...this._config, ...options };
     }
-    
-    /**
-     * Get the current viewport scale (with fallback)
-     * @returns {number} Current scale factor
-     * @private
-     */
+
     get _currentScale() {
         return this._viewport?.scale || 1;
     }
-    
-    // ========================================================================
+
     // Initialization
-    // ========================================================================
     
-    /**
-     * Initialize the renderer
-     * @param {HTMLElement} container - Container element to render into
-     * @param {Viewport} [viewport] - Viewport instance (uses global if not provided)
-     * @param {Object} [options] - Configuration options
-     */
     init(container, viewport = null, options = {}) {
         if (!container) {
             console.error('[AnnotationRenderer] Container element required');
             return;
         }
-        
+
+        // Clean up previous initialization if re-initializing
+        if (this._initialized) {
+            window.Debug?.warn('AnnotationRenderer', 'Re-initializing - cleaning up previous state');
+            this._cleanupSubscriptions();
+        }
+
         this._container = container;
         this._viewport = viewport || window.viewport;
         this._config = { ...this._config, ...options };
-        
+
         // Create SVG structure
         this._createSVG();
         this._createDefs();
         this._createLabelLayer();
-        
+
         // Subscribe to viewport changes
         this._subscribeToViewport();
-        
+
         // Initial transform sync
         this._syncTransform();
-        
+
+        this._initialized = true;
         window.Debug?.log('AnnotationRenderer', 'Initialized');
     }
-    
-    /**
-     * Set image dimensions (needed for proper coordinate transformations)
-     * @param {number} width - Image width in pixels
-     * @param {number} height - Image height in pixels
-     */
+
     setImageSize(width, height) {
         this._imageWidth = width;
         this._imageHeight = height;
         this._syncTransform();
     }
-    
-    /**
-     * Create the main SVG element
-     * @private
-     */
+
     _createSVG() {
         // Remove existing SVG if present
         if (this._svg) {
@@ -220,11 +120,7 @@ class AnnotationRenderer {
         
         this._container.appendChild(this._svg);
     }
-    
-    /**
-     * Create SVG defs for markers and patterns
-     * @private
-     */
+
     _createDefs() {
         this._defs = document.createElementNS(SVG_NS, 'defs');
         
@@ -245,11 +141,7 @@ class AnnotationRenderer {
         
         this._svg.insertBefore(this._defs, this._transformGroup);
     }
-    
-    /**
-     * Create HTML layer for measurement labels
-     * @private
-     */
+
     _createLabelLayer() {
         // Remove existing layer if present
         if (this._labelLayer) {
@@ -270,114 +162,169 @@ class AnnotationRenderer {
         
         this._container.appendChild(this._labelLayer);
     }
-    
-    /**
-     * Subscribe to viewport changes
-     * @private
-     */
+
     _subscribeToViewport() {
         if (!this._viewport) return;
-        
-        // Unsubscribe from previous subscription
-        if (this._viewportSubscription !== null) {
-            this._viewport.unsubscribe(this._viewportSubscription);
-        }
-        
-        // Subscribe to viewport changes
-        this._viewportSubscription = this._viewport.subscribe((property, newState, oldState) => {
-            this._syncTransform();
-        });
+
+        // Clean up any existing subscription first
+        this._cleanupSubscriptions();
+
+        this._viewportSubscription = this._viewport.subscribe(() => this._syncTransform());
     }
-    
-    /**
-     * Sync SVG transform with viewport state
-     * @private
-     */
-    _syncTransform() {
-        if (!this._transformGroup || !this._viewport) return;
-        
-        const scale = this._viewport.scale;
-        const offsetX = this._viewport.offsetX;
-        const offsetY = this._viewport.offsetY;
-        
-        // Apply transform matrix: matrix(a, b, c, d, e, f)
-        // where a=scale, d=scale, e=translateX, f=translateY
-        // This transforms image coordinates to screen coordinates
-        const transform = `matrix(${scale}, 0, 0, ${scale}, ${offsetX}, ${offsetY})`;
-        this._transformGroup.setAttribute('transform', transform);
-    }
-    
-    // ========================================================================
-    // Cleanup
-    // ========================================================================
-    
-    /**
-     * Destroy the renderer and clean up resources
-     */
-    destroy() {
-        // Unsubscribe from viewport
+
+    _cleanupSubscriptions() {
         if (this._viewport && this._viewportSubscription !== null) {
             this._viewport.unsubscribe(this._viewportSubscription);
             this._viewportSubscription = null;
         }
-        
-        // Remove DOM elements
-        if (this._svg) {
-            this._svg.remove();
-            this._svg = null;
-        }
-        
-        if (this._labelLayer) {
-            this._labelLayer.remove();
-            this._labelLayer = null;
-        }
-        
+    }
+
+    _syncTransform() {
+        if (!this._transformGroup || !this._viewport) return;
+
+        const { scale, offsetX, offsetY } = this._viewport;
+        this._transformGroup.setAttribute('transform', `matrix(${scale}, 0, 0, ${scale}, ${offsetX}, ${offsetY})`);
+    }
+
+    // Cleanup
+
+    destroy() {
+        this._cleanupSubscriptions();
+        this._svg?.remove();
+        this._labelLayer?.remove();
+
+        this._svg = null;
+        this._labelLayer = null;
         this._container = null;
         this._transformGroup = null;
         this._defs = null;
-        
+        this._renderedAnnotations.clear();
+        this._initialized = false;
+
         window.Debug?.log('AnnotationRenderer', 'Destroyed');
     }
-    
-    // ========================================================================
+
     // Main Render Methods
-    // ========================================================================
-    
-    /**
-     * Render all annotations
-     * @param {Object<string, AnnotationData>} annotations - Map of annotation ID to data
-     * @param {number|null} [calibration] - Pixels per mm calibration factor
-     */
-    render(annotations, calibration = null) {
-        this.clear();
-        
-        if (!annotations) return;
-        
-        Object.entries(annotations).forEach(([id, annotation]) => {
-            this._renderAnnotation(id, annotation, calibration);
-        });
-    }
-    
-    /**
-     * Clear all rendered annotations
-     */
-    clear() {
-        // Clear transform group (keeps defs)
-        this._transformGroup?.replaceChildren();
-        
-        // Clear label layer
-        if (this._labelLayer) {
-            this._labelLayer.innerHTML = '';
+
+    render(annotations, calibration = null, forceFull = false) {
+        if (!annotations) {
+            this.clear();
+            return;
+        }
+
+        // Use differential rendering for performance unless forced full render
+        if (!forceFull && this._canUseDifferentialRender(annotations)) {
+            this._renderDifferential(annotations, calibration);
+        } else {
+            this._renderFull(annotations, calibration);
         }
     }
-    
-    /**
-     * Render a single annotation
-     * @param {string} id - Annotation ID
-     * @param {AnnotationData} annotation - Annotation data
-     * @param {number|null} calibration - Pixels per mm
-     * @private
-     */
+
+    _canUseDifferentialRender(annotations) {
+        // Differential rendering only beneficial if we have existing rendered annotations
+        if (this._renderedAnnotations.size === 0) {
+            return false;
+        }
+
+        const currentIds = new Set(Object.keys(annotations));
+        const removedCount = [...this._renderedAnnotations].filter(id => !currentIds.has(id)).length;
+        const addedCount = [...currentIds].filter(id => !this._renderedAnnotations.has(id)).length;
+
+        // If more than 50% changed, full render is likely faster
+        const totalChanges = removedCount + addedCount;
+        const changeRatio = totalChanges / Math.max(this._renderedAnnotations.size, currentIds.size);
+
+        return changeRatio < 0.5;
+    }
+
+    _renderDifferential(annotations, calibration) {
+        const currentIds = new Set(Object.keys(annotations));
+        let errorCount = 0;
+        const maxErrors = 10;
+
+        // Remove annotations that no longer exist
+        for (const id of this._renderedAnnotations) {
+            if (!currentIds.has(id)) {
+                this._removeRenderedAnnotation(id);
+            }
+        }
+
+        // Add or update annotations
+        for (const [id, annotation] of Object.entries(annotations)) {
+            try {
+                // Always re-render to ensure updates are shown
+                // In future, could add data comparison to skip unchanged annotations
+                this._removeRenderedAnnotation(id);
+                this._renderAnnotation(id, annotation, calibration);
+                this._renderedAnnotations.add(id);
+            } catch (error) {
+                errorCount++;
+                console.error(`[AnnotationRenderer] Failed to render annotation ${id}:`, error);
+
+                if (errorCount >= maxErrors) {
+                    console.error('[AnnotationRenderer] Too many render errors, stopping');
+                    window.showMessage?.('Some annotations failed to render', 'error');
+                    throw new Error(`Too many annotation render errors (${errorCount})`);
+                }
+            }
+        }
+
+        if (errorCount > 0 && errorCount < maxErrors) {
+            window.showMessage?.(`${errorCount} annotation(s) failed to render`, 'warning');
+        }
+    }
+
+    _renderFull(annotations, calibration) {
+        this.clear();
+
+        let errorCount = 0;
+        const maxErrors = 10;
+
+        Object.entries(annotations).forEach(([id, annotation]) => {
+            try {
+                this._renderAnnotation(id, annotation, calibration);
+                this._renderedAnnotations.add(id);
+            } catch (error) {
+                errorCount++;
+                console.error(`[AnnotationRenderer] Failed to render annotation ${id}:`, error);
+
+                if (errorCount >= maxErrors) {
+                    console.error('[AnnotationRenderer] Too many render errors, stopping');
+                    window.showMessage?.('Some annotations failed to render', 'error');
+                    throw new Error(`Too many annotation render errors (${errorCount})`);
+                }
+            }
+        });
+
+        if (errorCount > 0 && errorCount < maxErrors) {
+            window.showMessage?.(`${errorCount} annotation(s) failed to render`, 'warning');
+        }
+    }
+
+    _removeRenderedAnnotation(id) {
+        if (!this._transformGroup) return;
+
+        const escapedId = CSS.escape(id);
+        const group = this._transformGroup.querySelector(`[data-annotation-id="${escapedId}"]`);
+        if (group) {
+            group.remove();
+        }
+
+        // Also remove any labels in the label layer
+        if (this._labelLayer) {
+            const labels = this._labelLayer.querySelectorAll(`[data-annotation-id="${escapedId}"]`);
+            labels.forEach(label => label.remove());
+        }
+
+        this._renderedAnnotations.delete(id);
+    }
+
+    clear() {
+        this._transformGroup?.replaceChildren();
+        if (this._labelLayer) this._labelLayer.innerHTML = '';
+        this._renderedAnnotations.clear();
+    }
+
     _renderAnnotation(id, annotation, calibration) {
         const type = annotation.type;
         const data = annotation.data || annotation;
@@ -405,13 +352,7 @@ class AnnotationRenderer {
             window.Debug?.warn('AnnotationRenderer', `Unknown annotation type: ${type} for id: ${id}`);
         }
     }
-    
-    /**
-     * Get default color for annotation type
-     * @param {string} type - Annotation type
-     * @returns {string} Hex color
-     * @private
-     */
+
     _getDefaultColor(type) {
         const colors = window.DefaultColors || {
             'point': '#ff0000',
@@ -424,264 +365,116 @@ class AnnotationRenderer {
         };
         return colors[type] || colors.fallback || '#ff0000';
     }
-    
-    // ========================================================================
+
     // Selection & Hover State
-    // ========================================================================
-    
-    /**
-     * Set the selected annotation
-     * @param {string|null} annotationId - Annotation ID or null to deselect
-     */
+
     setSelected(annotationId) {
         const previousId = this._selectedId;
         this._selectedId = annotationId;
-        
-        // Update visual state
-        if (previousId) {
-            this._updateAnnotationState(previousId);
-        }
-        if (annotationId) {
-            this._updateAnnotationState(annotationId);
-        }
+        if (previousId) this._updateAnnotationState(previousId);
+        if (annotationId) this._updateAnnotationState(annotationId);
     }
-    
-    /**
-     * Set the hovered annotation
-     * @param {string|null} annotationId - Annotation ID or null
-     */
+
     setHovered(annotationId) {
         const previousId = this._hoveredId;
         this._hoveredId = annotationId;
-        
-        // Update visual state
-        if (previousId) {
-            this._updateAnnotationState(previousId);
-        }
-        if (annotationId) {
-            this._updateAnnotationState(annotationId);
-        }
+        if (previousId) this._updateAnnotationState(previousId);
+        if (annotationId) this._updateAnnotationState(annotationId);
     }
-    
-    /**
-     * Update visual state of an annotation
-     * @param {string} annotationId - Annotation ID
-     * @private
-     */
+
     _updateAnnotationState(annotationId) {
         const escapedId = CSS.escape(annotationId);
         const group = this._transformGroup?.querySelector(`[data-annotation-id="${escapedId}"]`);
         if (!group) return;
-        
+
         const isSelected = annotationId === this._selectedId;
         const isHovered = annotationId === this._hoveredId;
-        
+
         group.classList.toggle('annotation--selected', isSelected);
         group.classList.toggle('annotation--hovered', isHovered);
-        group.classList.toggle('selected', isSelected); // Legacy class
+        group.classList.toggle('selected', isSelected);
     }
-    
-    // ========================================================================
+
     // SVG Element Helpers
-    // ========================================================================
-    
-    /**
-     * Get common render properties (scale, strokeWidth, fillOpacity)
-     * @param {boolean} isSelected - Whether annotation is selected
-     * @returns {{scale: number, strokeWidth: number, fillOpacity: number}}
-     * @private
-     */
+
     _getRenderProps(isSelected) {
         const scale = this._currentScale;
         const strokeWidth = (isSelected ? this._config.selectedStrokeWidth : this._config.strokeWidth) / scale;
         const fillOpacity = isSelected ? this._config.selectedFillOpacity : this._config.fillOpacity;
         return { scale, strokeWidth, fillOpacity };
     }
-    
-    /**
-     * Get stroke attributes for shapes
-     * @param {string} color - Stroke color
-     * @param {number} strokeWidth - Stroke width
-     * @param {Object} [extras] - Additional attributes
-     * @returns {Object} SVG attributes object
-     * @private
-     */
+
     _strokeAttrs(color, strokeWidth, extras = {}) {
-        return {
-            'stroke': color,
-            'stroke-width': strokeWidth,
-            ...extras
-        };
+        return { 'stroke': color, 'stroke-width': strokeWidth, ...extras };
     }
-    
-    /**
-     * Get fill+stroke attributes for shapes
-     * @param {string} color - Color for both fill and stroke
-     * @param {number} strokeWidth - Stroke width
-     * @param {number} fillOpacity - Fill opacity
-     * @param {Object} [extras] - Additional attributes
-     * @returns {Object} SVG attributes object
-     * @private
-     */
+
     _fillStrokeAttrs(color, strokeWidth, fillOpacity, extras = {}) {
-        return {
-            'fill': color,
-            'fill-opacity': fillOpacity,
-            'stroke': color,
-            'stroke-width': strokeWidth,
-            ...extras
-        };
+        return { 'fill': color, 'fill-opacity': fillOpacity, 'stroke': color, 'stroke-width': strokeWidth, ...extras };
     }
-    
-    /**
-     * Create a small marker circle (used for endpoints, vertices, centers)
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     * @param {string} color - Fill color
-     * @param {string} className - CSS class name
-     * @param {number} scale - Current viewport scale
-     * @param {number} [baseRadius=3] - Base radius before scaling
-     * @returns {SVGCircleElement}
-     * @private
-     */
+
     _createMarker(x, y, color, className, scale, baseRadius = 3) {
-        return this._createCircle(x, y, baseRadius / scale, {
-            'class': className,
-            'fill': color
-        });
+        return this._createCircle(x, y, baseRadius / scale, { 'class': className, 'fill': color });
     }
-    
-    /**
-     * Create an SVG group element for an annotation
-     * @param {string} id - Annotation ID
-     * @param {string} type - Annotation type
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     * @returns {SVGGElement}
-     * @private
-     */
+
     _createGroup(id, type, isSelected, isHovered) {
         const group = document.createElementNS(SVG_NS, 'g');
         group.classList.add('annotation', `annotation-${type}-group`);
-        
-        // Enable pointer events for hover/click detection
         group.style.pointerEvents = 'all';
         group.style.cursor = 'pointer';
-        
-        if (isSelected) {
-            group.classList.add('annotation--selected', 'selected');
-        }
-        if (isHovered) {
-            group.classList.add('annotation--hovered');
-        }
-        
+
+        if (isSelected) group.classList.add('annotation--selected', 'selected');
+        if (isHovered) group.classList.add('annotation--hovered');
+
         group.dataset.annotationId = id;
-        group.dataset.annotation = id; // Legacy compatibility
-        group.dataset.label = id; // Legacy compatibility
-        
+        group.dataset.annotation = id;
+        group.dataset.label = id;
         group.setAttribute('role', 'img');
         group.setAttribute('aria-label', `${type} annotation: ${id}`);
-        
+
         return group;
     }
-    
-    /**
-     * Create an SVG circle element
-     * @param {number} cx - Center X (image coords)
-     * @param {number} cy - Center Y (image coords)
-     * @param {number} r - Radius (image coords)
-     * @param {Object} attrs - Additional attributes
-     * @returns {SVGCircleElement}
-     * @private
-     */
+
     _createCircle(cx, cy, r, attrs = {}) {
         const circle = document.createElementNS(SVG_NS, 'circle');
         circle.setAttribute('cx', cx);
         circle.setAttribute('cy', cy);
         circle.setAttribute('r', r);
-        Object.entries(attrs).forEach(([key, value]) => {
-            circle.setAttribute(key, value);
-        });
+        Object.entries(attrs).forEach(([k, v]) => circle.setAttribute(k, v));
         return circle;
     }
-    
-    /**
-     * Create an SVG line element
-     * @param {number} x1 - Start X (image coords)
-     * @param {number} y1 - Start Y (image coords)
-     * @param {number} x2 - End X (image coords)
-     * @param {number} y2 - End Y (image coords)
-     * @param {Object} attrs - Additional attributes
-     * @returns {SVGLineElement}
-     * @private
-     */
+
     _createLine(x1, y1, x2, y2, attrs = {}) {
         const line = document.createElementNS(SVG_NS, 'line');
         line.setAttribute('x1', x1);
         line.setAttribute('y1', y1);
         line.setAttribute('x2', x2);
         line.setAttribute('y2', y2);
-        Object.entries(attrs).forEach(([key, value]) => {
-            line.setAttribute(key, value);
-        });
+        Object.entries(attrs).forEach(([k, v]) => line.setAttribute(k, v));
         return line;
     }
-    
-    /**
-     * Create an SVG rectangle element
-     * @param {number} x - Top-left X (image coords)
-     * @param {number} y - Top-left Y (image coords)
-     * @param {number} width - Width (image coords)
-     * @param {number} height - Height (image coords)
-     * @param {Object} attrs - Additional attributes
-     * @returns {SVGRectElement}
-     * @private
-     */
+
     _createRect(x, y, width, height, attrs = {}) {
         const rect = document.createElementNS(SVG_NS, 'rect');
         rect.setAttribute('x', x);
         rect.setAttribute('y', y);
         rect.setAttribute('width', width);
         rect.setAttribute('height', height);
-        Object.entries(attrs).forEach(([key, value]) => {
-            rect.setAttribute(key, value);
-        });
+        Object.entries(attrs).forEach(([k, v]) => rect.setAttribute(k, v));
         return rect;
     }
-    
-    /**
-     * Create an SVG path element
-     * @param {string} d - Path data
-     * @param {Object} attrs - Additional attributes
-     * @returns {SVGPathElement}
-     * @private
-     */
+
     _createPath(d, attrs = {}) {
         const path = document.createElementNS(SVG_NS, 'path');
         path.setAttribute('d', d);
-        Object.entries(attrs).forEach(([key, value]) => {
-            path.setAttribute(key, value);
-        });
+        Object.entries(attrs).forEach(([k, v]) => path.setAttribute(k, v));
         return path;
     }
-    
-    /**
-     * Create an edit handle
-     * @param {number} x - X position (image coords)
-     * @param {number} y - Y position (image coords)
-     * @param {string} handleType - Handle type (e.g., 'start', 'end', 'center')
-     * @param {string} color - Handle color
-     * @param {string} annotationId - Parent annotation ID
-     * @returns {SVGCircleElement}
-     * @private
-     */
+
     _createHandle(x, y, handleType, color, annotationId) {
-        // Handle radius needs to be scaled inversely with viewport
-        // so it appears the same size regardless of zoom
         const scale = this._currentScale;
         const radius = this._config.handleRadius / scale;
         const strokeWidth = 2 / scale;
-        
+
         const handle = this._createCircle(x, y, radius, {
             'class': `annotation-handle handle-${handleType}`,
             'fill': '#ffffff',
@@ -692,37 +485,17 @@ class AnnotationRenderer {
         handle.dataset.handleType = handleType;
         handle.dataset.handle = handleType;
         handle.dataset.annotation = annotationId;
-        
+
         return handle;
     }
-    
-    /**
-     * Convert image coordinates to screen coordinates for label placement
-     * @param {number} imageX - X in image space
-     * @param {number} imageY - Y in image space
-     * @returns {{x: number, y: number}} Screen coordinates
-     * @private
-     */
+
     _imageToScreen(imageX, imageY) {
-        if (this._viewport) {
-            return this._viewport.imageToScreen(imageX, imageY);
-        }
-        return { x: imageX, y: imageY };
+        return this._viewport ? this._viewport.imageToScreen(imageX, imageY) : { x: imageX, y: imageY };
     }
-    
-    /**
-     * Create a measurement label in the HTML layer
-     * @param {number} imageX - X position in image coords
-     * @param {number} imageY - Y position in image coords
-     * @param {string} text - Label text
-     * @param {string} color - Label color
-     * @param {string} [className] - Additional CSS class
-     * @returns {HTMLElement}
-     * @private
-     */
-    _createMeasurementLabel(imageX, imageY, text, color, className = '') {
+
+    _createMeasurementLabel(imageX, imageY, text, color, className = '', annotationId = null) {
         const screen = this._imageToScreen(imageX, imageY);
-        
+
         const label = document.createElement('div');
         label.className = `annotation-measurement ${className}`.trim();
         label.style.cssText = `
@@ -733,28 +506,24 @@ class AnnotationRenderer {
             transform: translate(-50%, -100%);
         `;
         label.textContent = text;
-        
+
+        // Add annotation ID for easier removal in differential rendering
+        if (annotationId) {
+            label.dataset.annotationId = annotationId;
+        }
+
         if (this._labelLayer) {
             this._labelLayer.appendChild(label);
         }
-        
+
         return label;
     }
-    
-    /**
-     * Create an annotation name label
-     * @param {number} imageX - X position in image coords
-     * @param {number} imageY - Y position in image coords
-     * @param {string} text - Label text
-     * @param {string} color - Label background color
-     * @returns {HTMLElement}
-     * @private
-     */
-    _createNameLabel(imageX, imageY, text, color) {
+
+    _createNameLabel(imageX, imageY, text, color, annotationId = null) {
         if (!this._config.showLabels) return null;
-        
+
         const screen = this._imageToScreen(imageX, imageY);
-        
+
         const label = document.createElement('div');
         label.className = 'annotation-label-tag';
         label.style.cssText = `
@@ -772,26 +541,21 @@ class AnnotationRenderer {
             pointer-events: none;
         `;
         label.textContent = text;
-        
+
+        // Add annotation ID for easier removal in differential rendering
+        if (annotationId) {
+            label.dataset.annotationId = annotationId;
+        }
+
         if (this._labelLayer) {
             this._labelLayer.appendChild(label);
         }
-        
+
         return label;
     }
-    
-    // ========================================================================
+
     // Point Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render a point annotation
-     * @param {string} id - Annotation ID
-     * @param {{x: number, y: number}} data - Point coordinates
-     * @param {string} color - Display color
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     */
+
     renderPoint(id, data, color, isSelected, isHovered) {
         const group = this._createGroup(id, 'point', isSelected, isHovered);
         const { scale, strokeWidth } = this._getRenderProps(isSelected);
@@ -821,22 +585,11 @@ class AnnotationRenderer {
         }
         
         this._transformGroup.appendChild(group);
-        this._createNameLabel(data.x + r, data.y, id, color);
+        this._createNameLabel(data.x + r, data.y, id, color, id);
     }
-    
-    // ========================================================================
+
     // Line Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render a line annotation
-     * @param {string} id - Annotation ID
-     * @param {{start: Point, end: Point}} data - Line data
-     * @param {string} color - Display color
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     * @param {number|null} calibration - Pixels per mm
-     */
+
     renderLine(id, data, color, isSelected, isHovered, calibration) {
         const group = this._createGroup(id, 'line', isSelected, isHovered);
         const { scale, strokeWidth } = this._getRenderProps(isSelected);
@@ -879,26 +632,16 @@ class AnnotationRenderer {
                 midY - Math.cos(angle) * offset,
                 measurements.formatted.length,
                 color,
-                'measurement-length'
+                'measurement-length',
+                id
             );
         }
-        
-        this._createNameLabel(data.start.x, data.start.y - 10 / scale, id, color);
+
+        this._createNameLabel(data.start.x, data.start.y - 10 / scale, id, color, id);
     }
-    
-    // ========================================================================
+
     // Circle Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render a circle annotation
-     * @param {string} id - Annotation ID
-     * @param {{center: Point, radius: number}} data - Circle data
-     * @param {string} color - Display color
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     * @param {number|null} calibration - Pixels per mm
-     */
+
     renderCircle(id, data, color, isSelected, isHovered, calibration) {
         const group = this._createGroup(id, 'circle', isSelected, isHovered);
         const { scale, strokeWidth, fillOpacity } = this._getRenderProps(isSelected);
@@ -924,10 +667,15 @@ class AnnotationRenderer {
             }
         ));
         
-        // Edit handles
+        // Edit handles - use pointIndex to route to movePoint() which has proper handling
         if (this._config.showHandles && isSelected) {
-            group.appendChild(this._createHandle(data.center.x, data.center.y, 'center', color, id));
-            group.appendChild(this._createHandle(data.center.x + data.radius, data.center.y, 'radius', color, id));
+            const centerHandle = this._createHandle(data.center.x, data.center.y, 'center', color, id);
+            centerHandle.dataset.pointIndex = '0';  // pointIndex 0 = move center
+            group.appendChild(centerHandle);
+
+            const radiusHandle = this._createHandle(data.center.x + data.radius, data.center.y, 'radius', color, id);
+            radiusHandle.dataset.pointIndex = '1';  // pointIndex 1 = change radius
+            group.appendChild(radiusHandle);
         }
         
         this._transformGroup.appendChild(group);
@@ -941,9 +689,10 @@ class AnnotationRenderer {
                 data.center.y - 8 / scale,
                 `r: ${measurements.formatted.radius}`,
                 color,
-                'measurement-radius'
+                'measurement-radius',
+                id
             );
-            
+
             // Area text (if circle is large enough)
             if (data.radius * scale > 40) {
                 const areaLabel = this._createMeasurementLabel(
@@ -951,30 +700,20 @@ class AnnotationRenderer {
                     data.center.y + 15 / scale,
                     `A: ${measurements.formatted.area}`,
                     color,
-                    'measurement-area'
+                    'measurement-area',
+                    id
                 );
                 if (areaLabel) {
                     areaLabel.style.transform = 'translate(-50%, 0)';
                 }
             }
         }
-        
-        this._createNameLabel(data.center.x + data.radius, data.center.y, id, color);
+
+        this._createNameLabel(data.center.x + data.radius, data.center.y, id, color, id);
     }
-    
-    // ========================================================================
+
     // Rectangle Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render a rectangle annotation
-     * @param {string} id - Annotation ID
-     * @param {{topLeft: Point, bottomRight: Point}|{center: Point, width: number, height: number}} data - Rectangle data
-     * @param {string} color - Display color
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     * @param {number|null} calibration - Pixels per mm
-     */
+
     renderRectangle(id, data, color, isSelected, isHovered, calibration) {
         // Normalize rectangle data to x, y, width, height
         let x, y, width, height;
@@ -1022,50 +761,39 @@ class AnnotationRenderer {
         // Measurements
         if (this._config.showMeasurements && window.Measurements) {
             const measurements = window.Measurements.measureRectangle(data, calibration);
-            
+
             // Width label
-            this._createMeasurementLabel(x + width / 2, y - 5 / scale, measurements.formatted.width, color, 'measurement-width');
-            
+            this._createMeasurementLabel(x + width / 2, y - 5 / scale, measurements.formatted.width, color, 'measurement-width', id);
+
             // Height label
             const heightLabel = this._createMeasurementLabel(
                 x + width + 10 / scale, y + height / 2,
-                measurements.formatted.height, color, 'measurement-height'
+                measurements.formatted.height, color, 'measurement-height', id
             );
             if (heightLabel) {
                 heightLabel.style.transform = 'translate(0, -50%)';
             }
-            
+
             // Area label (if large enough)
             if (width * scale > 60 && height * scale > 40) {
                 const areaLabel = this._createMeasurementLabel(
                     x + width / 2, y + height / 2,
-                    `A: ${measurements.formatted.area}`, color, 'measurement-area'
+                    `A: ${measurements.formatted.area}`, color, 'measurement-area', id
                 );
                 if (areaLabel) {
                     areaLabel.style.transform = 'translate(-50%, -50%)';
                 }
             }
         }
-        
-        const nameLabel = this._createNameLabel(x, y - 5 / scale, id, color);
+
+        const nameLabel = this._createNameLabel(x, y - 5 / scale, id, color, id);
         if (nameLabel) {
             nameLabel.style.transform = 'translate(0, -100%)';
         }
     }
-    
-    // ========================================================================
+
     // Polygon Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render a polygon annotation
-     * @param {string} id - Annotation ID
-     * @param {{points: Point[]}} data - Polygon data
-     * @param {string} color - Display color
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     * @param {number|null} calibration - Pixels per mm
-     */
+
     renderPolygon(id, data, color, isSelected, isHovered, calibration) {
         const points = data.points || [];
         if (points.length < 3) return;
@@ -1098,37 +826,27 @@ class AnnotationRenderer {
         if (this._config.showMeasurements && window.Measurements) {
             const measurements = window.Measurements.measurePolygon(data, calibration);
             const centroid = measurements.centroid;
-            
+
             const areaLabel = this._createMeasurementLabel(
-                centroid.x, centroid.y, `A: ${measurements.formatted.area}`, color, 'measurement-area'
+                centroid.x, centroid.y, `A: ${measurements.formatted.area}`, color, 'measurement-area', id
             );
             if (areaLabel) {
                 areaLabel.style.transform = 'translate(-50%, -50%)';
             }
-            
+
             const perimeterLabel = this._createMeasurementLabel(
-                centroid.x, centroid.y + 18 / scale, `P: ${measurements.formatted.perimeter}`, color, 'measurement-perimeter'
+                centroid.x, centroid.y + 18 / scale, `P: ${measurements.formatted.perimeter}`, color, 'measurement-perimeter', id
             );
             if (perimeterLabel) {
                 perimeterLabel.style.transform = 'translate(-50%, -50%)';
             }
         }
-        
-        this._createNameLabel(points[0].x, points[0].y - 10 / scale, id, color);
+
+        this._createNameLabel(points[0].x, points[0].y - 10 / scale, id, color, id);
     }
-    
-    // ========================================================================
+
     // Angle Annotation Rendering
-    // ========================================================================
-    
-    /**
-     * Render an angle annotation
-     * @param {string} id - Annotation ID
-     * @param {{point1: Point, vertex: Point, point2: Point}} data - Angle data
-     * @param {string} color - Display color
-     * @param {boolean} isSelected - Whether selected
-     * @param {boolean} isHovered - Whether hovered
-     */
+
     renderAngle(id, data, color, isSelected, isHovered) {
         const group = this._createGroup(id, 'angle', isSelected, isHovered);
         const { scale, strokeWidth } = this._getRenderProps(isSelected);
@@ -1175,25 +893,18 @@ class AnnotationRenderer {
         if (this._config.showMeasurements && window.Measurements) {
             const measurements = window.Measurements.measureAngle(data);
             const textPos = this._getArcLabelPosition(data, arcData.radius, scale);
-            
+
             const angleLabel = this._createMeasurementLabel(
-                textPos.x, textPos.y, measurements.formatted.angle, color, 'measurement-angle'
+                textPos.x, textPos.y, measurements.formatted.angle, color, 'measurement-angle', id
             );
             if (angleLabel) {
                 angleLabel.style.transform = 'translate(-50%, -50%)';
             }
         }
-        
-        this._createNameLabel(data.vertex.x, data.vertex.y - 20 / scale, id, color);
+
+        this._createNameLabel(data.vertex.x, data.vertex.y - 20 / scale, id, color, id);
     }
-    
-    /**
-     * Calculate arc path data for angle annotation
-     * @param {{point1: Point, vertex: Point, point2: Point}} data - Angle data
-     * @param {number} scale - Current viewport scale
-     * @returns {{path: string, radius: number, startAngle: number, endAngle: number}}
-     * @private
-     */
+
     _calculateAngleArc(data, scale) {
         const angle1 = Math.atan2(data.point1.y - data.vertex.y, data.point1.x - data.vertex.x);
         const angle2 = Math.atan2(data.point2.y - data.vertex.y, data.point2.x - data.vertex.x);
@@ -1225,15 +936,7 @@ class AnnotationRenderer {
         
         return { path, radius, startAngle: angle1, endAngle: angle2 };
     }
-    
-    /**
-     * Get position for angle measurement label
-     * @param {{point1: Point, vertex: Point, point2: Point}} data - Angle data
-     * @param {number} arcRadius - Arc radius
-     * @param {number} scale - Current viewport scale
-     * @returns {{x: number, y: number}}
-     * @private
-     */
+
     _getArcLabelPosition(data, arcRadius, scale) {
         const angle1 = Math.atan2(data.point1.y - data.vertex.y, data.point1.x - data.vertex.x);
         const angle2 = Math.atan2(data.point2.y - data.vertex.y, data.point2.x - data.vertex.x);
@@ -1245,19 +948,9 @@ class AnnotationRenderer {
             y: data.vertex.y + textRadius * Math.sin(bisectorAngle)
         };
     }
-    
-    // ========================================================================
-    // Preview Rendering (for in-progress annotations)
-    // ========================================================================
-    
-    /**
-     * Render a preview of an in-progress annotation (dashed, semi-transparent)
-     * Shows collected points + a line/shape to the current cursor position
-     * @param {string} type - Annotation type
-     * @param {Array<{x: number, y: number}>} points - Collected points so far
-     * @param {{x: number, y: number}|null} previewPoint - Current cursor position
-     * @param {string} [color] - Preview color
-     */
+
+    // Preview Rendering
+
     renderPreview(type, points, previewPoint, color = '#666666') {
         this.clearPreview();
         if (!this._transformGroup || !points || points.length === 0) return;
@@ -1371,10 +1064,7 @@ class AnnotationRenderer {
 
         this._transformGroup.appendChild(group);
     }
-    
-    /**
-     * Clear any preview annotations
-     */
+
     clearPreview() {
         const previews = this._transformGroup?.querySelectorAll('.annotation-preview');
         previews?.forEach(p => p.remove());

@@ -110,105 +110,6 @@ function handlePanDrag(mouseX, mouseY) {
 }
 
 /**
- * Handle figure dragging movement
- * @param {number} mouseX - Current mouse X position relative to container
- * @param {number} mouseY - Current mouse Y position relative to container
- */
-function handleFigureDrag(mouseX, mouseY) {
-    // Safety check for viewport
-    if (!viewport || typeof viewport.displayToImage !== 'function') return;
-
-    const newImageCoords = viewport.displayToImage(mouseX + STATE.figureDragOffsetX, mouseY + STATE.figureDragOffsetY);
-    const figureData = STATE.annotations[STATE.selectedFigure];
-
-    if (!figureData) {
-        STATE.figureDragging = false;
-        STATE.selectedFigure = null;
-        return;
-    }
-
-    if (figureData.shape === 'line') {
-        const deltaX = newImageCoords.x - STATE.figureOriginalX;
-        const deltaY = newImageCoords.y - STATE.figureOriginalY;
-
-        STATE.annotations = {
-            ...STATE.annotations,
-            [STATE.selectedFigure]: {
-                ...figureData,
-                startX: STATE.figureOriginalStartX + deltaX,
-                startY: STATE.figureOriginalStartY + deltaY,
-                endX: STATE.figureOriginalEndX + deltaX,
-                endY: STATE.figureOriginalEndY + deltaY,
-                x: newImageCoords.x,
-                y: newImageCoords.y
-            }
-        };
-    } else {
-        updateFigurePosition(STATE.selectedFigure, newImageCoords.x, newImageCoords.y);
-    }
-}
-
-/**
- * Handle figure resizing movement
- * @param {number} mouseX - Current mouse X position relative to container
- * @param {number} mouseY - Current mouse Y position relative to container
- */
-function handleFigureResize(mouseX, mouseY) {
-    const handle = STATE.resizeHandle;
-    let sizeChange = 0;
-
-    const deltaX = (mouseX - STATE.figureDragStartX) / STATE.currentZoom;
-    const deltaY = (mouseY - STATE.figureDragStartY) / STATE.currentZoom;
-
-    if (handle.includes('e')) sizeChange += deltaX;
-    if (handle.includes('w')) sizeChange -= deltaX;
-    if (handle.includes('s')) sizeChange += deltaY;
-    if (handle.includes('n')) sizeChange -= deltaY;
-
-    updateFigureSize(STATE.selectedFigure, STATE.figureOriginalSize + sizeChange);
-}
-
-/**
- * Handle line point dragging movement
- * @param {{x: number, y: number}} coords - Current image coordinates
- */
-function handleLinePointDrag(coords) {
-    const figureData = STATE.annotations[STATE.linePointDraggedFigure];
-
-    if (!figureData) {
-        STATE.linePointDragging = false;
-        STATE.linePointDraggedFigure = null;
-        STATE.linePointDraggedType = null;
-        return;
-    }
-
-    // Update start or end point based on which is being dragged
-    const isStart = STATE.linePointDraggedType === 'start';
-    const newStartX = isStart ? coords.x : figureData.startX;
-    const newStartY = isStart ? coords.y : figureData.startY;
-    const newEndX = isStart ? figureData.endX : coords.x;
-    const newEndY = isStart ? figureData.endY : coords.y;
-
-    // Calculate new center and size
-    const dx = newEndX - newStartX;
-    const dy = newEndY - newStartY;
-
-    STATE.annotations = {
-        ...STATE.annotations,
-        [STATE.linePointDraggedFigure]: {
-            ...figureData,
-            startX: newStartX,
-            startY: newStartY,
-            endX: newEndX,
-            endY: newEndY,
-            x: (newStartX + newEndX) / 2,
-            y: (newStartY + newEndY) / 2,
-            size: Math.sqrt(dx * dx + dy * dy)
-        }
-    };
-}
-
-/**
  * Handle mouse down event on the image container
  * Routes to appropriate handler based on current tool and mode
  * @param {MouseEvent} e - The mouse event
@@ -425,7 +326,6 @@ function handleKeyDown(e) {
     }
 
     const keyHandlers = {
-        'Escape': handleEscapeKey,
         'r': resetView,
         '+': zoomIn,
         '=': zoomIn,
@@ -437,13 +337,6 @@ function handleKeyDown(e) {
         e.preventDefault();
         handler();
     }
-}
-
-/**
- * Handle Escape key
- */
-function handleEscapeKey() {
-    // Allow other handlers to react first
 }
 
 console.log('[interactions.js] Interaction handlers loaded');

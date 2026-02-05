@@ -1,14 +1,8 @@
 /**
- * LabelSelector - A popup component for selecting annotation labels
- * Shows after user clicks on image, prompts for label selection
- * 
- * Features:
- * - Search/filter by typing
- * - Keyboard navigation (arrow keys, Enter to select, Escape to cancel)
- * - Label categories/groups (collapsible)
- * - Color coding for each label
- * - Mobile-friendly with large touch targets (44px min)
- * - Automation-friendly with data attributes
+ * LabelSelector - Popup component for selecting annotation labels
+ *
+ * Features: search/filter, keyboard navigation, collapsible categories,
+ * color coding, mobile-friendly touch targets, automation-friendly attributes.
  */
 const LabelSelector = {
     element: null,
@@ -16,19 +10,16 @@ const LabelSelector = {
     searchQuery: '',
     highlightedIndex: 0,
     filteredLabels: [],
-    categories: {},  // { categoryName: [labels] }
+    categories: {},
     collapsedCategories: new Set(),
     searchDebounceTimer: null,
     SEARCH_DEBOUNCE_MS: 100,
-    
-    // Callback when label is selected
+
     onSelect: null,
-    // Callback when cancelled
     onCancel: null,
-    // The click coordinates that triggered this popup
     triggerCoords: null,
-    
-    // Store bound handlers for cleanup
+
+    // Bound handlers for cleanup
     _boundOutsideClickHandler: null,
     _boundKeyHandler: null,
     _boundSearchInputHandler: null,
@@ -38,11 +29,6 @@ const LabelSelector = {
     _boundElementMouseDownHandler: null,
     _boundElementTouchStartHandler: null,
 
-    /**
-     * Escape HTML special characters to prevent XSS
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
     _escapeHtml(str) {
         if (typeof str !== 'string') return '';
         const escapeMap = {
@@ -55,22 +41,12 @@ const LabelSelector = {
         return str.replace(/[&<>"']/g, c => escapeMap[c]);
     },
 
-    /**
-     * Default color palette for labels without assigned colors
-     */
     defaultColors: [
         '#4f46e5', '#7c3aed', '#db2777', '#dc2626',
         '#ea580c', '#d97706', '#65a30d', '#16a34a',
         '#0d9488', '#0891b2', '#2563eb', '#4338ca'
     ],
 
-    /**
-     * Fuzzy match - checks if all characters in query appear in order within text
-     * Example: "abc" matches "aXbYcZ" but not "acb"
-     * @param {string} query - Search query
-     * @param {string} text - Text to match against
-     * @returns {boolean} True if fuzzy match succeeds
-     */
     fuzzyMatch(query, text) {
         query = query.toLowerCase();
         text = text.toLowerCase();
@@ -81,13 +57,6 @@ const LabelSelector = {
         return qi === query.length;
     },
 
-    /**
-     * Calculate fuzzy match score for ranking (lower is better)
-     * Considers: exact match, prefix match, character gaps
-     * @param {string} query - Search query
-     * @param {string} text - Text to match against
-     * @returns {number} Score (0 = exact match, higher = worse match)
-     */
     fuzzyMatchScore(query, text) {
         query = query.toLowerCase();
         text = text.toLowerCase();
@@ -120,9 +89,6 @@ const LabelSelector = {
         return qi === query.length ? score : Infinity;
     },
 
-    /**
-     * Initialize the component
-     */
     init() {
         if (this.element) return;
         
@@ -130,9 +96,6 @@ const LabelSelector = {
         this.attachEventListeners();
     },
 
-    /**
-     * Create the DOM element
-     */
     createElement() {
         this.element = document.createElement('div');
         this.element.className = 'label-selector';
@@ -173,51 +136,30 @@ const LabelSelector = {
         document.body.appendChild(this.element);
     },
 
-    /**
-     * Attach all event listeners
-     */
     attachEventListeners() {
-        // Search input handlers
         const searchInput = this.element.querySelector('.label-selector-search');
+        const clearBtn = this.element.querySelector('.label-selector-clear');
+        const categoriesContainer = this.element.querySelector('.label-selector-categories');
+
         this._boundSearchInputHandler = (e) => this.handleSearchInput(e.target.value);
         this._boundSearchKeyDownHandler = (e) => this.handleKeyDown(e);
-        searchInput.addEventListener('input', this._boundSearchInputHandler);
-        searchInput.addEventListener('keydown', this._boundSearchKeyDownHandler);
-
-        // Clear button
-        const clearBtn = this.element.querySelector('.label-selector-clear');
         this._boundClearBtnHandler = () => {
             searchInput.value = '';
             this.handleSearch('');
             searchInput.focus();
         };
-        clearBtn.addEventListener('click', this._boundClearBtnHandler);
-
-        // Category header clicks (delegation)
-        const categoriesContainer = this.element.querySelector('.label-selector-categories');
         this._boundCategoriesClickHandler = (e) => {
             const categoryHeader = e.target.closest('.category-header');
             if (categoryHeader) {
-                const categoryName = categoryHeader.dataset.category;
-                this.toggleCategory(categoryName);
+                this.toggleCategory(categoryHeader.dataset.category);
                 return;
             }
-
             const labelItem = e.target.closest('.label-selector-item');
-            if (labelItem) {
-                const labelName = labelItem.dataset.label;
-                this.selectLabel(labelName);
-            }
+            if (labelItem) this.selectLabel(labelItem.dataset.label);
         };
-        categoriesContainer.addEventListener('click', this._boundCategoriesClickHandler);
-
-        // Store bound handlers for cleanup
         this._boundOutsideClickHandler = (e) => {
-            if (this.isOpen && !this.element.contains(e.target)) {
-                this.cancel();
-            }
+            if (this.isOpen && !this.element.contains(e.target)) this.cancel();
         };
-
         this._boundKeyHandler = (e) => {
             if (this.isOpen && e.key === 'Escape') {
                 e.preventDefault();
@@ -225,24 +167,20 @@ const LabelSelector = {
                 this.cancel();
             }
         };
-
-        // Close on click outside (with delay to avoid immediate close)
-        document.addEventListener('mousedown', this._boundOutsideClickHandler);
-        document.addEventListener('touchstart', this._boundOutsideClickHandler, { passive: true });
-
-        // Prevent clicks inside popup from propagating
         this._boundElementMouseDownHandler = (e) => e.stopPropagation();
         this._boundElementTouchStartHandler = (e) => e.stopPropagation();
+
+        searchInput.addEventListener('input', this._boundSearchInputHandler);
+        searchInput.addEventListener('keydown', this._boundSearchKeyDownHandler);
+        clearBtn.addEventListener('click', this._boundClearBtnHandler);
+        categoriesContainer.addEventListener('click', this._boundCategoriesClickHandler);
+        document.addEventListener('mousedown', this._boundOutsideClickHandler);
+        document.addEventListener('touchstart', this._boundOutsideClickHandler, { passive: true });
         this.element.addEventListener('mousedown', this._boundElementMouseDownHandler);
         this.element.addEventListener('touchstart', this._boundElementTouchStartHandler, { passive: true });
-
-        // Global escape handler
         document.addEventListener('keydown', this._boundKeyHandler);
     },
 
-    /**
-     * Clean up event listeners
-     */
     destroy() {
         if (this.searchDebounceTimer) {
             clearTimeout(this.searchDebounceTimer);
@@ -301,17 +239,9 @@ const LabelSelector = {
         this.isOpen = false;
     },
 
-    /**
-     * Show the popup at the given screen coordinates
-     * @param {number} screenX - Screen X position
-     * @param {number} screenY - Screen Y position
-     * @param {{x: number, y: number}} imageCoords - Image coordinates where user clicked
-     * @param {Function} onSelect - Callback when label selected: (labelName) => void
-     * @param {Function} onCancel - Callback when cancelled: () => void
-     */
-    show(screenX, screenY, imageCoords, onSelect, onCancel) {
+    async show(screenX, screenY, imageCoords, onSelect, onCancel) {
         this.init();
-        
+
         this.triggerCoords = imageCoords;
         this.onSelect = onSelect;
         this.onCancel = onCancel;
@@ -322,13 +252,13 @@ const LabelSelector = {
         const searchInput = this.element.querySelector('.label-selector-search');
         searchInput.value = '';
 
-        // Load labels and organize by category
-        this.loadLabels();
-
         // Show popup first to get dimensions
         this.element.style.display = 'flex';
         this.element.style.opacity = '0';
         this.isOpen = true;
+
+        // Load labels from API and organize by category (async)
+        await this.loadLabels();
 
         // Position popup after it's visible
         requestAnimationFrame(() => {
@@ -338,12 +268,9 @@ const LabelSelector = {
         });
     },
 
-    /**
-     * Show the popup centered on screen (for tool button clicks)
-     */
-    showCentered(onSelect, onCancel) {
+    async showCentered(onSelect, onCancel) {
         this.init();
-        
+
         this.triggerCoords = null;
         this.onSelect = onSelect;
         this.onCancel = onCancel;
@@ -354,8 +281,8 @@ const LabelSelector = {
         const searchInput = this.element.querySelector('.label-selector-search');
         searchInput.value = '';
 
-        // Load labels and organize by category
-        this.loadLabels();
+        // Load labels and organize by category (async to fetch from backend)
+        await this.loadLabels();
 
         // Show popup
         this.element.style.display = 'flex';
@@ -375,9 +302,6 @@ const LabelSelector = {
         });
     },
 
-    /**
-     * Hide the popup
-     */
     hide() {
         if (this.element) {
             this.element.style.display = 'none';
@@ -396,9 +320,6 @@ const LabelSelector = {
         }
     },
 
-    /**
-     * Cancel the selection
-     */
     cancel() {
         const callback = this.onCancel;
         this.hide();
@@ -407,17 +328,39 @@ const LabelSelector = {
         }
     },
 
-    /**
-     * Load labels from AnnotationState and organize by category
-     */
-    loadLabels() {
-        const labels = window.AnnotationState?.labels || window.STATE?.allLabels || [];
+    async loadLabels() {
+        // Start with local labels as fallback
+        let labels = window.AnnotationState?.labels || window.STATE?.allLabels || [];
+
+        // Try to fetch labels from backend API (shared across all images)
+        try {
+            if (window.AnnotationAPI?.getLabels) {
+                const backendLabels = await window.AnnotationAPI.getLabels();
+                if (backendLabels && backendLabels.length > 0) {
+                    // Merge backend labels with any local-only labels
+                    const backendLabelNames = new Set(backendLabels.map(l => l.name));
+                    const localOnlyLabels = labels.filter(l => !backendLabelNames.has(l.name));
+                    labels = [...backendLabels, ...localOnlyLabels];
+
+                    // Update global state with backend labels
+                    if (window.AnnotationState) {
+                        window.AnnotationState.labels = labels;
+                    }
+                    if (window.STATE) {
+                        window.STATE.allLabels = labels;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('[LabelSelector] Failed to fetch labels from API, using local labels:', error);
+        }
+
         this.categories = {};
 
         labels.forEach((label, index) => {
             // Determine category from label data or use default
             const cat = label.category || this.inferCategory(label) || 'Other';
-            
+
             if (!this.categories[cat]) {
                 this.categories[cat] = [];
             }
@@ -434,7 +377,7 @@ const LabelSelector = {
         // Sort categories: predefined order first, then alphabetically
         const categoryOrder = ['Landmarks', 'Segments', 'Figures', 'Other'];
         const sortedCategories = {};
-        
+
         categoryOrder.forEach(cat => {
             if (this.categories[cat]) {
                 sortedCategories[cat] = this.categories[cat];
@@ -453,11 +396,6 @@ const LabelSelector = {
         this.filterAndRender();
     },
 
-    /**
-     * Infer category from label type
-     * @param {Object} label - Label data
-     * @returns {string} Category name
-     */
     inferCategory(label) {
         const typeToCategory = {
             'landmark': 'Landmarks',
@@ -470,18 +408,10 @@ const LabelSelector = {
         return typeToCategory[label.type] || null;
     },
 
-    /**
-     * Get a default color for a label based on its index
-     * @param {number} index - Label index
-     * @returns {string} Color hex code
-     */
     getDefaultColor(index) {
         return this.defaultColors[index % this.defaultColors.length];
     },
 
-    /**
-     * Filter labels based on search query and render
-     */
     filterAndRender() {
         const query = this.searchQuery.toLowerCase().trim();
         this.filteredLabels = [];
@@ -588,14 +518,6 @@ const LabelSelector = {
         clearBtn.style.display = query ? 'flex' : 'none';
     },
 
-    /**
-     * Sort labels by priority: match quality (when searching), annotated first, then by usage, then alphabetically
-     * @param {Array} labels - Labels to sort
-     * @param {Object} annotations - Current annotations
-     * @param {Object} usage - Usage counts
-     * @param {string} query - Optional search query for fuzzy score sorting
-     * @returns {Array} Sorted labels
-     */
     sortLabels(labels, annotations, usage, query = '') {
         return [...labels].sort((a, b) => {
             // When searching, sort by fuzzy match score first (better matches first)
@@ -618,14 +540,6 @@ const LabelSelector = {
         });
     },
 
-    /**
-     * Create a label item element
-     * @param {Object} label - Label data
-     * @param {number} index - Item index in filtered list
-     * @param {Object} annotations - Current annotations
-     * @param {Object} usage - Usage counts
-     * @returns {HTMLElement} Label item element
-     */
     createLabelItem(label, index, annotations, usage) {
         const item = document.createElement('div');
         item.className = 'label-selector-item';
@@ -678,10 +592,6 @@ const LabelSelector = {
         return item;
     },
 
-    /**
-     * Handle search input with debouncing
-     * @param {string} query - Search query
-     */
     handleSearchInput(query) {
         if (this.searchDebounceTimer) {
             clearTimeout(this.searchDebounceTimer);
@@ -693,20 +603,12 @@ const LabelSelector = {
         }, this.SEARCH_DEBOUNCE_MS);
     },
 
-    /**
-     * Perform the actual search
-     * @param {string} query - Search query
-     */
     handleSearch(query) {
         this.searchQuery = query;
         this.highlightedIndex = 0;
         this.filterAndRender();
     },
 
-    /**
-     * Handle keyboard navigation
-     * @param {KeyboardEvent} e - Keyboard event
-     */
     handleKeyDown(e) {
         const maxIndex = this.filteredLabels.length - 1;
 
@@ -757,9 +659,6 @@ const LabelSelector = {
         }
     },
 
-    /**
-     * Update visual highlight of the selected item
-     */
     updateHighlight() {
         const items = this.element.querySelectorAll('.label-selector-item');
         items.forEach((item, index) => {
@@ -772,25 +671,15 @@ const LabelSelector = {
         });
     },
 
-    /**
-     * Toggle category collapse state
-     * @param {string} categoryName - Name of category to toggle
-     */
     toggleCategory(categoryName) {
         if (this.collapsedCategories.has(categoryName)) {
             this.collapsedCategories.delete(categoryName);
         } else {
             this.collapsedCategories.add(categoryName);
         }
-
-        // Re-render to update the UI
         this.filterAndRender();
     },
 
-    /**
-     * Handle label selection
-     * @param {string} labelName - Selected label name
-     */
     selectLabel(labelName) {
         const callback = this.onSelect;
         const coords = this.triggerCoords;
@@ -809,24 +698,12 @@ const LabelSelector = {
         }
     },
 
-    /**
-     * Position the popup to avoid going off-screen
-     * @param {number} screenX - Screen X position
-     * @param {number} screenY - Screen Y position
-     */
     positionPopup(screenX, screenY) {
         const rect = this.element.getBoundingClientRect();
         const padding = 20;
-        
-        // Clamp position within viewport bounds
-        const left = Math.min(
-            Math.max(screenX, padding),
-            window.innerWidth - rect.width - padding
-        );
-        const top = Math.min(
-            Math.max(screenY, padding),
-            window.innerHeight - rect.height - padding
-        );
+
+        const left = Math.min(Math.max(screenX, padding), window.innerWidth - rect.width - padding);
+        const top = Math.min(Math.max(screenY, padding), window.innerHeight - rect.height - padding);
 
         this.element.style.left = `${left}px`;
         this.element.style.top = `${top}px`;

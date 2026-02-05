@@ -80,14 +80,29 @@ def export_page() -> str:
 
 
 def _count_annotations(annotation_dir: Path, patient: str, image_stem: str) -> int:
-    """Count valid annotations for an image."""
-    json_file = annotation_dir / patient / f"{image_stem}.json"
-    if not json_file.exists():
-        return 0
+    """Count valid annotations for an image from both legacy and current formats."""
+    count = 0
 
-    try:
-        data = json.loads(json_file.read_text())
-        return sum(1 for ann in data.values()
-                  if isinstance(ann, dict) and ann.get('status') == 'ok')
-    except Exception:
-        return 0
+    # Check legacy format (annotations/*.json)
+    json_file = annotation_dir / patient / f"{image_stem}.json"
+    if json_file.exists():
+        try:
+            data = json.loads(json_file.read_text())
+            count = sum(1 for ann in data.values()
+                       if isinstance(ann, dict) and ann.get('status') == 'ok')
+        except Exception:
+            pass
+
+    # Check current format (data/*_annotations.json) if no legacy annotations
+    if count == 0:
+        annotation_file = Path(config.DATA_DIR) / patient / f"{image_stem}_annotations.json"
+        if annotation_file.exists():
+            try:
+                data = json.loads(annotation_file.read_text())
+                annotations_dict = data.get("annotations", {})
+                count = sum(1 for ann in annotations_dict.values()
+                           if isinstance(ann, dict) and ann.get('status') == 'ok')
+            except Exception:
+                pass
+
+    return count

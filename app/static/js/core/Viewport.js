@@ -665,9 +665,10 @@ class Viewport {
     }
 
     /**
-     * @deprecated Use screenToImage with extracted coordinates instead
-     * Convert event coordinates to image coordinates (legacy method)
-     * 
+     * Convert event coordinates to image coordinates
+     * Convenience method that extracts client coordinates from mouse/touch events
+     * and converts them to image space
+     *
      * @param {MouseEvent|TouchEvent} event - Input event
      * @param {DOMRect} [containerRect] - Optional pre-computed container rect
      * @returns {Point} Image coordinates

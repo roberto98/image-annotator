@@ -12,8 +12,8 @@ from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
 import config
-from app.annotations import AnnotationManager
-from app.images import ImageManager
+from app.legacy_annotations import AnnotationManager
+from app.image_manager import ImageManager
 
 
 def setup_logging(app: Flask) -> None:
@@ -55,11 +55,11 @@ def create_app() -> Flask:
     app.config["images"] = images
 
     # Register blueprints
-    from app.blueprints import api_bp, views_bp, annotations_v2_bp
+    from app.blueprints import api_bp, views_bp, annotations_bp
 
     app.register_blueprint(api_bp)
     app.register_blueprint(views_bp)
-    app.register_blueprint(annotations_v2_bp)
+    app.register_blueprint(annotations_bp)
 
     # Setup error handlers
     @app.errorhandler(404)

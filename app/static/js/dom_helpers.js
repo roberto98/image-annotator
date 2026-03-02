@@ -48,9 +48,6 @@ const DOM = {
     movePolyBtn: document.getElementById('movePolyBtn'),
     completePolyBtn: document.getElementById('completePolyBtn'),
     cancelPolyBtn: document.getElementById('cancelPolyBtn'),
-    
-    // Navigation buttons
-    propagateBtn: document.getElementById('propagateBtn')
 };
 
 // Expose DOM globally for other modules

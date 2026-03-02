@@ -312,61 +312,6 @@ async function annotateLandmark(coords) {
     }
 }
 
-async function propagateAnnotations() {
-    // Validate required state
-    if (!window.patientId || typeof window.patientId !== 'string') {
-        showMessage('Invalid patient ID', 'error');
-        return;
-    }
-    if (!window.imageName || typeof window.imageName !== 'string') {
-        showMessage('Invalid image name', 'error');
-        return;
-    }
-    if (!STATE.annotations || typeof STATE.annotations !== 'object') {
-        showMessage('Invalid annotations data', 'error');
-        return;
-    }
-
-    const annotationCount = Object.keys(STATE.annotations).length;
-    if (annotationCount === 0) {
-        showMessage('No annotations to propagate', 'warning');
-        return;
-    }
-
-    if (!confirm(`Propagate ${annotationCount} annotations to the next unannotated image?`)) {
-        return;
-    }
-
-    try {
-        showMessage('Propagating annotations...', 'info');
-
-        const response = await fetch('/api/propagate-annotations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                current_patient: window.patientId,
-                current_image: window.imageName,
-                annotations: STATE.annotations
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'success') {
-            showMessage(`Annotations propagated to ${data.target_patient}/${data.target_image}`, 'success');
-
-            if (data.target_patient && data.target_image && confirm('Navigate to the target image?')) {
-                window.location.href = `/annotate/${encodeURIComponent(data.target_patient)}/${encodeURIComponent(data.target_image)}`;
-            }
-        } else {
-            showMessage(data.message || 'Failed to propagate annotations', 'error');
-        }
-    } catch (error) {
-        console.error('Error propagating annotations:', error);
-        showMessage(formatErrorMessage('propagate', 'annotations', error), 'error');
-    }
-}
-
 async function nextUnannotatedImage() {
     try {
         // Use URLSearchParams for safe query string construction (prevents injection)

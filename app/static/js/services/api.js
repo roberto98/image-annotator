@@ -310,21 +310,6 @@ class AnnotationAPI {
         return data.patient && data.image ? data : null;
     }
 
-    /**
-     * Propagate annotations to next unannotated image
-     * @param {Object} annotations - Annotations to propagate
-     */
-    async propagateAnnotations(annotations) {
-        return this._request('/api/propagate-annotations', {
-            method: 'POST',
-            body: JSON.stringify({
-                current_patient: this.patientId,
-                current_image: this.imageName,
-                annotations
-            })
-        });
-    }
-
     // === Export Operations ===
 
     /**

@@ -30,7 +30,6 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 ### Data Management
 - JSON-based annotation storage with auto-discovery of labels
 - Export to JSON, CSV, or XML formats
-- Annotation propagation between images
 - Binary mask generation for segmentations
 
 ## Installation
@@ -229,7 +228,6 @@ ANNOTATION_DIR = "annotations"  # Output annotation directory
 | POST | `/api/figures` | Register new figure label |
 | GET | `/api/mask/<patient>/<image>/<segment>` | Get binary mask PNG |
 | POST | `/api/export` | Export annotations |
-| POST | `/api/propagate-annotations` | Copy annotations to next unannotated image |
 | GET | `/api/next-unannotated` | Find next image without annotations |
 | GET | `/api/image-directory` | Get image directory structure |
 

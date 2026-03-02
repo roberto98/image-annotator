@@ -7,131 +7,125 @@ from typing import Dict, Tuple
 
 from app.visualization.palettes import RGBColor
 
+# Maps annotation type to legend section title (order matters for display)
+_TYPE_SECTIONS = [
+    ("polygon",   "POLYGONS"),
+    ("line",      "LINES"),
+    ("circle",    "CIRCLES"),
+    ("rectangle", "RECTANGLES"),
+    ("angle",     "ANGLES"),
+    ("point",     "POINTS"),
+]
+
 
 def create_legend_panel(
     image: PILImage,
-    visible_landmarks: Dict[str, RGBColor],
-    visible_segments: Dict[str, RGBColor],
-    visible_figures: Dict[str, Tuple[RGBColor, str]],
+    visible_annotations: Dict[str, Tuple[RGBColor, str]],
     font: ImageFont.FreeTypeFont,
-    legend_width: int = 300
+    legend_width: int = 300,
 ) -> PILImage:
-    """Create output image with legend panel on the right side.
+    """Attach a legend panel to the right of the image.
 
     Args:
-        image: The annotated image
-        visible_landmarks: Dict mapping landmark names to colors
-        visible_segments: Dict mapping segment names to colors
-        visible_figures: Dict mapping figure names to (color, shape) tuples
-        font: Font to use for legend text
-        legend_width: Width of the legend panel in pixels
+        image: The annotated image.
+        visible_annotations: name → (color, ann_type) for every drawn annotation.
+        font: Font to use for legend text.
+        legend_width: Width of the legend panel in pixels.
 
     Returns:
-        New image with legend panel attached
+        New image with legend panel on the right.
     """
-    if image.mode == 'RGBA':
-        image = image.convert('RGB')
+    if image.mode == "RGBA":
+        image = image.convert("RGB")
 
     width, height = image.size
-    font_size = getattr(font, 'size', 12)
+    font_size = getattr(font, "size", 12)
 
-    # Create wider image to accommodate legend
-    new_img = Image.new('RGB', (width + legend_width, height), (255, 255, 255))
+    new_img = Image.new("RGB", (width + legend_width, height), (255, 255, 255))
     new_img.paste(image, (0, 0))
-
     draw = ImageDraw.Draw(new_img)
 
-    # Legend title
     legend_x = width + 20
-    current_y = 30
-    draw.text((legend_x, current_y), "LEGEND", fill=(0, 0, 0), font=font)
-    current_y += int(font_size * 1.5)
+    y = 30
 
-    # Draw sections: segments, figures, landmarks
-    sections = [
-        ("SEGMENTS", visible_segments),
-        ("FIGURES", visible_figures),
-        ("POINTS", visible_landmarks),
-    ]
-    for title, items in sections:
+    draw.text((legend_x, y), "LEGEND", fill=(0, 0, 0), font=font)
+    y += int(font_size * 1.5)
+
+    # Group by type in display order
+    groups: Dict[str, Dict[str, RGBColor]] = {t: {} for t, _ in _TYPE_SECTIONS}
+    for name, (color, ann_type) in visible_annotations.items():
+        if ann_type in groups:
+            groups[ann_type][name] = color
+        else:
+            groups.setdefault(ann_type, {})[name] = color
+
+    any_drawn = False
+    for ann_type, section_title in _TYPE_SECTIONS:
+        items = groups.get(ann_type, {})
         if items:
-            current_y = _draw_legend_section(draw, title, items, legend_x, current_y, font, font_size)
-            current_y += int(font_size * 0.5)
+            y = _draw_section(draw, section_title, ann_type, items, legend_x, y, font, font_size)
+            y += int(font_size * 0.5)
+            any_drawn = True
 
-    # Empty state message
-    if not any(items for _, items in sections):
-        draw.text((legend_x, current_y), "No annotations visible", fill=(100, 100, 100), font=font)
+    if not any_drawn:
+        draw.text((legend_x, y), "No annotations visible", fill=(100, 100, 100), font=font)
 
     return new_img
 
 
-def _draw_legend_section(
+def _draw_section(
     draw: ImageDraw.ImageDraw,
     title: str,
-    items: Dict[str, any],
+    ann_type: str,
+    items: Dict[str, RGBColor],
     legend_x: int,
-    current_y: int,
+    y: int,
     font: ImageFont.FreeTypeFont,
-    font_size: int
+    font_size: int,
 ) -> int:
-    """Draw a legend section with title and items.
+    draw.text((legend_x, y), title, fill=(80, 80, 80), font=font)
+    y += int(font_size * 1.2)
 
-    Args:
-        draw: ImageDraw context
-        title: Section title (e.g., "SEGMENTS", "FIGURES", "POINTS")
-        items: Dict of items where values are either colors or (color, shape) tuples
-        legend_x: X position for legend
-        current_y: Current Y position
-        font: Font to use
-        font_size: Font size
+    sq = font_size
+    for name, color in items.items():
+        _draw_type_icon(draw, ann_type, color, legend_x, y, sq)
+        draw.text((legend_x + sq + 10, y + sq // 4), name, fill=(0, 0, 0), font=font)
+        y += int(sq * 1.5)
 
-    Returns:
-        Updated Y position after drawing section
-    """
-    draw.text((legend_x, current_y), title, fill=(80, 80, 80), font=font)
-    current_y += int(font_size * 1.2)
+    return y
 
-    square_size = font_size
-    for name, value in items.items():
-        # Handle both color tuples and (color, shape) tuples
-        if isinstance(value, tuple) and len(value) == 2 and isinstance(value[1], str):
-            color, shape = value
-        else:
-            color, shape = value, "rectangle"
 
-        # Draw shape icon
-        if shape == "circle":
-            draw.ellipse(
-                (legend_x, current_y, legend_x + square_size, current_y + square_size),
-                fill=color, outline=(0, 0, 0), width=1
-            )
-        elif shape == "line":
-            mid_y = current_y + square_size // 2
-            draw.line(
-                [(legend_x, mid_y), (legend_x + square_size, mid_y)],
-                fill=color, width=3
-            )
-            point_radius = 2
-            draw.ellipse(
-                (legend_x - point_radius, mid_y - point_radius,
-                 legend_x + point_radius, mid_y + point_radius),
-                fill=color, outline=(0, 0, 0), width=1
-            )
-            draw.ellipse(
-                (legend_x + square_size - point_radius, mid_y - point_radius,
-                 legend_x + square_size + point_radius, mid_y + point_radius),
-                fill=color, outline=(0, 0, 0), width=1
-            )
-        else:  # rectangle or default
-            draw.rectangle(
-                (legend_x, current_y, legend_x + square_size, current_y + square_size),
-                fill=color, outline=(0, 0, 0), width=1
-            )
-
-        draw.text(
-            (legend_x + square_size + 10, current_y + square_size // 4),
-            name, fill=(0, 0, 0), font=font
-        )
-        current_y += int(square_size * 1.5)
-
-    return current_y
+def _draw_type_icon(
+    draw: ImageDraw.ImageDraw,
+    ann_type: str,
+    color: RGBColor,
+    x: int,
+    y: int,
+    sq: int,
+) -> None:
+    """Draw a small icon representing the annotation type."""
+    if ann_type == "point":
+        r = sq // 2
+        cx, cy = x + r, y + r
+        draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=color, outline=(0, 0, 0), width=1)
+    elif ann_type == "polygon":
+        draw.rectangle((x, y, x + sq, y + sq), fill=color, outline=(0, 0, 0), width=1)
+    elif ann_type == "circle":
+        r = sq // 2
+        cx, cy = x + r, y + r
+        draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=None, outline=color, width=2)
+    elif ann_type == "rectangle":
+        draw.rectangle((x, y, x + sq, y + sq), fill=None, outline=color, width=2)
+    elif ann_type == "line":
+        mid_y = y + sq // 2
+        draw.line([(x, mid_y), (x + sq, mid_y)], fill=color, width=3)
+        r = 2
+        draw.ellipse((x - r, mid_y - r, x + r, mid_y + r), fill=color)
+        draw.ellipse((x + sq - r, mid_y - r, x + sq + r, mid_y + r), fill=color)
+    elif ann_type == "angle":
+        # Draw a small "V" (two lines meeting at bottom centre)
+        mid_x = x + sq // 2
+        draw.line([(x, y), (mid_x, y + sq)], fill=color, width=2)
+        draw.line([(x + sq, y), (mid_x, y + sq)], fill=color, width=2)
+    else:
+        draw.rectangle((x, y, x + sq, y + sq), fill=color, outline=(0, 0, 0), width=1)

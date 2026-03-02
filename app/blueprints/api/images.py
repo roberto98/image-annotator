@@ -2,7 +2,7 @@
 """Image-related API endpoints."""
 
 from typing import Dict, Any
-from flask import request, send_file, current_app
+from flask import request, send_file, current_app, Response
 from pathlib import Path
 from PIL import Image
 import io

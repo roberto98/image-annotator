@@ -2,7 +2,7 @@
 """Annotation export API endpoints."""
 
 from typing import Dict, Any, Tuple
-from flask import request, make_response
+from flask import request, make_response, Response
 from datetime import datetime
 import json
 import csv

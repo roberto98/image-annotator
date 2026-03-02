@@ -9,12 +9,12 @@ import io
 import json
 
 import config
-import utils
+from app.imaging import load_image, is_dicom_file
 from polygon_utils import generate_mask_from_polygon
 from app.blueprints.api import api_bp
 
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".dcm", ".dicom"}
-DATA_DIR = Path("data")
+DATA_DIR = Path(config.ANNOTATION_DIR)
 
 
 def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
@@ -34,14 +34,6 @@ def _load_annotations(patient: str, image: str) -> Dict[str, Any]:
             current_app.logger.warning(f"Failed to load annotations from {annotation_path}: {e}")
 
     return {}
-
-
-def _get_merged_annotations(patient: str, image: str) -> Dict[str, Any]:
-    """Get annotations from both current and legacy sources, with current taking precedence."""
-    annotations_manager = current_app.config.get("annotations")
-    legacy = annotations_manager.get_all_landmarks(patient, image) if annotations_manager else {}
-    current = _load_annotations(patient, image)
-    return {**legacy, **current}
 
 
 def get_images_manager():
@@ -94,7 +86,7 @@ def get_image_directory() -> tuple:
 def get_segment_mask(patient: str, image: str, segment_name: str) -> Response:
     """Generate binary mask PNG from polygon segment."""
     try:
-        data = _get_merged_annotations(patient, image)
+        data = _load_annotations(patient, image)
 
         if segment_name not in data or data[segment_name].get("type") != "polygon":
             return error_response("Segment not found or not a polygon", 404)
@@ -104,12 +96,12 @@ def get_segment_mask(patient: str, image: str, segment_name: str) -> Response:
             return error_response("Image not found", 404)
 
         img = (
-            utils.load_image(image_path)
-            if utils.is_dicom_file(image_path)
+            load_image(image_path)
+            if is_dicom_file(image_path)
             else Image.open(image_path)
         )
         width, height = img.size
-        points = data[segment_name].get("points", [])
+        points = data[segment_name].get("data", {}).get("points", [])
         mask = generate_mask_from_polygon(points, width, height)
 
         mask_img = Image.fromarray(mask.astype("uint8") * 255)
@@ -176,7 +168,7 @@ def propagate_annotations() -> tuple:
 
         target_patient = next_image["patient"]
         target_image = next_image["filename"]
-        target_annotations = _get_merged_annotations(target_patient, target_image)
+        target_annotations = _load_annotations(target_patient, target_image)
 
         copied_count = 0
         for name, annotation_data in annotations_to_propagate.items():

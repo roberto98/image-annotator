@@ -7,13 +7,9 @@ from typing import Dict, Any, Tuple
 import json
 import io
 import config
-import utils
+from app.imaging import load_image, is_dicom_file
+from app.visualization import LandmarkVisualizer
 from app.blueprints.views import views_bp
-from app.legacy_annotations import AnnotationManager
-from app.image_manager import ImageManager
-
-# Annotations data directory
-DATA_DIR = Path("data")
 
 # Supported image file extensions
 IMAGE_EXTENSIONS = ('*.png', '*.jpg', '*.jpeg')
@@ -23,52 +19,7 @@ ALL_IMAGE_EXTENSIONS = IMAGE_EXTENSIONS + ('*.dcm', '*.dicom')
 DICOM_JPEG_QUALITY = 95
 
 
-def _get_annotations_manager() -> AnnotationManager:
-    """Get the annotations manager from the app context."""
-    return current_app.config['annotations']
-
-
-def _load_annotations(patient: str, image: str) -> Dict[str, Any]:
-    """Load annotations from data directory.
-
-    Returns the annotations dict, or empty dict if not found.
-    Format: {"version": 2, "annotations": {...}, ...}
-    Returns just the annotations dict for compatibility with legacy format.
-    """
-    image_stem = Path(image).stem
-    annotation_path = DATA_DIR / patient / f"{image_stem}_annotations.json"
-
-    if annotation_path.exists():
-        try:
-            data = json.loads(annotation_path.read_text(encoding='utf-8'))
-            # Format stores annotations in 'annotations' field
-            return data.get('annotations', {})
-        except (json.JSONDecodeError, IOError) as e:
-            current_app.logger.warning(f"Failed to load annotations from {annotation_path}: {e}")
-
-    return {}
-
-
-def _get_merged_annotations(patient: str, image: str) -> Dict[str, Any]:
-    """Get annotations from both current and legacy sources, merged.
-
-    Current annotations take precedence over legacy.
-    """
-    annotations = _get_annotations_manager()
-
-    # Load legacy annotations
-    legacy_annotations = annotations.get_all_landmarks(patient, image)
-
-    # Load current annotations
-    current_annotations = _load_annotations(patient, image)
-
-    # Merge: current takes precedence
-    merged = {**legacy_annotations, **current_annotations}
-
-    return merged
-
-
-def _get_images_manager() -> ImageManager:
+def _get_images_manager():
     """Get the images manager from the app context."""
     return current_app.config['images']
 
@@ -130,7 +81,7 @@ def _count_total_images(patients: list) -> int:
 
 
 def _count_annotations(annotation_dir: Path) -> Tuple[int, int]:
-    """Count annotated images and total annotations from both legacy and current formats.
+    """Count annotated images and total annotations.
 
     Returns:
         Tuple of (annotated_images_count, total_annotations_count)
@@ -138,48 +89,22 @@ def _count_annotations(annotation_dir: Path) -> Tuple[int, int]:
     annotated_files = set()
     total_annotations = 0
 
-    # Count legacy format annotations (annotations/*.json)
     for patient_dir in annotation_dir.iterdir():
         if not patient_dir.is_dir() or patient_dir.name.startswith("__"):
             continue
 
-        for json_file in patient_dir.glob("*.json"):
+        for json_file in patient_dir.glob("*_annotations.json"):
             try:
                 data = json.loads(json_file.read_text())
-                valid_annotations = [ann for ann in data.values()
-                                   if isinstance(ann, dict) and ann.get('status') == 'ok']
-
+                annotations_dict = data.get("annotations", {})
+                valid_annotations = [ann for ann in annotations_dict.values()
+                                     if isinstance(ann, dict) and ann.get('status') == 'ok']
                 if valid_annotations:
-                    annotated_files.add(f"{patient_dir.name}/{json_file.stem}")
+                    image_stem = json_file.stem.replace("_annotations", "")
+                    annotated_files.add(f"{patient_dir.name}/{image_stem}")
                     total_annotations += len(valid_annotations)
             except Exception:
                 continue
-
-    # Count current format annotations (data/*_annotations.json)
-    data_dir = Path(config.DATA_DIR)
-    if data_dir.exists():
-        for patient_dir in data_dir.iterdir():
-            if not patient_dir.is_dir() or patient_dir.name.startswith("__"):
-                continue
-
-            for json_file in patient_dir.glob("*_annotations.json"):
-                try:
-                    data = json.loads(json_file.read_text())
-                    # Current format has annotations under "annotations" key
-                    annotations_dict = data.get("annotations", {})
-                    valid_annotations = [ann for ann in annotations_dict.values()
-                                       if isinstance(ann, dict) and ann.get('status') == 'ok']
-
-                    if valid_annotations:
-                        # Extract image name from filename (remove _annotations suffix)
-                        image_stem = json_file.stem.replace("_annotations", "")
-                        file_key = f"{patient_dir.name}/{image_stem}"
-                        # Only count if not already counted from legacy
-                        if file_key not in annotated_files:
-                            annotated_files.add(file_key)
-                            total_annotations += len(valid_annotations)
-                except Exception:
-                    continue
 
     return len(annotated_files), total_annotations
 
@@ -209,8 +134,13 @@ def annotate_image(patient: str, image: str) -> str:
     all_segments = config.get_segments()
     all_figures = config.get_figures()
 
-    # Load annotations from both current and legacy sources
-    current_annotations = _get_merged_annotations(patient, image)
+    ann_path = Path(config.ANNOTATION_DIR) / patient / f"{Path(image).stem}_annotations.json"
+    current_annotations = {}
+    if ann_path.exists():
+        try:
+            current_annotations = json.loads(ann_path.read_text(encoding='utf-8')).get('annotations', {})
+        except Exception:
+            pass
     prev_img = images.get_previous_image(patient, image)
     next_img = images.get_next_image(patient, image)
     current_index = images.get_image_index(patient, image)
@@ -270,9 +200,9 @@ def serve_image(patient: str, image: str) -> str:
 
     image_path = directory / image
 
-    if utils.is_dicom_file(image_path):
+    if is_dicom_file(image_path):
         try:
-            img = utils.load_image(image_path, force_invert_dicom=True)
+            img = load_image(image_path, force_invert_dicom=True)
             img_io = io.BytesIO()
             img.save(img_io, 'JPEG', quality=DICOM_JPEG_QUALITY)
             img_io.seek(0)
@@ -303,7 +233,6 @@ def help_page() -> str:
 def regenerate_annotations() -> tuple:
     """Regenerate all annotated image visualizations."""
     try:
-        from postprocessing_draw_landmarks import LandmarkVisualizer
         visualizer = LandmarkVisualizer()
         visualizer.process_all_images()
         return jsonify({"status": "success", "message": "Annotations regenerated successfully"})

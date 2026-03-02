@@ -5,6 +5,7 @@ from flask import render_template, abort, send_from_directory, current_app
 from pathlib import Path
 import json
 import config
+from app.visualization import LandmarkVisualizer
 from app.blueprints.views import views_bp
 
 # Supported image file extensions
@@ -25,7 +26,6 @@ def view_annotations() -> str:
     annotated_dir.mkdir(exist_ok=True, parents=True)
 
     try:
-        from postprocessing_draw_landmarks import LandmarkVisualizer
         visualizer = LandmarkVisualizer()
         visualizer.process_all_images()
     except Exception as e:
@@ -80,29 +80,14 @@ def export_page() -> str:
 
 
 def _count_annotations(annotation_dir: Path, patient: str, image_stem: str) -> int:
-    """Count valid annotations for an image from both legacy and current formats."""
-    count = 0
-
-    # Check legacy format (annotations/*.json)
-    json_file = annotation_dir / patient / f"{image_stem}.json"
-    if json_file.exists():
+    """Count valid annotations for an image."""
+    annotation_file = annotation_dir / patient / f"{image_stem}_annotations.json"
+    if annotation_file.exists():
         try:
-            data = json.loads(json_file.read_text())
-            count = sum(1 for ann in data.values()
+            data = json.loads(annotation_file.read_text())
+            annotations_dict = data.get("annotations", {})
+            return sum(1 for ann in annotations_dict.values()
                        if isinstance(ann, dict) and ann.get('status') == 'ok')
         except Exception:
             pass
-
-    # Check current format (data/*_annotations.json) if no legacy annotations
-    if count == 0:
-        annotation_file = Path(config.DATA_DIR) / patient / f"{image_stem}_annotations.json"
-        if annotation_file.exists():
-            try:
-                data = json.loads(annotation_file.read_text())
-                annotations_dict = data.get("annotations", {})
-                count = sum(1 for ann in annotations_dict.values()
-                           if isinstance(ann, dict) and ann.get('status') == 'ok')
-            except Exception:
-                pass
-
-    return count
+    return 0

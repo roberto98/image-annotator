@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 import logging
 
 import config
-import utils
+from app.imaging import load_image, is_dicom_file
 from app.visualization.palettes import (
     LANDMARK_PALETTE, SEGMENT_PALETTE, FIGURE_PALETTE, init_colors, RGBColor
 )
@@ -137,8 +137,8 @@ class LandmarkVisualizer:
                 output_patient.mkdir(exist_ok=True, parents=True)
 
                 try:
-                    if utils.is_dicom_file(image_path):
-                        img = utils.load_image(image_path, force_invert_dicom=True)
+                    if is_dicom_file(image_path):
+                        img = load_image(image_path, force_invert_dicom=True)
                     else:
                         img = Image.open(image_path)
 
@@ -146,7 +146,7 @@ class LandmarkVisualizer:
                     output_img = self.draw_landmarks(img, annotations)
 
                     # DICOM -> PNG since DICOM is read-only medical format
-                    if utils.is_dicom_file(image_path):
+                    if is_dicom_file(image_path):
                         output_path = output_patient / (image_path.stem + '.png')
                     else:
                         output_path = output_patient / image_path.name

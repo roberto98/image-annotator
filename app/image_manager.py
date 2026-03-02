@@ -1,10 +1,9 @@
 # images.py
 """Image indexing and navigation for the annotation tool."""
 from pathlib import Path
-from typing import NamedTuple, List, Optional, Dict, Tuple, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from app.annotations import AnnotationManager
+from typing import NamedTuple, List, Optional, Dict, Tuple
+import json
+import config
 
 IMAGE_EXTENSIONS = ('*.png', '*.jpg', '*.jpeg', '*.dcm', '*.dicom')
 
@@ -26,12 +25,11 @@ class ImageReference(NamedTuple):
 
 class ImageManager:
     """Indexes images and provides navigation between them."""
-    
-    def __init__(self, image_dir: str, annotation_manager: Optional['AnnotationManager'] = None):
-        """Initialize with image directory and optional annotation manager."""
+
+    def __init__(self, image_dir: str):
+        """Initialize with image directory."""
         self.image_dir = Path(image_dir)
         self.all_images = self._index_images()
-        self.annotation_manager = annotation_manager
         self.num_images = len(self.all_images)
         # O(1) lookup index
         self._index_map: Dict[Tuple[str, str], int] = {
@@ -79,25 +77,24 @@ class ImageManager:
     
     def get_next_unannotated_image(self, current_patient: str, current_image: str) -> Optional[Dict[str, str]]:
         """Find next image without annotations (wraps around to beginning)."""
-        if not self.annotation_manager:
-            return None
-            
         current_index = self._index_map.get((current_patient, current_image))
         if current_index is None:
             return None
-        
-        # Search forward from current, then wrap to beginning
+
         search_order = list(range(current_index + 1, len(self.all_images))) + list(range(0, current_index))
-        
+        ann_base = Path(config.ANNOTATION_DIR)
+
         for i in search_order:
             img = self.all_images[i]
-            annotations = self.annotation_manager.get_all_landmarks(img.patient, img.filename)
-            # Check if image has no annotations with 'ok' status
-            has_annotations = any(
-                data.get('status') == 'ok' 
-                for data in annotations.values() 
-                if isinstance(data, dict)
-            )
-            if not has_annotations:
+            path = ann_base / img.patient / f"{Path(img.filename).stem}_annotations.json"
+            if not path.exists():
+                return img.to_dict()
+            try:
+                data = json.loads(path.read_text(encoding='utf-8'))
+                annotations = data.get('annotations', {})
+                has_ok = any(a.get('status') == 'ok' for a in annotations.values() if isinstance(a, dict))
+                if not has_ok:
+                    return img.to_dict()
+            except Exception:
                 return img.to_dict()
         return None

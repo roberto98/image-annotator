@@ -159,6 +159,11 @@ function handleMouseDown(e) {
 function handleMouseMove(e) {
     if (!STATE.imageLoaded) return;
 
+    // Always update coordinate display regardless of mode
+    if (viewport && typeof viewport.eventToImage === 'function') {
+        updateMousePositionDisplay(viewport.eventToImage(e));
+    }
+
     // [New System Compatibility]
     // If the new DrawingHandler is active AND we're in annotation mode, yield control to it completely.
     if (window.DrawingHandler && window.DrawingHandler.isActive && STATE.isAnnotationMode) {
@@ -171,10 +176,6 @@ function handleMouseMove(e) {
     const rect = DOM.imageContainer.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    const coords = viewport.eventToImage(e);
-
-    // Throttled coordinate display update
-    updateMousePositionDisplay(coords);
 
     // Pan mode dragging
     if (STATE.isDragging && !STATE.isAnnotationMode) {

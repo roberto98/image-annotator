@@ -31,9 +31,6 @@ const DOM = {
     rectangleToolBtn: document.getElementById('rectangleToolBtn'),
     angleToolBtn: document.getElementById('angleToolBtn'),
     
-    // Legacy figure tool button (may not exist in new UI)
-    figureToolBtn: document.getElementById('figureToolBtn'),
-    
     // Figure configuration (legacy - kept for backward compatibility)
     figureConfig: document.getElementById('figureConfig'),
     circleBtn: document.getElementById('circleBtn'),

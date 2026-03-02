@@ -357,8 +357,6 @@ const _legacyStore = (typeof window !== 'undefined' && window._legacyStore)
     ? window._legacyStore
     : new Store(INITIAL_STATE);
 
-console.log('[store/index.js] Legacy store initialized');
-
 if (typeof window !== 'undefined') {
     window._legacyStore = _legacyStore;
     if (!window.AppStore) window.AppStore = _legacyStore;
@@ -367,5 +365,4 @@ if (typeof window !== 'undefined') {
     if (!window.STATE) window.STATE = createStateProxy(_legacyStore);
     if (!window.createStateProxy) window.createStateProxy = createStateProxy;
     if (!window.setStoreDebugMode) window.setStoreDebugMode = setDebugMode;
-    console.log('[store/index.js] Globals set: AppStore, Store, STATE, createStateProxy, setStoreDebugMode');
 }

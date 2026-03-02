@@ -61,8 +61,6 @@ function initializeVisibilityToggles() {
 }
 
 function handleImageLoad() {
-    console.log('[Initialization] Image loaded');
-    
     if (STATE) {
         STATE.imageLoaded = true;
         STATE.naturalWidth = DOM.img.naturalWidth;
@@ -71,7 +69,6 @@ function handleImageLoad() {
 
     if (DOM.loadingOverlay) {
         DOM.loadingOverlay.style.display = 'none';
-        console.log('[Initialization] Loading overlay hidden');
     }
     
     if (DOM.imageWrapper && STATE) {
@@ -82,7 +79,6 @@ function handleImageLoad() {
     // Update the viewport with image dimensions for bounds checking
     if (window.viewport && typeof window.viewport.setImageSize === 'function') {
         window.viewport.setImageSize(STATE.naturalWidth, STATE.naturalHeight);
-        console.log('[Initialization] Viewport image size set:', STATE.naturalWidth, 'x', STATE.naturalHeight);
     }
 
     // Update the new annotation renderer with image dimensions
@@ -345,37 +341,18 @@ function setupEventListeners() {
 function initializeApp() {
     // Guard against multiple initialization
     if (_appInitialized) {
-        console.warn('[Initialization] App already initialized, skipping');
         return;
     }
 
     try {
-        console.log('[Initialization] Starting initialization...');
-
         // Initialize edit mode as disabled (user must toggle the Edit button)
         window.editModeEnabled = false;
-
-        // Log available globals for debugging
-        console.log('[Initialization] Globals check:', {
-            viewport: typeof window.viewport,
-            AnnotationStore: typeof window.AnnotationStore,
-            AnnotationState: typeof window.AnnotationState,
-            AppStore: typeof window.AppStore,
-            STATE: typeof window.STATE,
-            Store: typeof window.Store,
-            DOM: typeof window.DOM,
-            annotationRenderer: typeof window.annotationRenderer,
-            DrawingHandler: typeof window.DrawingHandler,
-            EditingHandler: typeof window.EditingHandler,
-            LabelSelector: typeof window.LabelSelector,
-        });
 
         // Verify viewport exists and is properly linked
         if (typeof viewport === 'undefined' || !viewport) {
             console.error('[Initialization] viewport is not defined!');
             throw new Error('viewport is not defined');
         }
-        console.log('[Initialization] viewport object:', viewport);
 
         // Parse template data
         const templateDataElement = document.getElementById('template-data');
@@ -388,12 +365,6 @@ function initializeApp() {
                 window.figuresData = templateData.figuresData;
                 window.patientId = templateData.patientId;
                 window.imageName = templateData.imageName;
-                console.log('[Initialization] Template data loaded:', {
-                    annotationCount: Object.keys(templateData.currentAnnotations || {}).length,
-                    landmarksCount: (templateData.landmarksData || []).length,
-                    patientId: templateData.patientId,
-                    imageName: templateData.imageName
-                });
             } catch (e) {
                 console.error('[Initialization] Error parsing template data:', e);
             }
@@ -403,68 +374,50 @@ function initializeApp() {
 
         // Link viewport to globals (deprecated but kept for compatibility)
         if (typeof linkViewportToGlobals === 'function') {
-            console.log('[Initialization] Calling linkViewportToGlobals...');
             linkViewportToGlobals();
         }
 
         // Setup reactive rendering (subscribes to AppStore state changes)
         if (typeof setupReactiveRendering === 'function') {
-            console.log('[Initialization] Setting up reactive rendering...');
             setupReactiveRendering();
-            console.log('[Initialization] Reactive rendering setup complete');
-        } else {
-            console.warn('[Initialization] setupReactiveRendering not available');
         }
 
         // Setup figure event delegation if available
         if (typeof setupFigureEventDelegation === 'function') {
-            console.log('[Initialization] Setting up figure event delegation...');
             setupFigureEventDelegation();
         }
 
         if (typeof setupLabelListEventDelegation === 'function') {
-            console.log('[Initialization] Setting up label list event delegation...');
             setupLabelListEventDelegation();
         }
 
         // Load annotations into state
         if (STATE) {
             STATE.annotations = window.currentAnnotations || {};
-            console.log('[Initialization] Loaded', Object.keys(STATE.annotations).length, 'annotations into STATE');
         } else {
             console.error('[Initialization] STATE is not available!');
         }
 
         loadFigureLabelsFromAnnotations();
-        console.log('[Initialization] Labels loaded:', STATE?.allLabels?.length || 0, 'labels');
-
         initializeVisibilityToggles();
-        console.log('[Initialization] Visibility toggles initialized');
-
         setupEventListeners();
-        console.log('[Initialization] Event listeners attached');
 
         if (typeof saveToHistory === 'function') {
             saveToHistory();
-            console.log('[Initialization] Initial state saved to history');
         }
 
         // Initialize new annotation system modules
-        console.log('[Initialization] Initializing new annotation system...');
         initializeNewAnnotationSystem();
 
         // Initialize LabelPopup (legacy fallback)
         if (typeof LabelPopup !== 'undefined') {
             LabelPopup.init();
-            console.log('[Initialization] LabelPopup initialized');
         }
 
         // Handle image loading
         if (DOM.img && DOM.img.complete) {
-            console.log('[Initialization] Image already loaded, dimensions:', DOM.img.naturalWidth, 'x', DOM.img.naturalHeight);
             handleImageLoad();
         } else if (DOM.img) {
-            console.log('[Initialization] Waiting for image to load...');
             DOM.img.addEventListener('load', handleImageLoad);
             DOM.img.addEventListener('error', handleImageError);
         } else {
@@ -481,7 +434,6 @@ function initializeApp() {
         // Set initial mode display
         if (typeof updateModeDisplay === 'function') {
             updateModeDisplay();
-            console.log('[Initialization] Mode display updated');
         }
 
         // Set initial tool to point
@@ -489,7 +441,6 @@ function initializeApp() {
         if (window.DrawingHandler) {
             setTimeout(() => {
                 try {
-                    console.log('[Initialization] Setting initial tool to:', initialTool);
                     handleToolButtonClick(initialTool);
                 } catch (e) {
                     console.error('[Initialization] Error setting initial tool:', e);
@@ -499,7 +450,6 @@ function initializeApp() {
 
         // Mark initialization complete
         _appInitialized = true;
-        console.log('[Initialization] Complete - application ready');
     } catch (error) {
         console.error('[Initialization] Fatal error:', error);
         console.error('[Initialization] Error stack:', error.stack);
@@ -519,13 +469,10 @@ function initializeApp() {
 function initializeNewAnnotationSystem() {
     // Guard against multiple initialization
     if (_annotationSystemInitialized) {
-        console.warn('[Initialization] Annotation system already initialized, skipping');
         return;
     }
 
     try {
-        console.log('[Initialization] Setting up new annotation system...');
-        
         // Initialize AnnotationState with context
         if (window.AnnotationState) {
             window.AnnotationState.init({
@@ -534,9 +481,8 @@ function initializeNewAnnotationSystem() {
                 annotations: STATE?.annotations || {},
                 labels: STATE?.allLabels || []
             });
-            console.log('[Initialization] AnnotationState initialized');
         }
-        
+
         // Initialize AnnotationRenderer (use singleton instance)
         if (window.annotationRenderer && DOM.imageContainer) {
             window.annotationRenderer.init(DOM.imageContainer, window.viewport, {
@@ -544,13 +490,11 @@ function initializeNewAnnotationSystem() {
                 showHandles: true,
                 showLabels: true
             });
-            
+
             // Set image size when available
             if (STATE?.naturalWidth && STATE?.naturalHeight) {
                 window.annotationRenderer.setImageSize(STATE.naturalWidth, STATE.naturalHeight);
             }
-            
-            console.log('[Initialization] AnnotationRenderer initialized');
 
             // Reattach EditingHandler listeners to SVG now that it exists
             if (window.EditingHandler?.reattachSVGListeners) {
@@ -561,21 +505,18 @@ function initializeNewAnnotationSystem() {
         // Initialize LabelSelector
         if (window.LabelSelector) {
             window.LabelSelector.init();
-            console.log('[Initialization] LabelSelector initialized');
         }
-        
+
         // Initialize DrawingHandler
         if (window.DrawingHandler) {
             window.DrawingHandler.init();
-            console.log('[Initialization] DrawingHandler initialized');
         }
-        
+
         // Initialize EditingHandler
         if (window.EditingHandler) {
             window.EditingHandler.init();
-            console.log('[Initialization] EditingHandler initialized');
         }
-        
+
         // Subscribe to AnnotationState changes to sync with legacy STATE
         if (window.AnnotationState?.subscribe) {
             window.AnnotationState.subscribe((event, data) => {
@@ -591,12 +532,10 @@ function initializeNewAnnotationSystem() {
                     renderAnnotations(true);
                 }
             });
-            console.log('[Initialization] AnnotationState subscription established');
         }
 
         // Mark annotation system initialization complete
         _annotationSystemInitialized = true;
-        console.log('[Initialization] New annotation system ready');
     } catch (error) {
         console.error('[Initialization] Error initializing new annotation system:', error);
 

@@ -214,15 +214,6 @@ def serve_image(patient: str, image: str) -> str:
     return send_from_directory(directory, image)
 
 
-@views_bp.route('/serve_file/<path:filename>')
-def serve_file(filename: str) -> str:
-    """Serve arbitrary file by path."""
-    file_path = Path(filename)
-    if not file_path.parent.exists():
-        abort(404)
-    return send_from_directory(file_path.parent, file_path.name)
-
-
 @views_bp.route('/help')
 def help_page() -> str:
     """Help and documentation page."""

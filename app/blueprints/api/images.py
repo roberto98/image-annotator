@@ -1,39 +1,24 @@
 # blueprints/api/images.py
 """Image-related API endpoints."""
 
-from typing import Dict, Any, Tuple
-from flask import jsonify, request, send_file, current_app, Response
+from typing import Dict, Any
+from flask import request, send_file, current_app
 from pathlib import Path
 from PIL import Image
 import io
-import json
 
 import config
 from app.imaging import load_image, is_dicom_file
 from polygon_utils import generate_mask_from_polygon
-from app.blueprints.api import api_bp
+from app.blueprints.api import api_bp, error_response
+from app.blueprints.api.annotations import _load_annotations as _load_full
 
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".dcm", ".dicom"}
-DATA_DIR = Path(config.ANNOTATION_DIR)
-
-
-def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
-    """Return error response."""
-    return jsonify({"error": message}), status
 
 
 def _load_annotations(patient: str, image: str) -> Dict[str, Any]:
-    """Load annotations from data directory."""
-    annotation_path = DATA_DIR / patient / f"{Path(image).stem}_annotations.json"
-
-    if annotation_path.exists():
-        try:
-            data = json.loads(annotation_path.read_text(encoding='utf-8'))
-            return data.get('annotations', {})
-        except (json.JSONDecodeError, IOError) as e:
-            current_app.logger.warning(f"Failed to load annotations from {annotation_path}: {e}")
-
-    return {}
+    """Load annotations dict for patient/image using the authoritative loader."""
+    return _load_full(patient, image).get('annotations', {})
 
 
 def get_images_manager():

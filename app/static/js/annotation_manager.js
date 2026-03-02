@@ -61,7 +61,6 @@ function validateLabelName(name) {
  * @param {boolean} showPopup - Whether to show the label popup (default: true)
  */
 function switchTool(tool, showPopup = true) {
-    console.log('[annotations.js] switchTool:', tool);
     STATE.currentTool = tool;
 
     // Update tool button active states
@@ -102,7 +101,6 @@ function switchTool(tool, showPopup = true) {
  * @param {string} name - The label name to select
  */
 function selectLabel(name) {
-    console.log('[annotations.js] selectLabel:', name);
     STATE.selectedLabel = name;
 
     // Sync with new AnnotationState if available
@@ -151,24 +149,22 @@ async function markOccluded(name) {
 
     _isSaving = true;
     try {
-        const response = await fetch(`/api/landmarks/${window.patientId}/${window.imageName}/${encodeURIComponent(name)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'occluded' })
-        });
+        const existing = window.AnnotationState?.annotations?.[name] || STATE.annotations[name] || {};
+        await window.AnnotationAPI.saveAnnotation(
+            window.patientId,
+            window.imageName,
+            name,
+            existing.type || 'point',
+            existing.data || {},
+            { status: 'occluded' }
+        );
 
-        const data = await response.json();
-        if (data.status === 'success') {
-            STATE.annotations = {
-                ...STATE.annotations,
-                [name]: {
-                    status: 'occluded/missing',
-                    timestamp: createTimestamp()
-                }
-            };
-            saveToHistory();
-            showMessage(formatSuccessMessage('Marked', name, 'occluded'), 'success');
-        }
+        STATE.annotations = {
+            ...STATE.annotations,
+            [name]: { ...existing, status: 'occluded' }
+        };
+        saveToHistory();
+        showMessage(formatSuccessMessage('Marked', name, 'occluded'), 'success');
     } catch (error) {
         console.error('Error:', error);
         showMessage(formatErrorMessage('mark', 'annotation as occluded', error), 'error');
@@ -281,29 +277,24 @@ async function annotateLandmark(coords) {
 
     _isSaving = true;
     try {
-        const response = await fetch(`/api/landmarks/${window.patientId}/${window.imageName}/${encodeURIComponent(STATE.selectedLabel)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'coordinates',
-                x: coords.x,
-                y: coords.y
-            })
-        });
+        await window.AnnotationAPI.saveAnnotation(
+            window.patientId,
+            window.imageName,
+            STATE.selectedLabel,
+            'point',
+            { x: coords.x, y: coords.y }
+        );
 
-        const data = await response.json();
-        if (data.status === 'success') {
-            STATE.annotations = {
-                ...STATE.annotations,
-                [STATE.selectedLabel]: {
-                    status: 'ok',
-                    coordinates: { x: coords.x, y: coords.y },
-                    timestamp: createTimestamp()
-                }
-            };
-            saveToHistory();
-            showMessage(formatSuccessMessage('Annotated', STATE.selectedLabel), 'success');
-        }
+        STATE.annotations = {
+            ...STATE.annotations,
+            [STATE.selectedLabel]: {
+                type: 'point',
+                status: 'ok',
+                data: { x: coords.x, y: coords.y }
+            }
+        };
+        saveToHistory();
+        showMessage(formatSuccessMessage('Annotated', STATE.selectedLabel), 'success');
     } catch (error) {
         console.error('Error:', error);
         showMessage(formatErrorMessage('save', 'annotation', error), 'error');

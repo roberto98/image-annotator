@@ -218,13 +218,12 @@ const AnnotationAPI = {
      */
     async saveAnnotation(patientId, imageName, label, type, data, options = {}) {
         const endpoint = `/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}`;
-        
+
         const payload = {
             label,
             type,
             data,
-            ...options,
-            timestamp: new Date().toISOString()
+            ...options
         };
         
         return this._request(endpoint, {
@@ -257,13 +256,20 @@ const AnnotationAPI = {
      */
     async batchSaveAnnotations(patientId, imageName, annotations) {
         const endpoint = `/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}/bulk`;
-        
+
+        const operations = Object.entries(annotations).map(([label, ann]) => ({
+            action: 'create',
+            label,
+            type: ann.type,
+            data: ann.data,
+            ...(ann.status && { status: ann.status }),
+            ...(ann.color && { color: ann.color }),
+            ...(ann.category && { category: ann.category })
+        }));
+
         return this._request(endpoint, {
             method: 'POST',
-            body: JSON.stringify({
-                annotations,
-                timestamp: new Date().toISOString()
-            })
+            body: JSON.stringify({ operations })
         });
     },
     
@@ -368,17 +374,6 @@ const AnnotationAPI = {
         });
     },
     
-    /**
-     * Delete calibration for an image
-     * @param {string} patientId - Patient identifier
-     * @param {string} imageName - Image filename
-     * @returns {Promise<Object>} Deletion confirmation
-     */
-    async deleteCalibration(patientId, imageName) {
-        const endpoint = `/calibration/${this._encodeSegment(patientId)}/${this._encodeSegment(imageName)}`;
-        return this._request(endpoint, { method: 'DELETE' });
-    },
-    
     // ========================================================================
     // Image & Navigation Operations
     // ========================================================================
@@ -401,28 +396,20 @@ const AnnotationAPI = {
      * @returns {Promise<{patient: string, image: string}|null>} Next image or null
      */
     async getNextUnannotated(currentPatient = null, currentImage = null) {
-        const query = this._buildQuery({
-            current_patient: currentPatient,
-            current_image: currentImage
+        const params = new URLSearchParams();
+        if (currentPatient) params.set('current_patient', currentPatient);
+        if (currentImage) params.set('current_image', currentImage);
+        const query = params.toString() ? `?${params.toString()}` : '';
+
+        const response = await fetch(`/api/next-unannotated${query}`, {
+            headers: { 'Accept': 'application/json' }
         });
-        
-        const response = await this._request(`/navigation/next-unannotated${query}`);
-        
-        if (response.patient && response.image) {
-            return { patient: response.patient, image: response.image };
+        if (!response.ok) return null;
+        const data = await response.json();
+        if (data.patient && data.image) {
+            return { patient: data.patient, image: data.image };
         }
         return null;
-    },
-    
-    /**
-     * Get annotation statistics
-     * @param {Object} [options={}] - Filter options
-     * @param {string} [options.patientId] - Filter by patient
-     * @returns {Promise<Object>} Statistics data
-     */
-    async getStatistics(options = {}) {
-        const query = this._buildQuery(options);
-        return this._request(`/statistics${query}`);
     },
     
     // ========================================================================

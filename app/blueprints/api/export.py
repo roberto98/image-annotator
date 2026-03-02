@@ -2,42 +2,47 @@
 """Annotation export API endpoints."""
 
 from typing import Dict, Any, Tuple
-from flask import jsonify, request, make_response, current_app, Response
+from flask import request, make_response
 from datetime import datetime
 import json
 import csv
 import io
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-from pathlib import Path
-import config
-from app.blueprints.api import api_bp
-
-
-def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
-    """Return error response."""
-    return jsonify({"error": message}), status
+from app.blueprints.api import api_bp, error_response
+from app.blueprints.api.annotations import _load_annotations as _load_full
 
 
 def _load_annotations(patient: str, image: str) -> Dict[str, Any]:
-    """Load annotations from annotation directory."""
-    annotation_path = Path(config.ANNOTATION_DIR) / patient / f"{Path(image).stem}_annotations.json"
-    if annotation_path.exists():
-        try:
-            data = json.loads(annotation_path.read_text(encoding='utf-8'))
-            return data.get('annotations', {})
-        except (json.JSONDecodeError, IOError) as e:
-            current_app.logger.warning(f"Failed to load annotations from {annotation_path}: {e}")
-    return {}
+    """Load annotations dict for patient/image using the authoritative loader."""
+    return _load_full(patient, image).get('annotations', {})
 
 
 def _extract_coordinates(ann: Dict[str, Any]) -> Tuple[str, str]:
-    """Extract x, y coordinates from annotation data."""
-    if ann.get("coordinates"):
-        return str(ann["coordinates"].get("x", "")), str(
-            ann["coordinates"].get("y", "")
-        )
-    return str(ann.get("x", "")), str(ann.get("y", ""))
+    """Extract representative x, y coordinates from the new data sub-object."""
+    data = ann.get("data", {})
+    ann_type = ann.get("type", "point")
+
+    if ann_type == "point":
+        return str(data.get("x", "")), str(data.get("y", ""))
+    elif ann_type == "circle":
+        center = data.get("center", {})
+        return str(center.get("x", "")), str(center.get("y", ""))
+    elif ann_type == "polygon":
+        points = data.get("points", [])
+        if points:
+            return str(points[0].get("x", "")), str(points[0].get("y", ""))
+    elif ann_type == "line":
+        start = data.get("start", {})
+        return str(start.get("x", "")), str(start.get("y", ""))
+    elif ann_type == "rectangle":
+        tl = data.get("topLeft", {})
+        return str(tl.get("x", "")), str(tl.get("y", ""))
+    elif ann_type == "angle":
+        vertex = data.get("vertex", {})
+        return str(vertex.get("x", "")), str(vertex.get("y", ""))
+
+    return "", ""
 
 
 def _export_as_json(all_annotations: Dict[str, Any]) -> Tuple[str, str, str]:
@@ -51,19 +56,7 @@ def _export_as_csv(all_annotations: Dict[str, Any]) -> Tuple[str, str, str]:
     output_io = io.StringIO()
     writer = csv.writer(output_io)
     writer.writerow(
-        [
-            "Patient",
-            "Image",
-            "Label",
-            "Type",
-            "Status",
-            "X",
-            "Y",
-            "Shape",
-            "Size",
-            "Points",
-            "Timestamp",
-        ]
+        ["Patient", "Image", "Label", "Type", "Status", "X", "Y", "Data", "Timestamp"]
     )
 
     for img_key, img_data in all_annotations.items():
@@ -77,13 +70,11 @@ def _export_as_csv(all_annotations: Dict[str, Any]) -> Tuple[str, str, str]:
                     patient,
                     image,
                     label,
-                    ann.get("type", "landmark"),
+                    ann.get("type", "point"),
                     ann.get("status", ""),
                     x,
                     y,
-                    ann.get("shape", ""),
-                    ann.get("size", ""),
-                    json.dumps(ann["points"]) if ann.get("points") else "",
+                    json.dumps(ann.get("data", {})),
                     ann.get("timestamp", ""),
                 ]
             )
@@ -104,7 +95,7 @@ def _export_as_xml(all_annotations: Dict[str, Any]) -> Tuple[str, str, str]:
         for label, ann in img_data["annotations"].items():
             ann_elem = ET.SubElement(image_elem, "annotation")
             ann_elem.set("label", label)
-            ann_elem.set("type", ann.get("type", "landmark"))
+            ann_elem.set("type", ann.get("type", "point"))
             ann_elem.set("status", ann.get("status", ""))
 
             x, y = _extract_coordinates(ann)
@@ -112,16 +103,8 @@ def _export_as_xml(all_annotations: Dict[str, Any]) -> Tuple[str, str, str]:
                 ET.SubElement(ann_elem, "x").text = x
                 ET.SubElement(ann_elem, "y").text = y
 
-            if ann.get("shape"):
-                ET.SubElement(ann_elem, "shape").text = ann["shape"]
-            if ann.get("size"):
-                ET.SubElement(ann_elem, "size").text = str(ann["size"])
-            if ann.get("points"):
-                points_elem = ET.SubElement(ann_elem, "points")
-                for point in ann["points"]:
-                    point_elem = ET.SubElement(points_elem, "point")
-                    point_elem.set("x", str(point.get("x", "")))
-                    point_elem.set("y", str(point.get("y", "")))
+            ET.SubElement(ann_elem, "data").text = json.dumps(ann.get("data", {}))
+
             if ann.get("timestamp"):
                 ET.SubElement(ann_elem, "timestamp").text = ann["timestamp"]
 

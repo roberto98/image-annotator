@@ -6,7 +6,6 @@
 const App = {
     initialized: false,
     _initializing: false,
-    debug: false,
     _errorCount: 0,
     _maxErrors: 5,
     _dependencies: {

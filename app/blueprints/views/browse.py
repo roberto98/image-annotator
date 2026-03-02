@@ -5,6 +5,7 @@ from flask import render_template, abort, send_from_directory, current_app
 from pathlib import Path
 import json
 import config
+from app.visualization import LandmarkVisualizer
 from app.blueprints.views import views_bp
 
 # Supported image file extensions
@@ -25,7 +26,6 @@ def view_annotations() -> str:
     annotated_dir.mkdir(exist_ok=True, parents=True)
 
     try:
-        from postprocessing_draw_landmarks import LandmarkVisualizer
         visualizer = LandmarkVisualizer()
         visualizer.process_all_images()
     except Exception as e:

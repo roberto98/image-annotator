@@ -9,7 +9,7 @@ import io
 import json
 
 import config
-import utils
+from app.imaging import load_image, is_dicom_file
 from polygon_utils import generate_mask_from_polygon
 from app.blueprints.api import api_bp
 
@@ -96,8 +96,8 @@ def get_segment_mask(patient: str, image: str, segment_name: str) -> Response:
             return error_response("Image not found", 404)
 
         img = (
-            utils.load_image(image_path)
-            if utils.is_dicom_file(image_path)
+            load_image(image_path)
+            if is_dicom_file(image_path)
             else Image.open(image_path)
         )
         width, height = img.size

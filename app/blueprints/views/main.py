@@ -7,7 +7,8 @@ from typing import Dict, Any, Tuple
 import json
 import io
 import config
-import utils
+from app.imaging import load_image, is_dicom_file
+from app.visualization import LandmarkVisualizer
 from app.blueprints.views import views_bp
 
 # Supported image file extensions
@@ -199,9 +200,9 @@ def serve_image(patient: str, image: str) -> str:
 
     image_path = directory / image
 
-    if utils.is_dicom_file(image_path):
+    if is_dicom_file(image_path):
         try:
-            img = utils.load_image(image_path, force_invert_dicom=True)
+            img = load_image(image_path, force_invert_dicom=True)
             img_io = io.BytesIO()
             img.save(img_io, 'JPEG', quality=DICOM_JPEG_QUALITY)
             img_io.seek(0)
@@ -232,7 +233,6 @@ def help_page() -> str:
 def regenerate_annotations() -> tuple:
     """Regenerate all annotated image visualizations."""
     try:
-        from postprocessing_draw_landmarks import LandmarkVisualizer
         visualizer = LandmarkVisualizer()
         visualizer.process_all_images()
         return jsonify({"status": "success", "message": "Annotations regenerated successfully"})

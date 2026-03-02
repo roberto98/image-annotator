@@ -19,7 +19,15 @@ import math
 import re
 
 from flask import Blueprint, jsonify, request, Response
+from PIL import Image as PILImage
 import config
+from app.imaging.dicom import (
+    is_dicom_file,
+    read_dicom,
+    extract_pixel_array,
+    extract_pixel_spacing,
+    extract_modality,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -739,16 +747,6 @@ def get_calibration(patient_id: str, image_name: str) -> Tuple[Response, int]:
 @annotations_bp.route("/images/<patient_id>/<image_name>/metadata", methods=["GET"])
 def get_image_metadata(patient_id: str, image_name: str) -> Tuple[Response, int]:
     """Get image metadata including dimensions and DICOM calibration."""
-    import config
-    from PIL import Image as PILImage
-    from app.imaging.dicom import (
-        is_dicom_file,
-        read_dicom,
-        extract_pixel_array,
-        extract_pixel_spacing,
-        extract_modality,
-    )
-
     # Sanitize inputs
     safe_patient_id = Path(patient_id).name
     safe_image_name = Path(image_name).name

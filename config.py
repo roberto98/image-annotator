@@ -14,7 +14,6 @@ BASE_DIR = Path.cwd()
 IMAGE_HEIGHT = 600
 IMAGE_DIR = str(BASE_DIR / "images")
 ANNOTATION_DIR = str(BASE_DIR / "annotations")
-DATA_DIR = str(BASE_DIR / "data")
 
 _annotation_cache: Optional[Dict[str, Any]] = None
 _cache_mtime: float = 0.0

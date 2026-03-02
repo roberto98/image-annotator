@@ -12,7 +12,6 @@ from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
 import config
-from app.legacy_annotations import AnnotationManager
 from app.image_manager import ImageManager
 
 
@@ -49,9 +48,7 @@ def create_app() -> Flask:
     Path(config.ANNOTATION_DIR).mkdir(exist_ok=True, parents=True)
 
     # Initialize global managers and store in app config
-    annotations = AnnotationManager(config.ANNOTATION_DIR)
-    images = ImageManager(config.IMAGE_DIR, annotations)
-    app.config["annotations"] = annotations
+    images = ImageManager(config.IMAGE_DIR)
     app.config["images"] = images
 
     # Register blueprints

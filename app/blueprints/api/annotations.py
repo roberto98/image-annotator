@@ -19,12 +19,13 @@ import math
 import re
 
 from flask import Blueprint, jsonify, request, Response
+import config
 
 logger = logging.getLogger(__name__)
 
 annotations_bp = Blueprint("annotations", __name__, url_prefix="/api/annotations")
 
-DATA_DIR = Path("data")
+DATA_DIR = Path(config.ANNOTATION_DIR)
 LABELS_FILE = DATA_DIR / "labels.json"
 VALID_ANNOTATION_TYPES = {
     "point",

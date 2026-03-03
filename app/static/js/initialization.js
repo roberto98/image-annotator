@@ -266,49 +266,30 @@ function setupEventListeners() {
         DOM.lineBtn.addEventListener('click', () => handleToolButtonClick('line'));
     }
 
-    // Polygon tools - use new DrawingHandler if available, fallback to legacy
+    // Polygon tools
     if (DOM.drawPolyBtn) {
-        DOM.drawPolyBtn.addEventListener('click', () => {
-            if (typeof setPolygonTool === 'function') {
-                setPolygonTool('draw');
-            } else {
-                handleToolButtonClick('polygon');
-            }
-        });
+        DOM.drawPolyBtn.addEventListener('click', () => handleToolButtonClick('polygon'));
     }
     if (DOM.editPolyBtn) {
         DOM.editPolyBtn.addEventListener('click', () => {
-            if (typeof setPolygonTool === 'function') {
-                setPolygonTool('edit');
-            }
             // Note: editing is handled by EditingHandler in new system
         });
     }
     if (DOM.movePolyBtn) {
         DOM.movePolyBtn.addEventListener('click', () => {
-            if (typeof setPolygonTool === 'function') {
-                setPolygonTool('move');
-            }
             // Note: moving is handled by EditingHandler in new system
         });
     }
     if (DOM.completePolyBtn) {
         DOM.completePolyBtn.addEventListener('click', () => {
-            if (typeof completePolygon === 'function') {
-                completePolygon();
-            } else if (window.DrawingHandler?.isDrawingInProgress?.()) {
-                // Use new DrawingHandler to complete polygon
+            if (window.DrawingHandler?.isDrawingInProgress?.()) {
                 window.DrawingHandler.completeAnnotation();
             }
         });
     }
     if (DOM.cancelPolyBtn) {
         DOM.cancelPolyBtn.addEventListener('click', () => {
-            if (typeof cancelPolygon === 'function') {
-                cancelPolygon();
-            } else if (window.DrawingHandler) {
-                window.DrawingHandler.cancelDrawing();
-            }
+            window.DrawingHandler?.cancelDrawing?.();
         });
     }
 }
@@ -347,19 +328,9 @@ function initializeApp() {
             console.warn('[Initialization] No template-data element found');
         }
 
-        // Link viewport to globals (deprecated but kept for compatibility)
-        if (typeof linkViewportToGlobals === 'function') {
-            linkViewportToGlobals();
-        }
-
-        // Setup reactive rendering (subscribes to AppStore state changes)
+        // Setup reactive rendering (subscribes to AnnotationState events)
         if (typeof setupReactiveRendering === 'function') {
             setupReactiveRendering();
-        }
-
-        // Setup figure event delegation if available
-        if (typeof setupFigureEventDelegation === 'function') {
-            setupFigureEventDelegation();
         }
 
         if (typeof setupLabelListEventDelegation === 'function') {

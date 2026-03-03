@@ -145,46 +145,23 @@ function showMessage(text, type = 'info', duration = 3000) {
 }
 
 function saveToHistory() {
-    // Use AnnotationState if available, fall back to AppStore for legacy compatibility
-    if (window.AnnotationState?.saveToHistory) {
-        window.AnnotationState.saveToHistory();
-    } else if (window.AppStore?.saveToHistory) {
-        window.AppStore.saveToHistory();
-    }
+    window.AnnotationState?.saveToHistory?.();
     updateUndoRedoButtons();
 }
 
 function undo() {
-    // Use AnnotationState if available, fall back to AppStore for legacy compatibility
-    if (window.AnnotationState?.undo) {
-        if (window.AnnotationState.undo()) {
-            forceRender();
-            updateUndoRedoButtons();
-            showMessage('Undo successful', 'success');
-        }
-    } else if (window.AppStore?.undo) {
-        if (window.AppStore.undo()) {
-            forceRender();
-            updateUndoRedoButtons();
-            showMessage('Undo successful', 'success');
-        }
+    if (window.AnnotationState?.undo?.()) {
+        forceRender();
+        updateUndoRedoButtons();
+        showMessage('Undo successful', 'success');
     }
 }
 
 function redo() {
-    // Use AnnotationState if available, fall back to AppStore for legacy compatibility
-    if (window.AnnotationState?.redo) {
-        if (window.AnnotationState.redo()) {
-            forceRender();
-            updateUndoRedoButtons();
-            showMessage('Redo successful', 'success');
-        }
-    } else if (window.AppStore?.redo) {
-        if (window.AppStore.redo()) {
-            forceRender();
-            updateUndoRedoButtons();
-            showMessage('Redo successful', 'success');
-        }
+    if (window.AnnotationState?.redo?.()) {
+        forceRender();
+        updateUndoRedoButtons();
+        showMessage('Redo successful', 'success');
     }
 }
 
@@ -193,13 +170,8 @@ function updateUndoRedoButtons() {
     const redoBtn = document.getElementById('redoBtn');
 
     if (undoBtn && redoBtn) {
-        // Use AnnotationState if available, fall back to AppStore
-        const canUndo = window.AnnotationState?.canUndo
-            ? window.AnnotationState.canUndo()
-            : (window.AppStore?.canUndo() ?? false);
-        const canRedo = window.AnnotationState?.canRedo
-            ? window.AnnotationState.canRedo()
-            : (window.AppStore?.canRedo() ?? false);
+        const canUndo = window.AnnotationState?.canUndo?.() ?? false;
+        const canRedo = window.AnnotationState?.canRedo?.() ?? false;
 
         undoBtn.disabled = !canUndo;
         redoBtn.disabled = !canRedo;

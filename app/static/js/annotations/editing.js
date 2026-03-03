@@ -86,12 +86,12 @@ const EditingHandler = {
 
     _getPatientId() {
         const state = this._getState();
-        return state.patientId || window.patientId || window.__APP_CONFIG__?.patientId;
+        return state.patientId || window.patientId;
     },
 
     _getImageName() {
         const state = this._getState();
-        return state.imageName || window.imageName || window.__APP_CONFIG__?.imageName;
+        return state.imageName || window.imageName;
     },
 
     _getAnnotation(label) {
@@ -901,7 +901,7 @@ const EditingHandler = {
     // Undo/Redo
 
     undo() {
-        // Delegate to global undo function which handles AnnotationState/AppStore priority
+        // Delegate to global undo function
         if (typeof window.undo === 'function') {
             window.undo();
             // Sync with server after undo
@@ -912,7 +912,7 @@ const EditingHandler = {
     },
 
     redo() {
-        // Delegate to global redo function which handles AnnotationState/AppStore priority
+        // Delegate to global redo function
         if (typeof window.redo === 'function') {
             window.redo();
             // Sync with server after redo

@@ -707,8 +707,8 @@ const DrawingHandler = {
 
         // Save via API
         try {
-            const patientId = state.patientId || window.__APP_CONFIG__?.patientId;
-            const imageName = state.imageName || window.__APP_CONFIG__?.imageName;
+            const patientId = state.patientId || window.patientId;
+            const imageName = state.imageName || window.imageName;
 
             if (!patientId || !imageName) {
                 throw new Error('Missing patient ID or image name');

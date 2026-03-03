@@ -635,35 +635,6 @@ class Viewport {
         this._subscribers = {};
     }
 
-    // ========================================================================
-    // Backward Compatibility Methods
-    // These alias methods maintain compatibility with the old viewport API
-    // ========================================================================
-
-    /**
-     * @deprecated Use screenToImage instead
-     * Alias for screenToImage - converts display/container coordinates to image coordinates
-     * 
-     * @param {number} displayX - X in display/container space
-     * @param {number} displayY - Y in display/container space
-     * @returns {Point} Image coordinates
-     */
-    displayToImage(displayX, displayY) {
-        return this.screenToImage(displayX, displayY);
-    }
-
-    /**
-     * @deprecated Use imageToScreen instead
-     * Alias for imageToScreen - converts image coordinates to display coordinates
-     * 
-     * @param {number} imageX - X in image space
-     * @param {number} imageY - Y in image space
-     * @returns {Point} Display coordinates
-     */
-    imageToDisplay(imageX, imageY) {
-        return this.imageToScreen(imageX, imageY);
-    }
-
     /**
      * Convert event coordinates to image coordinates
      * Convenience method that extracts client coordinates from mouse/touch events
@@ -700,66 +671,6 @@ class Viewport {
         return this.screenToImage(containerX, containerY);
     }
 
-    /**
-     * @deprecated Access scale, offsetX, offsetY directly instead
-     * Legacy getter for zoom (alias for scale)
-     * @returns {number}
-     */
-    get zoom() {
-        return this._scale;
-    }
-
-    /**
-     * @deprecated Access offsetX directly instead
-     * Legacy getter for translateX (alias for offsetX)
-     * @returns {number}
-     */
-    get translateX() {
-        return this._offsetX;
-    }
-
-    /**
-     * @deprecated Access offsetY directly instead
-     * Legacy getter for translateY (alias for offsetY)
-     * @returns {number}
-     */
-    get translateY() {
-        return this._offsetY;
-    }
-
-    /**
-     * @deprecated Link state through AnnotationStore instead
-     * Legacy method to link viewport state getters (no-op, for compatibility)
-     * 
-     * @param {Object} getters - Object with getter functions
-     */
-    linkState(getters) {
-        // This is now a no-op as the Viewport manages its own state
-        // Log a deprecation warning
-        console.warn('[Viewport] linkState is deprecated - Viewport now manages its own state');
-    }
-
-    /**
-     * @deprecated Set container through other means
-     * Legacy method to set container element (no-op, for compatibility)
-     * 
-     * @param {HTMLElement} element - Container element
-     */
-    setContainer(element) {
-        // This is now a no-op as the Viewport no longer depends on DOM elements
-        console.warn('[Viewport] setContainer is deprecated - Viewport no longer requires DOM element references');
-    }
-
-    /**
-     * @deprecated Set image through other means
-     * Legacy method to set image element (no-op, for compatibility)
-     * 
-     * @param {HTMLImageElement} element - Image element
-     */
-    setImage(element) {
-        // This is now a no-op
-        console.warn('[Viewport] setImage is deprecated - Viewport no longer requires DOM element references');
-    }
 }
 
 // Create singleton instance
@@ -770,13 +681,6 @@ if (typeof window !== 'undefined') {
     window.Viewport = Viewport;
     window.viewport = viewport;
 
-    /**
-     * @deprecated This function is no longer needed
-     * Legacy function to link viewport to globals (no-op for compatibility)
-     */
-    window.linkViewportToGlobals = function() {
-        console.warn('[Viewport] linkViewportToGlobals is deprecated - Viewport now manages its own state');
-    };
 }
 
 // Also export for ES module usage (if using type="module")

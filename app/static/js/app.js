@@ -97,8 +97,8 @@ const App = {
         this.debug.log('App', 'Initializing state...');
 
         // Get patient/image info from template data or globals
-        const patientId = window.patientId || window.__APP_CONFIG__?.patientId;
-        const imageName = window.imageName || window.__APP_CONFIG__?.imageName;
+        const patientId = window.patientId;
+        const imageName = window.imageName;
 
         // Initialize state with context
         if (this.state?.init) {
@@ -185,8 +185,8 @@ const App = {
     async loadAnnotations() {
         Debug.log('App', 'Loading annotations...');
 
-        const patientId = window.patientId || window.__APP_CONFIG__?.patientId;
-        const imageName = window.imageName || window.__APP_CONFIG__?.imageName;
+        const patientId = window.patientId;
+        const imageName = window.imageName;
 
         if (!patientId || !imageName) {
             Debug.warn('App', 'Missing patient ID or image name, skipping API load');

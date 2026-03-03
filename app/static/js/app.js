@@ -24,7 +24,7 @@ const App = {
     },
 
     get state() {
-        return this._getDependency('state', () => window.AnnotationState || window.STATE);
+        return this._getDependency('state', () => window.AnnotationState);
     },
 
     get viewport() {
@@ -352,79 +352,26 @@ const App = {
             window.DrawingHandler.activate(tool);
         }
 
-        // Update legacy STATE if it exists
-        if (window.STATE) {
-            window.STATE.currentTool = tool;
-        }
-
         // Show feedback
         const toolName = window.getTypeDisplayName?.(tool) || tool;
         window.showMessage?.(`${toolName} tool selected`, 'info', 1000);
     },
 
     getCurrentTool() {
-        return window.AnnotationState?.currentTool ||
-            window.STATE?.currentTool ||
-            null;
+        return window.AnnotationState?.currentTool || null;
     },
 
     toggleMode() {
-        // Don't toggle if drawing is in progress
-        if (window.DrawingHandler?.isDrawingInProgress?.()) {
-            window.showMessage?.('Cannot switch modes while drawing', 'warning');
-            return;
+        // Delegate to the global toggleMode defined in utilities.js
+        if (typeof window.toggleMode === 'function') {
+            window.toggleMode();
         }
-
-        // Update AnnotationState
-        if (window.AnnotationState) {
-            window.AnnotationState.isAnnotationMode = !window.AnnotationState.isAnnotationMode;
-        }
-
-        // Update legacy STATE for compatibility
-        if (window.STATE) {
-            window.STATE.isAnnotationMode = !window.STATE.isAnnotationMode;
-        }
-
-        // Deactivate DrawingHandler when switching to Navigation mode
-        const isAnnotationMode = window.AnnotationState?.isAnnotationMode ??
-            window.STATE?.isAnnotationMode ?? true;
-        if (!isAnnotationMode) {
-            window.DrawingHandler?.deactivate?.();
-        }
-
-        // Update mode indicator UI
-        this.updateModeDisplay();
-
-        // Show feedback
-        const modeName = isAnnotationMode ? 'Annotation' : 'Navigation';
-        window.showMessage?.(`${modeName} mode`, 'info', 1000);
     },
 
     updateModeDisplay() {
-        const indicator = document.getElementById('modeIndicator');
-        const container = document.getElementById('imageContainer');
-        if (!indicator) return;
-
-        const isAnnotationMode = window.AnnotationState?.isAnnotationMode ??
-            window.STATE?.isAnnotationMode ?? true;
-
-        const textEl = indicator.querySelector('span');
-        const dotEl = indicator.querySelector('.mode-dot');
-
-        if (isAnnotationMode) {
-            indicator.classList.remove('panning');
-            indicator.setAttribute('data-mode', 'annotation');
-            indicator.setAttribute('aria-label', 'Mode toggle: Annotation Mode');
-            if (textEl) textEl.textContent = 'Annotation Mode';
-            if (dotEl) dotEl.style.backgroundColor = '#4ade80';
-            if (container) container.style.cursor = 'crosshair';
-        } else {
-            indicator.classList.add('panning');
-            indicator.setAttribute('data-mode', 'panning');
-            indicator.setAttribute('aria-label', 'Mode toggle: Navigation Mode');
-            if (textEl) textEl.textContent = 'Navigation Mode';
-            if (dotEl) dotEl.style.backgroundColor = '#60a5fa';
-            if (container) container.style.cursor = 'grab';
+        // Delegate to the global updateModeDisplay defined in utilities.js
+        if (typeof window.updateModeDisplay === 'function') {
+            window.updateModeDisplay();
         }
     },
 
@@ -450,9 +397,7 @@ const App = {
     },
 
     getAnnotations() {
-        return window.AnnotationState?.annotations ||
-            window.STATE?.annotations ||
-            {};
+        return window.AnnotationState?.annotations || {};
     },
 
     async saveAll() {
@@ -476,3 +421,133 @@ const App = {
 };
 
 window.App = App;
+
+// ============================================================================
+// Annotation Operations (migrated from annotation_manager.js)
+// ============================================================================
+
+let _isSaving = false;
+
+async function markOccluded(name) {
+    if (_isSaving) { window.showMessage?.('Save operation in progress...', 'info'); return; }
+
+    const labelValidation = window.validateLabelName?.(name);
+    if (labelValidation && !labelValidation.valid) {
+        window.showMessage?.(labelValidation.error, 'error');
+        return;
+    }
+
+    _isSaving = true;
+    try {
+        const existing = window.AnnotationState?.annotations?.[name] || {};
+        await window.AnnotationAPI.saveAnnotation(
+            window.patientId, window.imageName,
+            name, existing.type || 'point', existing.data || {},
+            { status: 'occluded' }
+        );
+        if (window.AnnotationState?.setAnnotation) {
+            window.AnnotationState.setAnnotation(name, { ...existing, status: 'occluded' });
+        }
+        window.saveToHistory?.();
+        window.showMessage?.(window.formatSuccessMessage?.('Marked', name, 'occluded') ?? `Marked ${name} occluded`, 'success');
+    } catch (error) {
+        console.error('Error:', error);
+        window.showMessage?.(window.formatErrorMessage?.('mark', 'annotation as occluded', error) ?? 'Failed to mark occluded', 'error');
+    } finally {
+        _isSaving = false;
+    }
+}
+
+async function annotateLandmark(coords) {
+    if (_isSaving) { window.showMessage?.('Save operation in progress...', 'info'); return; }
+
+    const selectedLabel = window.AnnotationState?.selectedAnnotation;
+    if (!selectedLabel) {
+        window.showMessage?.('Please select a label first', 'warning');
+        return;
+    }
+
+    const labelValidation = window.validateLabelName?.(selectedLabel);
+    if (labelValidation && !labelValidation.valid) {
+        window.showMessage?.(labelValidation.error, 'error');
+        return;
+    }
+
+    const validation = window.validateCoordinates?.(coords);
+    if (validation && !validation.valid) {
+        window.showMessage?.(validation.error, 'error');
+        return;
+    }
+
+    _isSaving = true;
+    try {
+        await window.AnnotationAPI.saveAnnotation(
+            window.patientId, window.imageName,
+            selectedLabel, 'point', { x: coords.x, y: coords.y }
+        );
+        if (window.AnnotationState?.setAnnotation) {
+            window.AnnotationState.setAnnotation(selectedLabel, {
+                type: 'point', status: 'ok', data: { x: coords.x, y: coords.y }
+            });
+        }
+        window.saveToHistory?.();
+        window.showMessage?.(window.formatSuccessMessage?.('Annotated', selectedLabel) ?? `Annotated ${selectedLabel}`, 'success');
+    } catch (error) {
+        console.error('Error:', error);
+        window.showMessage?.(window.formatErrorMessage?.('save', 'annotation', error) ?? 'Failed to save', 'error');
+    } finally {
+        _isSaving = false;
+    }
+}
+
+async function nextUnannotatedImage() {
+    try {
+        const params = new URLSearchParams({
+            current_patient: window.patientId,
+            current_image: window.imageName
+        });
+        const response = await fetch(`/api/next-unannotated?${params.toString()}`);
+        const data = await response.json();
+        if (data.patient && data.image) {
+            window.location.href = `/annotate/${encodeURIComponent(data.patient)}/${encodeURIComponent(data.image)}`;
+        } else {
+            window.showMessage?.('No more unannotated images found', 'info');
+        }
+    } catch (error) {
+        console.error('Error finding next unannotated image:', error);
+        window.showMessage?.(window.formatErrorMessage?.('find', 'next image', error) ?? 'Failed to find next image', 'error');
+    }
+}
+
+async function deleteAnnotation(name) {
+    if (_isSaving) { window.showMessage?.('Save operation in progress...', 'info'); return; }
+
+    const labelValidation = window.validateLabelName?.(name);
+    if (labelValidation && !labelValidation.valid) {
+        window.showMessage?.(labelValidation.error, 'error');
+        return;
+    }
+
+    _isSaving = true;
+    try {
+        await window.AnnotationAPI.deleteAnnotation(window.patientId, window.imageName, name);
+
+        if (window.AnnotationState?.selectedAnnotation === name) {
+            window.AnnotationState.selectedAnnotation = null;
+        }
+        window.AnnotationState?.removeAnnotation(name);
+        window.saveToHistory?.();
+        window.forceRender?.();
+        window.showMessage?.(window.formatSuccessMessage?.('Deleted', `annotation for ${name}`) ?? `Deleted ${name}`, 'success');
+    } catch (error) {
+        console.error('Error:', error);
+        window.showMessage?.(window.formatErrorMessage?.('delete', 'annotation', error) ?? 'Failed to delete', 'error');
+    } finally {
+        _isSaving = false;
+    }
+}
+
+window.markOccluded = markOccluded;
+window.annotateLandmark = annotateLandmark;
+window.nextUnannotatedImage = nextUnannotatedImage;
+window.deleteAnnotation = deleteAnnotation;

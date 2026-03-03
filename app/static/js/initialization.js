@@ -6,18 +6,6 @@
 let _appInitialized = false;
 let _annotationSystemInitialized = false;
 
-// Event types that require syncing annotations to legacy STATE
-const SYNC_EVENTS = [
-    'annotationSet', 'annotationRemoved', 'annotationsLoaded',
-    'undo', 'redo'
-];
-
-// Event types that trigger re-rendering
-const RENDER_EVENTS = [
-    'annotationSet', 'annotationRemoved', 'annotationsLoaded',
-    'visibilityToggled', 'visibilitySet', 'pendingCleared',
-    'undo', 'redo'
-];
 
 function loadFigureLabelsFromAnnotations() {
     const landmarks = window.landmarksData || [];
@@ -32,7 +20,8 @@ function loadFigureLabelsFromAnnotations() {
     });
 
     // Labels from existing annotations fill in any gaps
-    Object.entries(STATE.annotations).forEach(([name, data]) => {
+    const annotations = window.AnnotationState?.annotations || window.currentAnnotations || {};
+    Object.entries(annotations).forEach(([name, data]) => {
         if (!labelMap.has(name)) {
             labelMap.set(name, {
                 name,
@@ -44,69 +33,58 @@ function loadFigureLabelsFromAnnotations() {
         }
     });
 
-    STATE.allLabels = Array.from(labelMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-    
-    // Also sync to AnnotationState if available
+    const allLabels = Array.from(labelMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     if (window.AnnotationState) {
-        window.AnnotationState.labels = STATE.allLabels;
+        window.AnnotationState.labels = allLabels;
     }
 }
 
 function initializeVisibilityToggles() {
+    const labels = window.AnnotationState?.labels || [];
     const toggles = {};
-    STATE.allLabels.forEach(label => {
+    labels.forEach(label => {
         toggles[label.name] = true;
     });
-    STATE.visibilityToggles = toggles;
+    if (window.AnnotationState) {
+        window.AnnotationState.visibilityToggles = toggles;
+    }
 }
 
 function handleImageLoad() {
-    if (STATE) {
-        STATE.imageLoaded = true;
-        STATE.naturalWidth = DOM.img.naturalWidth;
-        STATE.naturalHeight = DOM.img.naturalHeight;
-    }
+    const imgW = DOM.img.naturalWidth;
+    const imgH = DOM.img.naturalHeight;
 
     if (DOM.loadingOverlay) {
         DOM.loadingOverlay.style.display = 'none';
     }
-    
-    if (DOM.imageWrapper && STATE) {
-        DOM.imageWrapper.style.width = `${STATE.naturalWidth}px`;
-        DOM.imageWrapper.style.height = `${STATE.naturalHeight}px`;
+
+    if (DOM.imageWrapper) {
+        DOM.imageWrapper.style.width = `${imgW}px`;
+        DOM.imageWrapper.style.height = `${imgH}px`;
     }
 
-    // Update the viewport with image dimensions for bounds checking
-    if (window.viewport && typeof window.viewport.setImageSize === 'function') {
-        window.viewport.setImageSize(STATE.naturalWidth, STATE.naturalHeight);
+    // Update viewport and state with image dimensions
+    if (window.viewport?.setImageSize) {
+        window.viewport.setImageSize(imgW, imgH);
     }
-
-    // Update the new annotation renderer with image dimensions
-    if (window.annotationRenderer && STATE) {
-        window.annotationRenderer.setImageSize(STATE.naturalWidth, STATE.naturalHeight);
+    if (window.annotationRenderer) {
+        window.annotationRenderer.setImageSize(imgW, imgH);
     }
-    
-    // Update AnnotationState with image dimensions
     if (window.AnnotationState) {
-        window.AnnotationState.imageWidth = STATE.naturalWidth;
-        window.AnnotationState.imageHeight = STATE.naturalHeight;
+        window.AnnotationState.imageWidth = imgW;
+        window.AnnotationState.imageHeight = imgH;
     }
 
     if (typeof resetView === 'function') {
         resetView();
     }
-    
-    // Initial render - use renderAnnotations to ensure colors are applied consistently
-    if (STATE.annotations) {
-        // Pre-assign colors for all existing annotations to ensure consistency
-        if (window.getColorForLabel) {
-            Object.keys(STATE.annotations).forEach(name => {
-                window.getColorForLabel(name);  // This assigns and caches the color
-            });
-        }
 
-        renderAnnotations(true);
+    // Pre-assign colors for all existing annotations, then render
+    const annotations = window.AnnotationState?.annotations || {};
+    if (window.getColorForLabel) {
+        Object.keys(annotations).forEach(name => window.getColorForLabel(name));
     }
+    renderAnnotations(true);
 }
 
 function handleImageError(e) {
@@ -116,9 +94,6 @@ function handleImageError(e) {
     }
     if (typeof showMessage === 'function') {
         showMessage('Failed to load image', 'error');
-    }
-    if (STATE) {
-        STATE.imageLoaded = false;
     }
 }
 
@@ -214,14 +189,14 @@ function setupEventListeners() {
 
     // Image adjustments
     document.getElementById('brightnessSlider').addEventListener('input', (e) => {
-        STATE.brightness = parseInt(e.target.value);
-        updateImageAdjustments();
-        document.getElementById('brightnessValue').textContent = STATE.brightness + '%';
+        const value = parseInt(e.target.value);
+        window.setBrightness?.(value);
+        document.getElementById('brightnessValue').textContent = value + '%';
     });
     document.getElementById('contrastSlider').addEventListener('input', (e) => {
-        STATE.contrast = parseInt(e.target.value);
-        updateImageAdjustments();
-        document.getElementById('contrastValue').textContent = STATE.contrast + '%';
+        const value = parseInt(e.target.value);
+        window.setContrast?.(value);
+        document.getElementById('contrastValue').textContent = value + '%';
     });
     document.getElementById('resetAdjustments').addEventListener('click', resetImageAdjustments);
 
@@ -391,13 +366,6 @@ function initializeApp() {
             setupLabelListEventDelegation();
         }
 
-        // Load annotations into state
-        if (STATE) {
-            STATE.annotations = window.currentAnnotations || {};
-        } else {
-            console.error('[Initialization] STATE is not available!');
-        }
-
         loadFigureLabelsFromAnnotations();
         initializeVisibilityToggles();
         setupEventListeners();
@@ -478,8 +446,8 @@ function initializeNewAnnotationSystem() {
             window.AnnotationState.init({
                 patientId: window.patientId,
                 imageName: window.imageName,
-                annotations: STATE?.annotations || {},
-                labels: STATE?.allLabels || []
+                annotations: window.currentAnnotations || {},
+                labels: window.AnnotationState.labels || []
             });
         }
 
@@ -490,11 +458,6 @@ function initializeNewAnnotationSystem() {
                 showHandles: true,
                 showLabels: true
             });
-
-            // Set image size when available
-            if (STATE?.naturalWidth && STATE?.naturalHeight) {
-                window.annotationRenderer.setImageSize(STATE.naturalWidth, STATE.naturalHeight);
-            }
 
             // Reattach EditingHandler listeners to SVG now that it exists
             if (window.EditingHandler?.reattachSVGListeners) {
@@ -515,23 +478,6 @@ function initializeNewAnnotationSystem() {
         // Initialize EditingHandler
         if (window.EditingHandler) {
             window.EditingHandler.init();
-        }
-
-        // Subscribe to AnnotationState changes to sync with legacy STATE
-        if (window.AnnotationState?.subscribe) {
-            window.AnnotationState.subscribe((event, data) => {
-                // Sync annotations back to legacy STATE
-                if (SYNC_EVENTS.includes(event)) {
-                    if (STATE) {
-                        STATE.annotations = { ...window.AnnotationState.annotations };
-                    }
-                }
-
-                // Trigger render on relevant events
-                if (RENDER_EVENTS.includes(event)) {
-                    renderAnnotations(true);
-                }
-            });
         }
 
         // Mark annotation system initialization complete

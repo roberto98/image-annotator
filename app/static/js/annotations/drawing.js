@@ -247,7 +247,6 @@ const DrawingHandler = {
 
         // Check if in annotation mode
         if (window.AnnotationState && !window.AnnotationState.isAnnotationMode) return;
-        if (window.STATE && !window.STATE.isAnnotationMode) return;
 
         // Ignore if popup is open
         if (window.LabelSelector?.isOpen) return;
@@ -708,8 +707,8 @@ const DrawingHandler = {
 
         // Save via API
         try {
-            const patientId = state.patientId || window.STATE?.patientId || window.__APP_CONFIG__?.patientId;
-            const imageName = state.imageName || window.STATE?.imageName || window.__APP_CONFIG__?.imageName;
+            const patientId = state.patientId || window.__APP_CONFIG__?.patientId;
+            const imageName = state.imageName || window.__APP_CONFIG__?.imageName;
 
             if (!patientId || !imageName) {
                 throw new Error('Missing patient ID or image name');
@@ -734,31 +733,6 @@ const DrawingHandler = {
                     timestamp: new Date().toISOString()
                 });
 
-                // Also update the main STATE if it exists
-                if (window.STATE) {
-                    window.STATE.annotations = {
-                        ...window.STATE.annotations,
-                        [label]: {
-                            type: tool,
-                            status: 'ok',
-                            color: color,
-                            ...data,
-                            timestamp: new Date().toISOString()
-                        }
-                    };
-
-                    // Ensure the label exists in STATE.allLabels for sidebar display
-                    if (window.STATE.allLabels) {
-                        const labelExists = window.STATE.allLabels.some(l => l.name === label);
-                        if (!labelExists) {
-                            window.STATE.allLabels = [
-                                ...window.STATE.allLabels,
-                                { name: label, type: tool, in_use: true }
-                            ].sort((a, b) => a.name.localeCompare(b.name));
-                        }
-                    }
-                }
-
                 const typeName = window.getTypeDisplayName?.(tool) || tool;
                 window.showMessage?.(`Created ${typeName} annotation: ${label}`, 'success');
             } else {
@@ -779,10 +753,6 @@ const DrawingHandler = {
 
         // Explicitly update sidebar to show new annotation
         if (typeof window.renderLabelList === 'function') {
-            // Reset the hash to force re-render
-            if (window.RENDER_STATE) {
-                window.RENDER_STATE.labelListHash = '';
-            }
             window.renderLabelList();
         }
     },

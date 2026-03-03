@@ -30,8 +30,10 @@ function validateCoordinates(coords) {
     }
 
     // Check against image bounds if available
-    if (STATE.naturalWidth && STATE.naturalHeight) {
-        if (coords.x > STATE.naturalWidth || coords.y > STATE.naturalHeight) {
+    const imgW = window.AnnotationState?.imageWidth;
+    const imgH = window.AnnotationState?.imageHeight;
+    if (imgW && imgH) {
+        if (coords.x > imgW || coords.y > imgH) {
             return { valid: false, error: 'Coordinates exceed image bounds' };
         }
     }
@@ -204,13 +206,26 @@ function updateUndoRedoButtons() {
     }
 }
 
+let _brightness = 100;
+let _contrast = 100;
+
 function updateImageAdjustments() {
-    DOM.img.style.filter = `brightness(${STATE.brightness}%) contrast(${STATE.contrast}%)`;
+    DOM.img.style.filter = `brightness(${_brightness}%) contrast(${_contrast}%)`;
+}
+
+function setBrightness(value) {
+    _brightness = value;
+    updateImageAdjustments();
+}
+
+function setContrast(value) {
+    _contrast = value;
+    updateImageAdjustments();
 }
 
 function resetImageAdjustments() {
-    STATE.brightness = 100;
-    STATE.contrast = 100;
+    _brightness = 100;
+    _contrast = 100;
 
     const brightnessSlider = document.getElementById('brightnessSlider');
     const contrastSlider = document.getElementById('contrastSlider');
@@ -229,37 +244,152 @@ function toggleMode() {
         return;
     }
 
-    STATE.isAnnotationMode = !STATE.isAnnotationMode;
+    if (window.AnnotationState) {
+        window.AnnotationState.isAnnotationMode = !window.AnnotationState.isAnnotationMode;
+    }
+
+    const isAnnotationMode = window.AnnotationState?.isAnnotationMode ?? true;
 
     // Deactivate DrawingHandler when switching to Navigation mode
-    if (!STATE.isAnnotationMode) {
+    if (!isAnnotationMode) {
         window.DrawingHandler?.deactivate?.();
     }
 
-    // Also sync to AnnotationState if it exists
-    if (window.AnnotationState) {
-        window.AnnotationState.isAnnotationMode = STATE.isAnnotationMode;
-    }
-
     updateModeDisplay();
-    
-    // Update figure interactivity when mode changes
-    // Pan mode freezes all figure interactions
-    if (typeof updateFigureInteractivity === 'function') {
-        updateFigureInteractivity();
-    }
-    
-    showMessage(STATE.isAnnotationMode ? 'Annotation Mode - Click to annotate' : 'Navigation Mode - Drag to pan, scroll to zoom');
+    showMessage(isAnnotationMode ? 'Annotation Mode - Click to annotate' : 'Navigation Mode - Drag to pan, scroll to zoom');
 }
 
 function updateModeDisplay() {
-    const isPanning = !STATE.isAnnotationMode;
-    DOM.modeIndicator.classList.toggle('panning', isPanning);
+    const isAnnotationMode = window.AnnotationState?.isAnnotationMode ?? true;
+    DOM.modeIndicator.classList.toggle('panning', !isAnnotationMode);
     DOM.modeIndicator.querySelector('span').textContent =
-        STATE.isAnnotationMode ? 'Annotation Mode' : 'Navigation Mode';
-    DOM.imageContainer.style.cursor = STATE.isAnnotationMode ? 'crosshair' : 'grab';
-    
-    // Update data attribute for automation
-    DOM.modeIndicator.setAttribute('data-mode', STATE.isAnnotationMode ? 'annotation' : 'panning');
+        isAnnotationMode ? 'Annotation Mode' : 'Navigation Mode';
+    DOM.imageContainer.style.cursor = isAnnotationMode ? 'crosshair' : 'grab';
+    DOM.modeIndicator.setAttribute('data-mode', isAnnotationMode ? 'annotation' : 'panning');
 }
+
+// ============================================================================
+// Image Adjustment Exposed Setters
+// ============================================================================
+
+window.setBrightness = setBrightness;
+window.setContrast = setContrast;
+
+// ============================================================================
+// Color Management
+// ============================================================================
+
+/**
+ * Fixed color palette for annotations - 30 distinct, visually distinguishable colors.
+ */
+const COLORS = Object.freeze([
+    '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+    '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
+    '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
+    '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080',
+    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7',
+    '#dfe6e9', '#fd79a8', '#a29bfe', '#00b894', '#e17055'
+]);
+
+const COLOR_STORAGE_KEY = 'annotation_label_colors';
+
+function loadColorAssignments() {
+    try {
+        const stored = localStorage.getItem(COLOR_STORAGE_KEY);
+        if (stored) return JSON.parse(stored);
+    } catch (e) {
+        console.warn('[utilities.js] Failed to load color assignments:', e);
+    }
+    return {};
+}
+
+function saveColorAssignments(assignments) {
+    try {
+        localStorage.setItem(COLOR_STORAGE_KEY, JSON.stringify(assignments));
+    } catch (e) {
+        console.warn('[utilities.js] Failed to save color assignments:', e);
+    }
+}
+
+function getNextColorIndex() {
+    const usedColors = Object.values(window._labelColorAssignments);
+    let maxIndex = -1;
+    usedColors.forEach(color => {
+        const index = COLORS.indexOf(color);
+        if (index > maxIndex) maxIndex = index;
+    });
+    return (maxIndex + 1) % COLORS.length;
+}
+
+function getColorForLabel(labelName) {
+    if (!labelName) return COLORS[0];
+    if (window._labelColorAssignments[labelName]) {
+        return window._labelColorAssignments[labelName];
+    }
+    const color = COLORS[window._nextColorIndex];
+    window._labelColorAssignments[labelName] = color;
+    window._nextColorIndex = (window._nextColorIndex + 1) % COLORS.length;
+    saveColorAssignments(window._labelColorAssignments);
+    return color;
+}
+
+function setColorForLabel(labelName, color) {
+    if (!labelName || !color) return;
+    window._labelColorAssignments[labelName] = color;
+    saveColorAssignments(window._labelColorAssignments);
+    if (typeof window.forceRender === 'function') window.forceRender();
+}
+
+function getAllColorAssignments() {
+    return { ...window._labelColorAssignments };
+}
+
+window._labelColorAssignments = loadColorAssignments();
+window._nextColorIndex = getNextColorIndex();
+window.COLORS = COLORS;
+window.getColorForLabel = getColorForLabel;
+window.setColorForLabel = setColorForLabel;
+window.getAllColorAssignments = getAllColorAssignments;
+
+// ============================================================================
+// Label Validation
+// ============================================================================
+
+/**
+ * Validate label name for security and correctness
+ * @param {string} name - Label name to validate
+ * @returns {{valid: boolean, error?: string}} Validation result
+ */
+function validateLabelName(name) {
+    if (!name || typeof name !== 'string') {
+        return { valid: false, error: 'Label name must be a non-empty string' };
+    }
+
+    if (name.length > 100) {
+        return { valid: false, error: 'Label name is too long (max 100 characters)' };
+    }
+
+    const dangerousPatterns = [
+        /<[^>]*>/,
+        /[<>]/,
+        /\.\.\//,
+        /[\x00-\x1f]/,
+        /javascript:/i,
+        /data:/i,
+        /vbscript:/i
+    ];
+
+    if (dangerousPatterns.some(pattern => pattern.test(name))) {
+        return { valid: false, error: 'Label name contains invalid characters' };
+    }
+
+    const allowedPattern = /^[\w\s\-\.\(\)]+$/;
+    if (!allowedPattern.test(name)) {
+        return { valid: false, error: 'Label name contains disallowed characters' };
+    }
+
+    return { valid: true };
+}
+
+window.validateLabelName = validateLabelName;
 

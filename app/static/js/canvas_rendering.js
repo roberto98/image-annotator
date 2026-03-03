@@ -49,32 +49,25 @@ function forceRender() {
  * renderAnnotations() or renderLabelList() calls are needed.
  */
 function setupReactiveRendering() {
-    console.log('[rendering.js] setupReactiveRendering called');
-
     // Clean up existing subscription if present (prevents memory leak on re-init)
     if (_renderingUnsubscribe) {
-        console.log('[rendering.js] Cleaning up existing rendering subscription');
         _renderingUnsubscribe();
     }
 
-    if (!window.AppStore) {
-        console.error('[rendering.js] window.AppStore is undefined! Cannot set up reactive rendering.');
-        console.error('[rendering.js] Available globals: AppStore=', typeof window.AppStore,
-            'AnnotationStore=', typeof window.AnnotationStore,
-            'Store=', typeof window.Store,
-            'STATE=', typeof window.STATE);
+    if (!window.AnnotationState?.subscribe) {
+        console.error('[rendering.js] window.AnnotationState.subscribe not available');
         return;
     }
 
-    if (typeof window.AppStore.subscribe !== 'function') {
-        console.error('[rendering.js] window.AppStore.subscribe is not a function! AppStore type:', typeof window.AppStore);
-        return;
-    }
+    const RENDER_EVENTS = [
+        'annotationSet', 'annotationRemoved', 'annotationsLoaded',
+        'visibilityToggled', 'visibilitySet', 'visibilityShowAll', 'visibilityHideAll',
+        'undo', 'redo', 'pendingCleared', 'drawingStarted'
+    ];
 
-    _renderingUnsubscribe = window.AppStore.subscribe(() => {
-        scheduleRender();
+    _renderingUnsubscribe = window.AnnotationState.subscribe((event) => {
+        if (RENDER_EVENTS.includes(event)) scheduleRender();
     });
-    console.log('[rendering.js] Reactive rendering subscription active');
 }
 
 /**
@@ -89,13 +82,15 @@ function teardownReactiveRendering() {
 
 /** Generate a hash of current render-relevant state for dirty tracking */
 function getAnnotationsHash() {
+    const as = window.AnnotationState;
+    const vp = window.viewport;
     return JSON.stringify({
-        annotations: STATE.annotations, // Include full annotation data, not just keys
-        visibility: STATE.visibilityToggles,
-        zoom: STATE.currentZoom,
-        translateX: STATE.translateX,
-        translateY: STATE.translateY,
-        selectedLabel: STATE.selectedLabel
+        annotations: as?.annotations,
+        visibility: as?.visibilityToggles,
+        zoom: vp?.scale,
+        translateX: vp?.offsetX,
+        translateY: vp?.offsetY,
+        selectedLabel: as?.selectedAnnotation
     });
 }
 
@@ -116,55 +111,45 @@ function renderAnnotations(force = false) {
     if (!force && currentHash === RENDER_STATE.annotationsHash) return;
     RENDER_STATE.annotationsHash = currentHash;
 
+    const as = window.AnnotationState;
+
     // Use new SVG-based AnnotationRenderer if available
     if (window.annotationRenderer && window.annotationRenderer._svg) {
+        const annotations = as?.annotations || {};
+        const visibilityToggles = as?.visibilityToggles || {};
+
         // Build annotations object with visibility filtering
         const visibleAnnotations = {};
-        Object.entries(STATE.annotations).forEach(([name, data]) => {
-            if (STATE.visibilityToggles[name] === false) return;
-
-            // Get stable color for this label
+        Object.entries(annotations).forEach(([name, data]) => {
+            if (visibilityToggles[name] === false) return;
             const color = window.getColorForLabel?.(name) || '#ff0000';
-            visibleAnnotations[name] = {
-                ...data,
-                color: color
-            };
+            visibleAnnotations[name] = { ...data, color };
         });
-        
+
         // Delegate to new renderer
-        window.annotationRenderer.setSelected(STATE.selectedLabel);
-        window.annotationRenderer.render(visibleAnnotations, STATE.calibration || null);
-        
-        // Still render legacy polygon preview if active
-        if (STATE.currentTool === 'polygon' && STATE.activePolygonPoints?.length > 0) {
-            renderActivePolygonLegacy();
-        }
-        
+        window.annotationRenderer.setSelected(as?.selectedAnnotation ?? null);
+        window.annotationRenderer.render(visibleAnnotations, as?.calibration?.pixelsPerMm || null);
+
         // Render DrawingHandler preview if active
         if (window.DrawingHandler?.isActive) {
             renderDrawingPreview();
         }
-        
+
         return;
     }
 
     // Fallback to legacy DOM-based rendering if SVG renderer not available
+    const annotations = as?.annotations || {};
+    const visibilityToggles = as?.visibilityToggles || {};
+
     document.querySelectorAll('.annotation-point, .annotation-label, .polygon-shape, .figure-shape').forEach(el => el.remove());
 
-    Object.entries(STATE.annotations).forEach(([name, data]) => {
-        if (STATE.visibilityToggles[name] === false) return;
+    Object.entries(annotations).forEach(([name, data]) => {
+        if (visibilityToggles[name] === false) return;
         const color = window.getColorForLabel?.(name) || '#ff0000';
         renderSingleAnnotationLegacy(name, data, color);
     });
 
-    if (STATE.currentTool === 'polygon' && STATE.activePolygonPoints?.length > 0) {
-        renderActivePolygonLegacy();
-    }
-
-    if (STATE.figurePreview) {
-        DOM.imageContainer.appendChild(STATE.figurePreview);
-    }
-    
     // Render DrawingHandler preview if active
     if (window.DrawingHandler?.isActive) {
         renderDrawingPreview();
@@ -260,7 +245,7 @@ function renderPolygonShapeLegacy(points, color, name) {
 
 function renderFigureLegacy(data, color, name) {
     const displayCoords = viewport.imageToScreen(data.x, data.y);
-    const displaySize = data.size * STATE.currentZoom;
+    const displaySize = data.size * (window.viewport?.scale || 1);
 
     const figure = document.createElement('div');
     figure.className = `figure-shape figure-${data.shape}`;
@@ -268,9 +253,10 @@ function renderFigureLegacy(data, color, name) {
     figure.setAttribute('data-annotation-type', 'figure');
     figure.setAttribute('data-shape', data.shape);
 
-    const isInteractive = STATE.isAnnotationMode && 
-                          STATE.currentTool === 'figure' && 
-                          STATE.selectedLabel === name;
+    const as = window.AnnotationState;
+    const isInteractive = (as?.isAnnotationMode ?? true) &&
+                          as?.currentTool === 'figure' &&
+                          as?.selectedAnnotation === name;
 
     if (data.shape === 'line') {
         renderLineShapeLegacy(figure, data, name, isInteractive);
@@ -341,13 +327,16 @@ function addResizeHandlesLegacy(figure, isInteractive) {
 
 /** Generate a hash of label-list-relevant state for dirty tracking */
 function getLabelListHash() {
+    const as = window.AnnotationState;
+    const labels = as?.labels || [];
+    const annotations = as?.annotations || {};
     return JSON.stringify({
-        labels: STATE.allLabels.map(l => l.name),
-        selected: STATE.selectedLabel,
-        visibility: STATE.visibilityToggles,
-        annotationKeys: Object.keys(STATE.annotations),
+        labels: labels.map(l => l.name),
+        selected: as?.selectedAnnotation,
+        visibility: as?.visibilityToggles,
+        annotationKeys: Object.keys(annotations),
         annotationMeta: Object.fromEntries(
-            Object.entries(STATE.annotations).map(([k, v]) => [k, { s: v.status, t: v.type }])
+            Object.entries(annotations).map(([k, v]) => [k, { s: v.status, t: v.type }])
         )
     });
 }
@@ -416,10 +405,16 @@ function renderLabelList(force = false) {
 
     const fragment = document.createDocumentFragment();
 
+    const as = window.AnnotationState;
+    const allLabels = as?.labels || [];
+    const annotations = as?.annotations || {};
+    const visibilityToggles = as?.visibilityToggles || {};
+    const selectedAnnotation = as?.selectedAnnotation;
+
     // Only show labels that have annotations for the current image
-    const annotatedLabels = STATE.allLabels.filter(label => STATE.annotations[label.name]);
+    const annotatedLabels = allLabels.filter(label => annotations[label.name]);
     const annotatedCount = annotatedLabels.length;
-    const totalLabels = STATE.allLabels.length;
+    const totalLabels = allLabels.length;
 
     // Add annotation count summary at the top
     const summaryDiv = document.createElement('div');
@@ -437,9 +432,9 @@ function renderLabelList(force = false) {
 
     // Only render cards for labels that have annotations
     annotatedLabels.forEach((label) => {
-        const annotation = STATE.annotations[label.name];
-        const isVisible = STATE.visibilityToggles[label.name] !== false;
-        const isSelected = STATE.selectedLabel === label.name;
+        const annotation = annotations[label.name];
+        const isVisible = visibilityToggles[label.name] !== false;
+        const isSelected = selectedAnnotation === label.name;
 
         const labelDiv = document.createElement('div');
         labelDiv.className = 'label-item annotated';
@@ -523,10 +518,10 @@ function setupLabelListEventDelegation() {
 
         switch (action) {
             case 'toggle-visibility':
-                toggleVisibility(label);
+                window.AnnotationState?.toggleVisibility(label);
                 break;
             case 'delete':
-                deleteAnnotation(label);
+                window.deleteAnnotation?.(label);
                 break;
         }
     });
@@ -541,10 +536,6 @@ function setupLabelListEventDelegation() {
  */
 function clearPolygonElementsFallback() {
     document.querySelectorAll('.polygon-point, .polygon-line').forEach(el => el.remove());
-    if (STATE.activePolygonElements) {
-        STATE.activePolygonElements.points = [];
-        STATE.activePolygonElements.lines = [];
-    }
 }
 
 function renderActivePolygonLegacy() {
@@ -554,32 +545,7 @@ function renderActivePolygonLegacy() {
     } else {
         clearPolygonElementsFallback();
     }
-
-    if (!STATE.activePolygonPoints || STATE.activePolygonPoints.length === 0) return;
-
-    STATE.activePolygonPoints.forEach((point, index) => {
-        const { x, y } = viewport.imageToScreen(point.x, point.y);
-
-        const pointEl = document.createElement('div');
-        pointEl.className = 'polygon-point';
-        if (index === 0) pointEl.classList.add('start-point');
-        pointEl.style.left = `${x}px`;
-        pointEl.style.top = `${y}px`;
-
-        DOM.imageContainer.appendChild(pointEl);
-        if (STATE.activePolygonElements?.points) {
-            STATE.activePolygonElements.points.push(pointEl);
-        }
-    });
-
-    for (let i = 0; i < STATE.activePolygonPoints.length; i++) {
-        const p1 = STATE.activePolygonPoints[i];
-        const p2 = STATE.activePolygonPoints[(i + 1) % STATE.activePolygonPoints.length];
-        
-        if (i < STATE.activePolygonPoints.length - 1 || STATE.activePolygonPoints.length >= 3) {
-            drawPolygonLineLegacy(p1, p2);
-        }
-    }
+    // Legacy polygon preview — no-op in new system (DrawingHandler handles preview)
 }
 
 function drawPolygonLineLegacy(p1, p2) {
@@ -596,9 +562,6 @@ function drawPolygonLineLegacy(p1, p2) {
     line.style.transform = `rotate(${angle}deg)`;
     
     DOM.imageContainer.appendChild(line);
-    if (STATE.activePolygonElements?.lines) {
-        STATE.activePolygonElements.lines.push(line);
-    }
 }
 
 // ============================================================================

@@ -387,16 +387,11 @@
     <!-- 8. Rendering utilities (delegates to AnnotationRenderer for SVG rendering) -->
     <script src="{{ url_for('static', filename='js/canvas_rendering.js') }}"></script>
 
-    <!-- 9. Compatibility shims for legacy state references -->
-    <script src="{{ url_for('static', filename='js/store/index.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app_state.js') }}"></script>
-
-    <!-- 10. Legacy modules (required for some features) -->
+    <!-- 9. Canvas utilities -->
     <script src="{{ url_for('static', filename='js/canvas_zoom.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/annotation_manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/canvas_interactions.js') }}"></script>
 
-    <!-- 11. Main entry point and initialization -->
+    <!-- 10. Main entry point and initialization -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/initialization.js') }}"></script>
 </body>

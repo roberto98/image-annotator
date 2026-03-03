@@ -330,7 +330,7 @@ const LabelSelector = {
 
     async loadLabels() {
         // Start with local labels as fallback
-        let labels = window.AnnotationState?.labels || window.STATE?.allLabels || [];
+        let labels = window.AnnotationState?.labels || [];
 
         // Try to fetch labels from backend API (shared across all images)
         try {
@@ -345,9 +345,6 @@ const LabelSelector = {
                     // Update global state with backend labels
                     if (window.AnnotationState) {
                         window.AnnotationState.labels = labels;
-                    }
-                    if (window.STATE) {
-                        window.STATE.allLabels = labels;
                     }
                 }
             }
@@ -420,8 +417,8 @@ const LabelSelector = {
         container.innerHTML = '';
 
         // Get annotation status for sorting
-        const annotations = window.STATE?.annotations || {};
-        const usage = window.STATE?.labelUsageCounts || {};
+        const annotations = window.AnnotationState?.annotations || {};
+        const usage = {};
 
         Object.entries(this.categories).forEach(([categoryName, labels]) => {
             // Filter labels by search query using fuzzy matching
@@ -683,13 +680,6 @@ const LabelSelector = {
     selectLabel(labelName) {
         const callback = this.onSelect;
         const coords = this.triggerCoords;
-
-        // Update usage count in STATE
-        if (window.STATE) {
-            const usage = { ...window.STATE.labelUsageCounts };
-            usage[labelName] = (usage[labelName] || 0) + 1;
-            window.STATE.labelUsageCounts = usage;
-        }
 
         this.hide();
 

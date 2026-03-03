@@ -81,17 +81,17 @@ const EditingHandler = {
     // State accessors (compatibility layer)
     
     _getState() {
-        return window.AnnotationState || window.STATE || {};
+        return window.AnnotationState || {};
     },
 
     _getPatientId() {
         const state = this._getState();
-        return state.patientId || window.patientId || window.STATE?.patientId || window.__APP_CONFIG__?.patientId;
+        return state.patientId || window.patientId || window.__APP_CONFIG__?.patientId;
     },
 
     _getImageName() {
         const state = this._getState();
-        return state.imageName || window.imageName || window.STATE?.imageName || window.__APP_CONFIG__?.imageName;
+        return state.imageName || window.imageName || window.__APP_CONFIG__?.imageName;
     },
 
     _getAnnotation(label) {
@@ -103,20 +103,11 @@ const EditingHandler = {
         if (window.AnnotationState?.setAnnotation) {
             window.AnnotationState.setAnnotation(label, data, saveToServer);
         }
-        if (window.STATE?.annotations) {
-            window.STATE.annotations = { ...window.STATE.annotations, [label]: data };
-        }
     },
 
     _removeAnnotation(label) {
-        // Update AnnotationState if available
         if (window.AnnotationState?.removeAnnotation) {
             window.AnnotationState.removeAnnotation(label);
-        }
-        // Always update STATE.annotations for renderLabelList() compatibility
-        if (window.STATE?.annotations) {
-            const { [label]: _, ...rest } = window.STATE.annotations;
-            window.STATE.annotations = rest;
         }
     },
 
@@ -126,12 +117,9 @@ const EditingHandler = {
     },
 
     _setSelectedLabel(label) {
-        // Sync both AnnotationState and STATE for renderAnnotations() compatibility
-        [window.AnnotationState, window.STATE].forEach(obj => {
-            if (!obj) return;
-            if ('selectedLabel' in obj) obj.selectedLabel = label;
-            if ('selectedFigure' in obj) obj.selectedFigure = label;
-        });
+        if (window.AnnotationState?.selectAnnotation) {
+            window.AnnotationState.selectAnnotation(label);
+        }
     },
 
     _saveToHistory() {
@@ -141,13 +129,7 @@ const EditingHandler = {
     },
 
     _render() {
-        if (typeof window.forceRender === 'function') {
-            window.forceRender();
-        } else if (typeof window.scheduleRender === 'function') {
-            window.scheduleRender(true);
-        } else if (typeof window.renderAnnotations === 'function') {
-            window.renderAnnotations(true);
-        }
+        window.forceRender?.();
     },
 
     // Initialization
@@ -959,7 +941,7 @@ const EditingHandler = {
     // Helper Methods
 
     _isAnnotationMode() {
-        return window.AnnotationState?.isAnnotationMode ?? window.STATE?.isAnnotationMode ?? true;
+        return window.AnnotationState?.isAnnotationMode ?? true;
     },
 
     _selectAnnotation(label) {
@@ -979,44 +961,19 @@ const EditingHandler = {
     },
 
     _eventToImage(e) {
-        if (window.viewport?.eventToImage) return window.viewport.eventToImage(e);
-
-        const container = window.DOM?.imageContainer;
-        if (!container) return null;
-
-        const rect = this._containerRect || container.getBoundingClientRect();
-        const zoom = window.STATE?.currentZoom || 1;
-        const translateX = window.STATE?.translateX || 0;
-        const translateY = window.STATE?.translateY || 0;
-
-        return {
-            x: (e.clientX - rect.left - translateX) / zoom,
-            y: (e.clientY - rect.top - translateY) / zoom
-        };
+        return window.viewport?.eventToImage(e) ?? null;
     },
 
     _touchEventToImage(touch) {
         const container = window.DOM?.imageContainer;
         if (!container) return null;
-
         const rect = this._containerRect || container.getBoundingClientRect();
-        const zoom = window.STATE?.currentZoom || window.AnnotationState?.calibration?.pixelsPerMm || 1;
-        const translateX = window.STATE?.translateX || 0;
-        const translateY = window.STATE?.translateY || 0;
-
-        if (window.viewport?.screenToImage) {
-            return window.viewport.screenToImage(touch.clientX - rect.left, touch.clientY - rect.top);
-        }
-
-        return {
-            x: (touch.clientX - rect.left - translateX) / zoom,
-            y: (touch.clientY - rect.top - translateY) / zoom
-        };
+        return window.viewport?.screenToImage(touch.clientX - rect.left, touch.clientY - rect.top) ?? null;
     },
 
     _clampToImageBounds(x, y) {
-        const width = window.STATE?.naturalWidth || window.AnnotationState?.imageWidth || Infinity;
-        const height = window.STATE?.naturalHeight || window.AnnotationState?.imageHeight || Infinity;
+        const width = window.AnnotationState?.imageWidth || Infinity;
+        const height = window.AnnotationState?.imageHeight || Infinity;
         return {
             x: Math.max(0, Math.min(width, x)),
             y: Math.max(0, Math.min(height, y))

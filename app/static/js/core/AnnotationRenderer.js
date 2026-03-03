@@ -180,10 +180,27 @@ class AnnotationRenderer {
     }
 
     _syncTransform() {
-        if (!this._transformGroup || !this._viewport) return;
+        if (!this._viewport) return;
 
         const { scale, offsetX, offsetY } = this._viewport;
-        this._transformGroup.setAttribute('transform', `matrix(${scale}, 0, 0, ${scale}, ${offsetX}, ${offsetY})`);
+
+        // Update SVG annotation transform
+        if (this._transformGroup) {
+            this._transformGroup.setAttribute('transform', `matrix(${scale}, 0, 0, ${scale}, ${offsetX}, ${offsetY})`);
+        }
+
+        // Reposition HTML label divs — they store their anchor in image coords
+        if (this._labelLayer) {
+            for (const label of this._labelLayer.children) {
+                const ix = label.dataset.imageX;
+                const iy = label.dataset.imageY;
+                if (ix !== undefined && iy !== undefined) {
+                    const screen = this._viewport.imageToScreen(parseFloat(ix), parseFloat(iy));
+                    label.style.left = `${screen.x}px`;
+                    label.style.top = `${screen.y}px`;
+                }
+            }
+        }
     }
 
     // Cleanup
@@ -507,6 +524,10 @@ class AnnotationRenderer {
         `;
         label.textContent = text;
 
+        // Store image-space anchor so _syncTransform can reposition on pan/zoom
+        label.dataset.imageX = imageX;
+        label.dataset.imageY = imageY;
+
         // Add annotation ID for easier removal in differential rendering
         if (annotationId) {
             label.dataset.annotationId = annotationId;
@@ -541,6 +562,10 @@ class AnnotationRenderer {
             pointer-events: none;
         `;
         label.textContent = text;
+
+        // Store image-space anchor so _syncTransform can reposition on pan/zoom
+        label.dataset.imageX = imageX;
+        label.dataset.imageY = imageY;
 
         // Add annotation ID for easier removal in differential rendering
         if (annotationId) {

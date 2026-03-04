@@ -118,16 +118,23 @@
 
 .image-info {
     flex: 1;
+    min-width: 0;
 }
 
 .image-name {
     font-weight: 600;
     margin-bottom: 0.3rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .image-patient {
     font-size: 0.85rem;
     color: var(--text-light);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .image-annotations {

@@ -63,6 +63,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    overflow: hidden;
 }
 
 .directory-item:hover {
@@ -78,6 +79,14 @@
 .directory-icon {
     color: var(--primary);
     margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+
+.directory-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 /* Directory Content */

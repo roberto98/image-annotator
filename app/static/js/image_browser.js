@@ -62,8 +62,11 @@ function renderDirectoryTree(directory, level = 0) {
     icon.className = 'directory-icon';
     icon.textContent = '📁';
 
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'directory-name';
+    nameSpan.textContent = directory.name;
     dirItem.appendChild(icon);
-    dirItem.appendChild(document.createTextNode(directory.name));
+    dirItem.appendChild(nameSpan);
 
     dirItem.addEventListener('click', () => {
         document.querySelectorAll('.directory-item').forEach(item => {
@@ -124,8 +127,11 @@ function showDirectoryContents(directory) {
             icon.className = 'directory-icon';
             icon.textContent = '📁';
 
+            const folderNameSpan = document.createElement('span');
+            folderNameSpan.className = 'directory-name';
+            folderNameSpan.textContent = dir.name;
             folderItem.appendChild(icon);
-            folderItem.appendChild(document.createTextNode(dir.name));
+            folderItem.appendChild(folderNameSpan);
 
             folderItem.addEventListener('click', () => {
                 const treeItems = directoryTree.querySelectorAll('.directory-item');

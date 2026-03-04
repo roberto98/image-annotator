@@ -15,6 +15,7 @@ const RENDER_STATE = {
 let _renderPending = false;
 let _forceNextRender = false;
 let _renderingUnsubscribe = null;
+let _viewportRenderUnsubscribe = null;
 
 /**
  * Schedule a batched render via microtask.
@@ -68,6 +69,15 @@ function setupReactiveRendering() {
     _renderingUnsubscribe = window.AnnotationState.subscribe((event) => {
         if (RENDER_EVENTS.includes(event)) scheduleRender();
     });
+
+    // Re-render on scale change so circle radii (r = pointRadius/scale) are recomputed
+    if (window.viewport?.subscribe) {
+        _viewportRenderUnsubscribe = window.viewport.subscribe((property, newState, oldState) => {
+            if (newState.scale !== oldState.scale) {
+                scheduleRender();
+            }
+        });
+    }
 }
 
 /**
@@ -77,6 +87,10 @@ function teardownReactiveRendering() {
     if (_renderingUnsubscribe) {
         _renderingUnsubscribe();
         _renderingUnsubscribe = null;
+    }
+    if (_viewportRenderUnsubscribe !== null) {
+        window.viewport?.unsubscribe(_viewportRenderUnsubscribe);
+        _viewportRenderUnsubscribe = null;
     }
 }
 

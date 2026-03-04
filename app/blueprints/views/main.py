@@ -9,11 +9,8 @@ import io
 import config
 from app.imaging import load_image, is_dicom_file
 from app.visualization import LandmarkVisualizer
+from app.image_manager import IMAGE_EXTENSIONS as ALL_IMAGE_EXTENSIONS
 from app.blueprints.views import views_bp
-
-# Supported image file extensions
-IMAGE_EXTENSIONS = ('*.png', '*.jpg', '*.jpeg')
-ALL_IMAGE_EXTENSIONS = IMAGE_EXTENSIONS + ('*.dcm', '*.dicom')
 
 # DICOM-to-JPEG conversion quality
 DICOM_JPEG_QUALITY = 95
@@ -143,7 +140,8 @@ def annotate_image(patient: str, image: str) -> str:
             pass
     prev_img = images.get_previous_image(patient, image)
     next_img = images.get_next_image(patient, image)
-    current_index = images.get_image_index(patient, image)
+    idx = images.get_image_index(patient, image)
+    display_index = (idx + 1) if idx is not None else 0
     total_images = images.num_images
 
     return render_template("multi_landmark.html",
@@ -156,7 +154,7 @@ def annotate_image(patient: str, image: str) -> str:
                            current_annotations=current_annotations,
                            prev_img=prev_img,
                            next_img=next_img,
-                           current_index=(current_index + 1),
+                           current_index=display_index,
                            total_images=total_images)
 
 
@@ -202,6 +200,9 @@ def serve_image(patient: str, image: str) -> str:
 
     image_path = directory / image
 
+    if not image_path.exists():
+        abort(404)
+
     if is_dicom_file(image_path):
         try:
             img = load_image(image_path, force_invert_dicom=True)
@@ -210,10 +211,10 @@ def serve_image(patient: str, image: str) -> str:
             img_io.seek(0)
             return send_file(img_io, mimetype='image/jpeg')
         except Exception as e:
-            current_app.logger.error(f"Error serving DICOM file {image_path}: {e}")
+            current_app.logger.error(f"Error serving DICOM file {image_path}: {e}", exc_info=True)
             abort(500)
 
-    return send_from_directory(directory, image)
+    return send_from_directory(str(directory), image)
 
 
 @views_bp.route('/help')

@@ -427,9 +427,6 @@ const App = {
 
 window.App = App;
 
-// ============================================================================
-// Annotation Operations (migrated from annotation_manager.js)
-// ============================================================================
 
 let _isSaving = false;
 

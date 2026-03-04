@@ -6,11 +6,11 @@ from pathlib import Path
 import json
 import config
 from app.visualization import LandmarkVisualizer
+from app.image_manager import IMAGE_EXTENSIONS as ALL_IMAGE_EXTENSIONS
 from app.blueprints.views import views_bp
 
-# Supported image file extensions
-IMAGE_EXTENSIONS = ('*.png', '*.jpg', '*.jpeg')
-ALL_IMAGE_EXTENSIONS = IMAGE_EXTENSIONS + ('*.dcm', '*.dicom')
+# JPEG-only extensions for scanning rendered annotation output images
+JPEG_EXTENSIONS = ('*.png', '*.jpg', '*.jpeg')
 
 
 @views_bp.route('/browse-images')
@@ -37,7 +37,7 @@ def view_annotations() -> str:
             continue
 
         imgs = []
-        for ext in IMAGE_EXTENSIONS:
+        for ext in JPEG_EXTENSIONS:
             imgs.extend(p.name for p in patient_dir.glob(ext))
 
         if imgs:

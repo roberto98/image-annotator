@@ -12,8 +12,7 @@ from app.imaging import load_image, is_dicom_file
 from polygon_utils import generate_mask_from_polygon
 from app.blueprints.api import api_bp, error_response
 from app.blueprints.api.annotations import _load_annotations as _load_full
-
-SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".dcm", ".dicom"}
+from app.image_manager import IMAGE_EXT_SET
 
 
 def _load_annotations(patient: str, image: str) -> Dict[str, Any]:
@@ -38,7 +37,7 @@ def _build_directory_tree(dir_path: Path, dir_obj: Dict[str, Any]) -> None:
             }
             _build_directory_tree(item, child_dir)
             dir_obj["children"].append(child_dir)
-        elif item.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
+        elif item.suffix.lower() in IMAGE_EXT_SET:
             dir_obj["children"].append(
                 {
                     "name": item.name,

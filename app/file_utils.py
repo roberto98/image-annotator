@@ -30,9 +30,12 @@ def _update_string_reference(value: str, file_map: Dict[str, str], base_dir: str
             rel_new_path = os.path.relpath(new_abs_path, base_dir)
             return rel_new_path.replace('\\', '/'), True
     else:
-        clean_filename = clean_name(value)
-        if value != clean_filename:
-            return clean_filename, True
+        # Only update bare filenames that are actually being renamed —
+        # never clean arbitrary strings like timestamps or labels.
+        old_basename = os.path.basename
+        for old_path, new_path in file_map.items():
+            if old_basename(old_path) == value:
+                return old_basename(new_path), True
 
     return value, False
 

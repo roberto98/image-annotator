@@ -642,6 +642,9 @@ const DrawingHandler = {
      * Complete the current annotation
      */
     async completeAnnotation() {
+        if (this._isCompleting) return;
+        this._isCompleting = true;
+        try {
         window.Debug?.log('DrawingHandler', 'Attempting to complete annotation...');
         const state = window.AnnotationState;
         if (!state) return;
@@ -754,6 +757,9 @@ const DrawingHandler = {
         // Explicitly update sidebar to show new annotation
         if (typeof window.renderLabelList === 'function') {
             window.renderLabelList();
+        }
+        } finally {
+            this._isCompleting = false;
         }
     },
 

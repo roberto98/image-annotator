@@ -222,7 +222,7 @@ class Viewport {
     screenToImage(screenX, screenY) {
         if (!Number.isFinite(screenX) || !Number.isFinite(screenY)) {
             console.warn('[Viewport] screenToImage called with invalid coordinates:', screenX, screenY);
-            return { x: 0, y: 0 };
+            return null;
         }
         return {
             x: (screenX - this._offsetX) / this._scale,

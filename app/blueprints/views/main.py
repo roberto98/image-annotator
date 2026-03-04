@@ -194,7 +194,9 @@ def remove_figure() -> str:
 @views_bp.route("/images/<patient>/<image>")
 def serve_image(patient: str, image: str) -> str:
     """Serve image file, converting DICOM to JPEG on-the-fly."""
-    directory = Path(config.IMAGE_DIR) / patient
+    directory = Path(config.IMAGE_DIR) / Path(patient).name
+    if not directory.resolve().is_relative_to(Path(config.IMAGE_DIR).resolve()):
+        abort(404)
     if not directory.exists():
         abort(404)
 

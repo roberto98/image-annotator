@@ -284,13 +284,11 @@ function saveColorAssignments(assignments) {
 }
 
 function getNextColorIndex() {
-    const usedColors = Object.values(window._labelColorAssignments);
-    let maxIndex = -1;
-    usedColors.forEach(color => {
-        const index = COLORS.indexOf(color);
-        if (index > maxIndex) maxIndex = index;
-    });
-    return (maxIndex + 1) % COLORS.length;
+    const usedColors = new Set(Object.values(window._labelColorAssignments));
+    for (let i = 0; i < COLORS.length; i++) {
+        if (!usedColors.has(COLORS[i])) return i;
+    }
+    return 0; // all colors used, wrap around
 }
 
 function getColorForLabel(labelName) {

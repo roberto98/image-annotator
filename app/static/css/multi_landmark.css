@@ -457,6 +457,7 @@ body, html {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-bottom: 60px;
 }
 
 .label-item {

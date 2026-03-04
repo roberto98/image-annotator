@@ -130,7 +130,10 @@ def export_annotations() -> Response:
 
     all_annotations = {}
     for img_key in selected_images:
-        patient, filename = img_key.split("/")
+        parts = img_key.split("/", 1)
+        if len(parts) != 2:
+            continue
+        patient, filename = parts
         annotations_data = _load_annotations(patient, filename)
 
         if annotations_data:

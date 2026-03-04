@@ -79,9 +79,10 @@ class ImageManager:
         """Find next image without annotations (wraps around to beginning)."""
         current_index = self._index_map.get((current_patient, current_image))
         if current_index is None:
-            return None
-
-        search_order = list(range(current_index + 1, len(self.all_images))) + list(range(0, current_index))
+            # No current image provided or not found — search from the beginning
+            search_order = list(range(len(self.all_images)))
+        else:
+            search_order = list(range(current_index + 1, len(self.all_images))) + list(range(0, current_index))
         ann_base = Path(config.ANNOTATION_DIR)
 
         for i in search_order:

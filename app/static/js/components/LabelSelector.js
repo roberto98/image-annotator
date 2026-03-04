@@ -252,15 +252,16 @@ const LabelSelector = {
         const searchInput = this.element.querySelector('.label-selector-search');
         searchInput.value = '';
 
-        // Show popup first to get dimensions
-        this.element.style.display = 'flex';
-        this.element.style.opacity = '0';
+        // Mark open before the async fetch so re-entrant clicks are blocked
         this.isOpen = true;
 
-        // Load labels from API and organize by category (async)
+        // Load labels before showing so the popup appears fully populated in one paint
         await this.loadLabels();
 
-        // Position popup after it's visible
+        // Show and position now that data is ready
+        this.element.style.display = 'flex';
+        this.element.style.opacity = '0';
+
         requestAnimationFrame(() => {
             this.positionPopup(screenX, screenY);
             this.element.style.opacity = '1';

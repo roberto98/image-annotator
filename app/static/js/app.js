@@ -212,10 +212,15 @@ const App = {
             // Load annotations
             if (window.AnnotationAPI?.getAnnotations) {
                 try {
+                    const targetPatient = patientId;
+                    const targetImage = imageName;
                     const annotations = await window.AnnotationAPI.getAnnotations(patientId, imageName);
                     if (annotations && window.AnnotationState) {
                         // Don't replace if we already have annotations from template
-                        if (Object.keys(window.AnnotationState.annotations).length === 0) {
+                        // Also guard against stale responses from a previous image load
+                        if (Object.keys(window.AnnotationState.annotations).length === 0 &&
+                            window.AnnotationState.patientId === targetPatient &&
+                            window.AnnotationState.imageName === targetImage) {
                             window.AnnotationState.setAllAnnotations(annotations);
                         }
                     }

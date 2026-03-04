@@ -611,7 +611,7 @@ def create_label() -> Tuple[Response, int]:
     # Save
     _save_labels(data)
 
-    return _success_response({"label": label}), 201
+    return jsonify({"status": "success", "label": label}), 201
 
 
 @annotations_bp.route("/labels/<name>", methods=["PUT"])
@@ -683,6 +683,18 @@ def delete_label(name: str) -> Tuple[Response, int]:
 
     # Save
     _save_labels(data)
+
+    # Cascade: remove orphaned annotations from all patient annotation files
+    for annotation_file in DATA_DIR.rglob("*_annotations.json"):
+        try:
+            file_data = json.loads(annotation_file.read_text(encoding="utf-8"))
+            annotations = file_data.get("annotations", {})
+            if name in annotations:
+                del annotations[name]
+                file_data["annotations"] = annotations
+                annotation_file.write_text(json.dumps(file_data, indent=2), encoding="utf-8")
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"Failed to cascade delete label '{name}' from {annotation_file}: {e}")
 
     return _success_response({"deleted": name})
 

@@ -291,7 +291,7 @@ function renderLabelList(force = false) {
                 <div class="label-controls">
                     <button class="toggle-btn ${isVisible ? 'active' : ''}"
                             data-action="toggle-visibility"
-                            data-label="${safeName}"
+                            data-label="${label.name}"
                             title="${isVisible ? 'Hide annotation' : 'Show annotation'}">
                         ${visibilityIcon}
                     </button>
@@ -300,7 +300,7 @@ function renderLabelList(force = false) {
             </div>
             ${safeInfoText ? `<div class="label-info">${safeInfoText}</div>` : ''}
             <div class="label-actions">
-                <button class="action-btn btn-delete" data-action="delete" data-label="${safeName}">Delete</button>
+                <button class="action-btn btn-delete" data-action="delete" data-label="${label.name}">Delete</button>
             </div>
         `;
 

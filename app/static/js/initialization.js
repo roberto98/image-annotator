@@ -338,15 +338,16 @@ function initializeApp() {
         }
 
         loadFigureLabelsFromAnnotations();
-        initializeVisibilityToggles();
         setupEventListeners();
 
         if (typeof saveToHistory === 'function') {
             saveToHistory();
         }
 
-        // Initialize new annotation system modules
+        // Initialize new annotation system modules (must run before visibility toggles
+        // so AnnotationState.init() doesn't overwrite the toggles)
         initializeNewAnnotationSystem();
+        initializeVisibilityToggles();
 
         // Initialize LabelPopup (legacy fallback)
         if (typeof LabelPopup !== 'undefined') {

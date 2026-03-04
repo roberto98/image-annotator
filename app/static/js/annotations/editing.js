@@ -304,12 +304,17 @@ const EditingHandler = {
         const target = e.target.closest('[data-annotation]');
         if (!target) return;
 
-        const relatedTarget = e.relatedTarget?.closest('[data-annotation]');
-        const currentLabel = target.dataset.annotation;
-        const newLabel = relatedTarget?.dataset.annotation;
+        // Use data-annotation-id (set only on group elements, not on handles) as
+        // the group boundary. Intra-group transitions (e.g. shape → handle) must
+        // not clear the hover state — they are not real annotation exits.
+        const currentGroup = target.closest('[data-annotation-id]') || target;
+        const relatedGroup = e.relatedTarget?.closest('[data-annotation-id]');
 
-        if (currentLabel !== newLabel && window.annotationRenderer?.setHovered) {
-            window.annotationRenderer.setHovered(newLabel || null);
+        if (relatedGroup === currentGroup) return;
+
+        const newLabel = relatedGroup?.dataset?.annotation || null;
+        if (window.annotationRenderer?.setHovered) {
+            window.annotationRenderer.setHovered(newLabel);
         }
     },
 
@@ -355,9 +360,11 @@ const EditingHandler = {
             const dy = touch.clientY - this._touchStartPos.y;
             if (Math.hypot(dx, dy) < this.TOUCH_DRAG_THRESHOLD) return;
 
+            this.dragStartPos = this._touchEventToImage(touch);
+            if (!this.dragStartPos) return;
+
             this._isTouchDrag = true;
             this.isDragging = true;
-            this.dragStartPos = this._touchEventToImage(touch);
 
             if (this.dragPointIndex >= 0) {
                 this.dragTarget = 'point';
@@ -455,9 +462,13 @@ const EditingHandler = {
 
         window.Debug?.log('EditingHandler', `Annotation found: type=${annotation.type}, data=`, annotation.data || annotation);
 
+        this.dragStartPos = this._eventToImage(e);
+        if (!this.dragStartPos) {
+            return;
+        }
+
         this.isDragging = true;
         this.editingLabel = label;
-        this.dragStartPos = this._eventToImage(e);
         this.originalData = JSON.parse(JSON.stringify(annotation.data || annotation));
 
         const container = window.DOM?.imageContainer;
@@ -807,15 +818,17 @@ const EditingHandler = {
     _saveTimeout: null,
 
     _debouncedSave(label, type, data) {
+        const patientId = this._getPatientId();
+        const imageName = this._getImageName();
         if (this._saveTimeout) {
             clearTimeout(this._saveTimeout);
         }
-        
+
         this._saveTimeout = setTimeout(async () => {
             try {
                 await window.AnnotationAPI?.saveAnnotation(
-                    this._getPatientId(),
-                    this._getImageName(),
+                    patientId,
+                    imageName,
                     label,
                     type,
                     data
@@ -923,14 +936,16 @@ const EditingHandler = {
     },
 
     async _syncAfterUndo() {
+        const patientId = this._getPatientId();
+        const imageName = this._getImageName();
         const state = this._getState();
         const annotations = state.annotations;
         if (!annotations) return;
-        
+
         try {
             await window.AnnotationAPI?.batchSaveAnnotations(
-                this._getPatientId(),
-                this._getImageName(),
+                patientId,
+                imageName,
                 annotations
             );
         } catch (error) {

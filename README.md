@@ -6,14 +6,12 @@
 
 A web-based annotation tool for medical images supporting **landmark points**, **polygon segmentations**, and **geometric figures**. Designed for research workflows requiring precise anatomical annotations on DICOM and standard image formats.
 
-![Annotation Interface](docs/screenshot.png)
-
 ## Features
 
 ### Annotation Types
-- **🎯 Landmark Points** - Single-click coordinate annotations for anatomical landmarks
-- **🔷 Polygon Segmentation** - Multi-point closed regions for tissue/organ boundaries
-- **⭕ Geometric Figures** - Circles, rectangles, and measurement lines with adjustable size
+- **Landmark Points** - Single-click coordinate annotations for anatomical landmarks
+- **Polygon Segmentation** - Multi-point closed regions for tissue/organ boundaries
+- **Geometric Figures** - Circles, rectangles, lines, and angle measurements with adjustable size
 
 ### Image Support
 - **DICOM** (.dcm, .dicom) with automatic windowing and contrast enhancement
@@ -24,13 +22,14 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 - Real-time zoom and pan with mouse wheel
 - Brightness/contrast adjustment sliders
 - Undo/Redo support (Ctrl+Z / Ctrl+Y)
+- Color picker for annotation labels
 - Keyboard shortcuts for efficient workflow
 - Cross-platform support (Windows, macOS, Linux)
 
 ### Data Management
-- JSON-based annotation storage with auto-discovery of labels
+- JSON-based annotation storage with auto-discovery of existing labels
 - Export to JSON, CSV, or XML formats
-- Binary mask generation for segmentations
+- Binary mask generation for polygon segmentations
 
 ## Installation
 
@@ -49,10 +48,10 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 2. **Create a virtual environment** (recommended)
    ```bash
    python -m venv venv
-   
+
    # Windows
    venv\Scripts\activate
-   
+
    # macOS/Linux
    source venv/bin/activate
    ```
@@ -63,7 +62,7 @@ A web-based annotation tool for medical images supporting **landmark points**, *
    ```
 
 4. **Prepare your images**
-   
+
    Place your images in the `images/` directory, organized by patient/subject:
    ```
    images/
@@ -81,7 +80,7 @@ A web-based annotation tool for medical images supporting **landmark points**, *
    ```
 
 6. **Open in browser**
-   
+
    Navigate to `http://localhost:8000`
 
 ## Usage
@@ -125,7 +124,7 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 
 #### Geometric Figures
 1. Select **Figure Mode** from the toolbar
-2. Choose shape (circle, rectangle, or line)
+2. Choose shape (circle, rectangle, line, or angle)
 3. Set the size using the slider
 4. Click and drag to place the figure
 5. Use resize handles to adjust
@@ -135,24 +134,36 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 ```
 image-annotator/
 ├── app/
-│   ├── __init__.py
-│   ├── app.py              # Flask application and routes
-│   ├── annotations.py      # Annotation storage management
-│   ├── images.py           # Image indexing and navigation
+│   ├── app.py                    # Flask application factory
+│   ├── file_utils.py             # File/folder name sanitization
+│   ├── image_manager.py          # Image indexing and navigation
+│   ├── blueprints/
+│   │   ├── api/
+│   │   │   ├── annotations.py    # Annotation CRUD API
+│   │   │   ├── export.py         # Export endpoints (JSON/CSV/XML)
+│   │   │   └── images.py         # Image serving API
+│   │   └── views/
+│   │       ├── browse.py         # Image browsing views
+│   │       └── main.py           # Main page views
+│   ├── imaging/
+│   │   ├── dicom.py              # DICOM file loading
+│   │   ├── enhancement.py        # Image enhancement filters
+│   │   ├── loader.py             # General image loader
+│   │   └── windowing.py          # DICOM windowing presets
+│   ├── visualization/
+│   │   ├── legend.py             # Legend overlay rendering
+│   │   ├── palettes.py           # Color palette definitions
+│   │   ├── renderers.py          # Per-type annotation renderers
+│   │   └── visualizer.py         # Main visualization pipeline
 │   ├── static/
-│   │   ├── css/            # Stylesheets
-│   │   └── js/             # JavaScript modules (15 modules)
-│   └── templates/          # HTML templates (7 pages)
-├── images/                 # Input images (organized by patient)
-├── annotations/            # Output annotations (JSON files)
-├── logs/                   # Application logs
-├── config.py               # Configuration and annotation type management
-├── utils.py                # Image loading with DICOM support
-├── polygon_utils.py        # Polygon/mask generation utilities
-├── postprocessing_draw_landmarks.py  # Visualization generator
-├── start.py                # Application entry point
-├── requirements.txt        # Python dependencies
-└── README.md
+│   │   ├── css/                  # Stylesheets (13 files)
+│   │   └── js/                   # JavaScript modules (24 files)
+│   └── templates/                # HTML templates (7 pages)
+├── config.py                     # Configuration and annotation type management
+├── polygon_utils.py              # Polygon/mask generation utilities
+├── start.py                      # CLI entry point
+├── requirements.txt              # Python dependencies
+└── LICENSE                       # MIT License
 ```
 
 ## Configuration
@@ -169,7 +180,18 @@ ANNOTATION_DIR = "annotations"  # Output annotation directory
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `FLASK_SECRET_KEY` | Secret key for sessions | Auto-generated |
+| `FLASK_SECRET_KEY` | Secret key for Flask sessions | Random (generated each run) |
+
+### CLI Options
+
+All options for `start.py`:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--host` | `localhost` | Host address to bind the server |
+| `--port` | `8000` | Port number |
+| `--debug` | off | Enable Flask debug mode with auto-reload |
+| `--skip-check` | off | Skip filename sanitization on startup |
 
 ## Export Formats
 
@@ -187,7 +209,7 @@ ANNOTATION_DIR = "annotations"  # Output annotation directory
       "Region1": {
         "type": "polygon",
         "status": "ok",
-        "points": [{"x": 100, "y": 100}, ...]
+        "points": [{"x": 100, "y": 100}, {"x": 200, "y": 100}]
       }
     }
   }
@@ -241,35 +263,49 @@ python start.py --debug --port 8000
 ### Code Style
 - Python: Type hints and docstrings for all functions
 - JavaScript: JSDoc comments for documentation
-- CSS: BEM-inspired naming with CSS variables
+- CSS: BEM-inspired naming with CSS custom properties (design tokens)
+
+---
 
 ## Citation
 
-If you use this tool in your research, please cite:
+If you use this tool in your research, please cite it as follows:
 
 ```bibtex
 @software{image_annotation_tool,
-  author = {Roberto Di Via},
-  title = {Image Annotator: A Web-Based Medical Image Annotation Platform},
-  year = {2025},
-  url = {https://github.com/roberto98/image-annotator},
-  version = {1.0.0}
+  author    = {Roberto Di Via},
+  title     = {Image Annotator: A Web-Based Medical Image Annotation Platform},
+  year      = {2025},
+  url       = {https://github.com/roberto98/image-annotator},
+  version   = {1.0.0}
 }
 ```
 
+---
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome and greatly appreciated! Here are some areas where help is especially valuable:
+
+- **New export formats** — e.g., COCO JSON, Pascal VOC, YOLO
+- **Additional annotation tools** — e.g., freehand drawing, ellipse, bounding boxes
+- **DICOM improvements** — multi-frame support, metadata display
+- **Performance** — large image sets, faster indexing
+- **Tests** — expanding the existing JS test suite to Python backend
+
+### How to contribute
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create your feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -m 'Add your feature'`)
+4. Push to the branch (`git push origin feature/your-feature`)
 5. Open a Pull Request
+
+Browse [open issues](https://github.com/roberto98/image-annotator/issues) for ideas or to report bugs.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
@@ -277,11 +313,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Image processing with [Pillow](https://pillow.readthedocs.io/) and [NumPy](https://numpy.org/)
 - DICOM support via [pydicom](https://pydicom.github.io/)
 
-## Support
-
-- 📫 **Issues**: [GitHub Issues](https://github.com/roberto98/image-annotator/issues)
-- 📖 **Documentation**: [Wiki](https://github.com/roberto98/image-annotator/wiki)
-
 ---
 
-**Made with ❤️ for the medical imaging research community**
+**Made with care for the medical imaging research community**

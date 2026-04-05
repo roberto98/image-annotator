@@ -37,9 +37,7 @@ def setup_logging(app: Flask) -> None:
 def create_app() -> Flask:
     """Application factory for creating Flask app instances."""
     app = Flask(__name__)
-    app.secret_key = os.environ.get(
-        "FLASK_SECRET_KEY", "dev-secret-key-change-in-production"
-    )
+    app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24).hex()
 
     setup_logging(app)
 

@@ -280,11 +280,15 @@ If you use this tool in your research, please cite it as follows:
 @software{image_annotation_tool,
   author    = {Roberto Di Via},
   title     = {Image Annotator: A Web-Based Medical Image Annotation Platform},
-  year      = {2025},
+  year      = {2026},
   url       = {https://github.com/roberto98/image-annotator},
   version   = {1.0.0}
 }
 ```
+
+### APA (7th edition)
+
+Di Via, R. (2026). *Image Annotator: A web-based medical image annotation platform* (Version 1.0.0) [Computer software]. GitHub. https://github.com/roberto98/image-annotator
 
 ---
 

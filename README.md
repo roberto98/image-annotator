@@ -6,6 +6,8 @@
 
 A web-based annotation tool for medical images supporting **landmark points**, **polygon segmentations**, and **geometric figures**. Designed for research workflows requiring precise anatomical annotations on DICOM and standard image formats.
 
+<img width="1140" height="898" alt="home" src="https://github.com/user-attachments/assets/41b2c07b-f343-4bdb-a8f2-b995c82f9cab" />
+
 ## Features
 
 ### Annotation Types
@@ -25,6 +27,9 @@ A web-based annotation tool for medical images supporting **landmark points**, *
 - Color picker for annotation labels
 - Keyboard shortcuts for efficient workflow
 - Cross-platform support (Windows, macOS, Linux)
+
+<img width="1503" height="911" alt="annotation" src="https://github.com/user-attachments/assets/33e0a407-7e81-4193-8abb-f579d211fc07" />
+
 
 ### Data Management
 - JSON-based annotation storage with auto-discovery of existing labels

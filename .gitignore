@@ -214,7 +214,10 @@ __marimo__/
 .vscode/
 logs/
 .serena/
-.claude/*
+.claude/
+tmp/
+temp/
+*.tmp
 .github/agents/
 docs/
 scripts/
